@@ -1,10 +1,10 @@
 name = "SimplePDE"
 uuid = "d8974cc4-f144-4ed3-ae9e-a1685f186403"
 authors = ["Yimin Lin"]
-version = "0.1.0"
+version = "0.0.1"
 
 [compat]
-julia = "1"
+julia = "1.7.3"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
