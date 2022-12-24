@@ -1,12 +1,7 @@
-mutable struct ErrorData
-    Linferr::Float64
-    L2err  ::Float64
-    L1err  ::Float64
-end
-
 function calculate_error(U,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
-    @unpack EQN,T,N,K = param
-    @unpack Nq,Nc     = discrete_data_gauss.sizes
+    @unpack equation,N,K = param
+    @unpack Nq,Nc        = discrete_data_gauss.sizes
+    T = param.timestepping_param.T
 
     L1err     = zero(SVector{3,Float64})
     L2err     = zero(SVector{3,Float64})
@@ -19,7 +14,7 @@ function calculate_error(U,param,discrete_data_gauss,discrete_data_LGL,md_gauss,
         for i = 1:Nq
             xq_i        = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
             wJq_i       = (prealloc.LGLind[k]) ? discrete_data_LGL.ops.wq[i]*discrete_data_LGL.geom.Jq[i] : discrete_data_gauss.ops.wq[i]*discrete_data_gauss.geom.Jq[i]
-            exact_U_k_i = primitive_to_conservative(EQN,exact_sol(EQN,xq_i,T))
+            exact_U_k_i = primitive_to_conservative(equation,exact_sol(equation,xq_i,T))
             L1err       = L1err + wJq_i*abs.(exact_U_k_i-U_k[i])
             L2err       = L2err + wJq_i*abs.(exact_U_k_i-U_k[i]).^2
             Linferr     = max.(Linferr, abs.(exact_U_k_i-U_k[i]))
@@ -64,8 +59,8 @@ function plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
 end
 
 function plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,limiting_hist,PlotL,PlotU,output_filename)
-    @unpack XL,XR,K,FILTERTYPE = param
-    @unpack Uhist              = data_hist
+    @unpack XL,XR,K = param
+    @unpack Uhist   = data_hist
 
     gr(x_lim=[XL,XR],ylim=[PlotL,PlotU],label=false,legend=false)
     anim = Animation()
@@ -87,17 +82,24 @@ function plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,limiting_hi
         ptR = Br-(Br-Bl)/K/2
         hplot = (Br-Bl)/K
         for k = 1:K
-            # TODO: only works for filter
-            if (FILTERTYPE > 0)
-                plot!([ptL+(k-1)*hplot;ptL+k*hplot], barL[k]*ones(2)/normalization_factor,st=:bar,alpha=0.2)
-            elseif (FILTERTYPE < 0)
-                plot!([ptL+(k-1)*hplot;ptL+k*hplot], (1-barL[k])*ones(2),st=:bar,alpha=0.2)
-            end
+            plot_limiting_bar!(param.entropyproj_limiter_type,[ptL+(k-1)*hplot;ptL+k*hplot],barL,normalization_factor,k)
         end
         frame(anim)
     end
 
     gif(anim, output_filename, fps=Int64(floor(length(Uhist)/2)))
+end
+
+function plot_limiting_bar!(entropyproj_limiter_type::NoEntropyProjectionLimiter,x,barL,normalization_factor,k)
+    # Do nothing
+end
+
+function plot_limiting_bar!(entropyproj_limiter_type::ExponentialFilter,x,barL,normalization_factor,k)
+    plot!(x,barL[k]*ones(2)/normalization_factor,st=:bar,alpha=0.2)
+end
+
+function plot_limiting_bar!(entropyproj_limiter_type::Union{ZhangShuFilter,ElementwiseScaledExtrapolation},x,barL,normalization_factor,k)
+    plot!(x,(1-barL[k])*ones(2),st=:bar,alpha=0.2)
 end
 
 function write_to_jld2(param,data_hist,err_data,df,output_filename)

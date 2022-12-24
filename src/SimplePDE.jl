@@ -14,7 +14,6 @@ using StaticArrays
 using SparseArrays
 using StartUpDG
 using NodesAndModes
-using EntropyStableEuler
 
 # Packages for benchmark
 using BenchmarkTools
@@ -29,6 +28,8 @@ using MAT
 ########################
 # Include source files #
 ########################
+include("./types.jl")
+include("./math/nonlinear_solvers.jl")
 include("./math/CompressibleNavierStokes.jl")
 include("./dg/DGInitialize.jl")
 include("./dg/DGPostProcessing.jl")
@@ -37,10 +38,23 @@ include("./dg/DGLimiter.jl")
 include("./dg/DGRHS.jl")
 include("./timestepping/TimeStepping.jl")
 
+################
+# Export types #
+################
+export Param,BCData,DataHistory,ErrorData
+export GlobalConstant,TimesteppingParameter,PostprocessingParameter,
+       LimitingParameter
+export LowOrderPositivity,EntropyStable,ESLimitedLowOrderPos
+export NoEntropyProjectionLimiter,ExponentialFilter,ZhangShuFilter,
+       ElementwiseScaledExtrapolation,NodewiseScaledExtrapolation
+export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter
+export GaussCollocation,LobattoCollocation,HybridGaussLGL
+export Dim1,Dim2,Dim3
+export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas
+
 ##################
 # Export methods #
 ##################
-export Param,BCData,DataHistory,ErrorData
 export initialize_DG
 export primitive_to_conservative
 export SSP33!

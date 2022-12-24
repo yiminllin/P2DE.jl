@@ -1,139 +1,10 @@
-mutable struct Param
-    POSTOL::Float64
-    ZEROTOL::Float64
-
-    ZETA::Float64
-    ETA ::Float64
-
-    N::Int64
-    K::Int64
-
-    XL::Float64
-    XR::Float64
-
-    T  ::Float64
-    CFL::Float64
-    dt0::Float64
-    t0 ::Float64
-    OUTPUT_INTERVAL::Int64
-
-    EQN::EntropyStableEuler.Euler
-    DISCRETIZATION_TYPE::Int64          # 0 - Gauss, 1 - LGL, hybrid Gauss-LGL otherwise
-
-    FILTERTYPE::Int64    # exponential filter 1 - only limit projection of v4, 2 - limit u_tilde in addition to avoid sensitive log
-                         # -1, -2: zhang-shu filter 
-                         # 0 - no filter
-    RHSTYPE   ::Float64  # 0 - low order, 1 - high order, o.w. limited
-    MODIFYVF  ::Bool
-end
-
-mutable struct BCData
-    mapP::Array{Int64,2}
-    mapI::Array{Int64,1}
-    mapO::Array{Int64,1}  # List of global indices with inflow and outflow 
-                          # boundary conditions
-    inflowarr::Array{SVector{3,Float64},1}
-end
-
-mutable struct GeomData
-    J   ::Array{Float64,2}
-    Jq  ::Array{Float64,2}
-    rxJh::Array{Float64,2}
-end
-
-mutable struct Operators
-    Qrh        ::Array{Float64,2}
-    Qrh_skew_db::Array{Float64,2}
-    Qrh_skew_low_db::Array{Float64,2}
-    Sr0        ::SparseMatrixCSC{Float64,Int64}
-    Br         ::Array{Float64,2}
-    Vh         ::Array{Float64,2}
-    MinvVhT    ::Array{Float64,2}
-    VDM_inv    ::Array{Float64,2}
-    VDMinvPq   ::Array{Float64,2}
-    VqVDM      ::Array{Float64,2}
-    VhPq       ::Array{Float64,2}
-    Vq         ::Array{Float64,2}
-    Vf         ::Array{Float64,2}
-    Vf_low     ::Array{Float64,2}
-    Pq         ::Array{Float64,2}
-    LIFT       ::Array{Float64,2}
-    wq         ::Array{Float64,1}
-end
-
-mutable struct TransferOperators
-    T_g2l::Array{Float64,2}
-    T_l2g::Array{Float64,2}
-end
-
-mutable struct SizeData
-    Nc ::Int64
-    Np ::Int64
-    Nq ::Int64
-    Nfp::Int64
-    Nh ::Int64
-    Ns ::Int64    # number of stages in time integrator
-end
-
-mutable struct DiscretizationData
-    sizes::SizeData
-    geom ::GeomData
-    ops  ::Operators
-end
-
-mutable struct Preallocation
-    vq     ::Array{SVector{3,Float64},2}       # entropy variables at quad points
-    v_tilde::Array{SVector{3,Float64},2}       # projected entropy variables
-    u_tilde::Array{SVector{3,Float64},2}       # entropy projected conservative variables
-    beta   ::Array{Float64,2}
-    rholog ::Array{Float64,2}
-    betalog::Array{Float64,2}
-    lam    ::Array{Float64,2}
-    LFc    ::Array{Float64,2}
-    rhsH   ::Array{SVector{3,Float64},2}
-    Ui     ::Array{Float64,1}
-    Uj     ::Array{Float64,1}
-    QF1    ::Array{SVector{3,Float64},2}
-    BF1    ::Array{SVector{3,Float64},2}
-    uP      ::Array{SVector{3,Float64},2}
-    betaP   ::Array{Float64,2}
-    rhologP ::Array{Float64,2}
-    betalogP::Array{Float64,2}
-    flux     ::Array{SVector{3,Float64},2}
-    wavespeed::Array{Float64,2}
-    alphaarr ::Array{Float64,2}
-    rhsL     ::Array{SVector{3,Float64},2}
-    Larr     ::Array{Float64,2}
-    rhsU     ::Array{SVector{3,Float64},2}
-    v3tilde  ::Array{Float64,1}
-    rhotilde ::Array{Float64,1}
-    rhoetilde::Array{Float64,1}
-    vq_k     ::Array{SVector{3,Float64},1}
-    v_tilde_k::Array{SVector{3,Float64},1}
-    u_tilde_k::Array{SVector{3,Float64},1}
-    U_modal  ::Array{SVector{3,Float64},2}
-    U_k      ::Array{SVector{3,Float64},1}
-    Uq_k     ::Array{SVector{3,Float64},1}
-    spatial  ::Array{SVector{3,Float64},2}
-    boundary ::Array{SVector{3,Float64},2}
-    resW     ::Array{SVector{3,Float64},2}
-    resZ     ::Array{SVector{3,Float64},2}
-    Farr     ::Array{Float64,2}
-    αarr     ::Array{Float64,2}
-    LGLind   ::BitArray
-    L_G2L_arr::Array{Float64,2}
-    L_L2G_arr::Array{Float64,2}
-    L_Vf_arr ::Array{Float64,2}
-    VhPq_new ::Array{Float64,2}
-    Vf_new   ::Array{Float64,2}
-    VhT_new    ::Array{Float64,2}
-    MinvVhT_new::Array{Float64,2}
-end
-
+# TODO: change file names
+# TODO: preallocation to cache
 function initialize_preallocations(param,sizes)
     @unpack K                  = param
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
 
+    Uq      = zeros(SVector{3,Float64},Nq,K)
     vq      = zeros(SVector{3,Float64},Nq,K)
     v_tilde = zeros(SVector{3,Float64},Nh,K)
     u_tilde = zeros(SVector{3,Float64},Nh,K)
@@ -161,7 +32,7 @@ function initialize_preallocations(param,sizes)
     rhotilde  = zeros(Float64,Nh)
     rhoetilde = zeros(Float64,Nh)
     vq_k      = zeros(SVector{3,Float64},Nq)
-    v_tilde_k = zeros(SVector{3,Float64},Nh)
+    v_tilde_k = zeros(SVector{3,Float64},Nh)      # TODO: refactor with v_tilde, u_tilde
     u_tilde_k = zeros(SVector{3,Float64},Nh)
     U_modal   = zeros(SVector{3,Float64},Np,K)
     U_k       = zeros(SVector{3,Float64},Np)
@@ -170,25 +41,28 @@ function initialize_preallocations(param,sizes)
     boundary  = zeros(SVector{3,Float64},Np,K)
     resW      = zeros(SVector{3,Float64},Nq,K)
     resZ      = zeros(SVector{3,Float64},Nq,K)
-    Farr      = zeros(Float64,K,Ns)
+    Farr      = zeros(Float64,K,Ns)            # TODO: rename F, eta to theta
     αarr      = zeros(Float64,Nfp,K)
     resW      = zeros(SVector{3,Float64},Nq,K)
     resZ      = zeros(SVector{3,Float64},Nq,K)
-    LGLind    = falses(K)
+    LGLind    = falses(K)                       # TODO: array of BasisType, singleton type
     L_G2L_arr = ones(Float64,K,Ns)
     L_L2G_arr = ones(Float64,K,Ns)
-    L_Vf_arr  = ones(Float64,K,Ns)
+    L_Vf_arr  = ones(Float64,K,Ns)              # TODO: Refactor with Farr
     VhPq_new  = zeros(Float64,Nh,Nq)
     VhPq_new[1:Nq,1:Nq] = diagm(ones(Nq))
     Vf_new      = zeros(Float64,Nfp,Nq)
     VhT_new     = zeros(Float64,Np,Nh)
     MinvVhT_new = zeros(Float64,Np,Nh)
+    uL_k      = zeros(SVector{3,Float64},Nq)
+    P_k       = zeros(SVector{3,Float64},Nq)
 
-    prealloc = Preallocation(vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,wavespeed,alphaarr,rhsL,Larr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new)
+    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,wavespeed,alphaarr,rhsL,Larr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k)
     return prealloc
 end
 
 function initialize_Gauss_rd(param)
+    # TODO: refactor
     @unpack N = param
 
     # Set up reference element and the mesh
@@ -238,12 +112,15 @@ function initialize_LGL_rd(param)
     return rd
 end
 
+# TODO: specialize for 1D
 function initialize_operators(param,rd)
-    @unpack N,ZEROTOL,K,XL,XR = param
+    @unpack N,K,XL,XR = param
+    ZEROTOL = param.global_constants.ZEROTOL
 
     # VX,EToV = uniform_mesh(Line(),K)
     # VX = VX[1]
     # @. VX = (VX + 1.0)/2.0
+    # TODO: refactor
     VX = LinRange(XL,XR,K+1)
     EToV = transpose(reshape(sort([1:K; 2:K+1]),2,K))
     md = MeshData(VX,EToV,rd)
@@ -304,16 +181,16 @@ function initialize_operators(param,rd)
     return md,discrete_data
 end
 
-function init_U!(U,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
-    @unpack K,EQN,t0 = param
-    @unpack Nq       = discrete_data_gauss.sizes
+function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
+    @unpack K  = param
+    @unpack Nq = discrete_data_gauss.sizes
 
-    update_indicator(U,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,prealloc,true)
+    update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,true)
     for k = 1:K
         for i = 1:Nq
             xqi = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
             # TODO: pass initial_condition differently
-            U[i,k] = initial_condition(param,xqi)
+            prealloc.Uq[i,k] = initial_condition(param,xqi)
         end
     end
 end
@@ -339,9 +216,7 @@ function initialize_DG(param,initial_condition,initial_boundary_conditions)
     bcdata = initial_boundary_conditions(param,md_gauss)
     prealloc = initialize_preallocations(param,sizes)
 
-    @unpack xq = md_gauss
-    U = map(x->initial_condition(param,x), xq)
-    init_U!(U,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
+    init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
 
-    return U,rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc
+    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc
 end
