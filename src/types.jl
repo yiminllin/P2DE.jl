@@ -88,7 +88,7 @@ Base.@kwdef struct LimitingParameter
     η::Float64           # Bound relaxation parameter ρ,ρe ∈ [(1-ζ)min, (1+ζ)max]
 end
 
-Base.@kwdef struct Param
+Base.@kwdef struct Param{EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROPYPROJECTIONLIMITERTYPE,POSITIVITYLIMITERTYPE}
     N::Int64
     K::Int64
 
@@ -100,11 +100,11 @@ Base.@kwdef struct Param
     limiting_param      ::LimitingParameter
     postprocessing_param::PostprocessingParameter
 
-    equation                ::EquationType
-    approximation_basis_type::ApproxBasisType
-    rhs_type                ::RHSType
-    entropyproj_limiter_type::EntropyProjectionLimiterType
-    positivity_limiter_type ::PositivityLimiterType
+    equation                ::EQUATIONTYPE
+    approximation_basis_type::APPROXBASISTYPE
+    rhs_type                ::RHSTYPE
+    entropyproj_limiter_type::ENTROPYPROJECTIONLIMITERTYPE
+    positivity_limiter_type ::POSITIVITYLIMITERTYPE
 end
 
 mutable struct BCData

@@ -63,7 +63,7 @@ function init_get_rhs!(param,entropyproj_limiter_type::NoEntropyProjectionLimite
 end
 
 function init_get_rhs!(param,entropyproj_limiter_type::AdaptiveFilter,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
-    compute_modal_coefficients!(prealloc,discrete_data_gauss)
+    compute_modal_coefficients!(prealloc,param,discrete_data_gauss)
     compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,nstage)
     apply_entropyproj_filtering!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,nstage)
     if (nstage == 1)

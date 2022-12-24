@@ -99,8 +99,8 @@ function apply_zhang_shu_limiter!(prealloc,param,dt,nstage)
     @unpack Uq,uL_k,P_k    = prealloc
     ζ = param.limiting_param.ζ
     for k = 1:param.K
-        uL_k .= view(Uq,:,k).+dt*view(rhsL,:,k)
-        P_k  .= dt*(view(rhsH,:,k).-view(rhsL,:,k))
+        @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
+        @views @. P_k  = dt*(rhsH[:,k]-rhsL[:,k])
         Lrho(uL_i)  = ζ*uL_i[1]
         Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
         Urho = Inf

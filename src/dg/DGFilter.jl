@@ -144,10 +144,12 @@ end
 #########################
 ### Filtering methods ###
 #########################
-function compute_modal_coefficients!(prealloc,discrete_data_gauss)
+function compute_modal_coefficients!(prealloc,param,discrete_data_gauss)
     @unpack Uq,U_modal = prealloc
     @unpack VDMinvPq   = discrete_data_gauss.ops
-    @views mul!(U_modal,VDMinvPq,Uq)
+    for k = 1:param.K
+        @views mul!(U_modal[:,k],VDMinvPq,Uq[:,k])      # TODO: why there is allocation when remove k = 1:K loop?
+    end
 end
 
 function apply_entropyproj_filtering!(prealloc,param,entropyproj_limiter_type::AdaptiveFilter,discrete_data_gauss,nstage)
@@ -159,7 +161,9 @@ function apply_entropyproj_filtering!(prealloc,param,entropyproj_limiter_type::A
             apply_filter!(U_modal_k,param.entropyproj_limiter_type,param.equation,Farr[k,nstage])
         end
     end
-    @views mul!(Uq,VqVDM,U_modal)
+    for k = 1:param.K
+        @views mul!(Uq[:,k],VqVDM,U_modal[:,k])      # TODO: why there is allocation when remove k = 1:K loop?
+    end
 end
 
 function apply_entropyproj_filtering!(prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,nstage)
