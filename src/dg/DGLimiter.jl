@@ -122,8 +122,8 @@ end
 function transfer_indicator(prealloc,discrete_data_gauss,k)
     # TODO: a "nearly do-nothing" indicator
     ind = false
-    for i = 1:discrete_data_gauss.Nq
-        if (prealloc.Uq[i,k][1] < 1e-2 || prealloc.Uq[i,k][3] < 1e-2)
+    for i = 1:discrete_data_gauss.sizes.Nq
+        if (prealloc.Uq[i,k][1] < 1e-2)
             ind = true
             break
         end
@@ -148,6 +148,7 @@ function update_indicator!(prealloc,approximation_basis_type::LobattoCollocation
 end
 
 function update_indicator!(prealloc,approximation_basis_type::HybridGaussLGL,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,firststep=false)
+    @unpack LGLind,L_G2L_arr,L_L2G_arr = prealloc
     clear_transfer_cache!(prealloc)
     for k = 1:param.K
         ind = transfer_indicator(prealloc,discrete_data_gauss,k)
@@ -173,17 +174,21 @@ end
 function apply_transfer_limiter!(prealloc,param,discrete_data,T,L,k)
     @unpack uL_k,P_k = prealloc
 
-    Uk = view(prealloc.Uq,:,k)
-    @. uL_k       = get_average(Uk,discrete_data.wq)
-    @. P_k        = T*Uk-avg_k
+    Uk    = view(prealloc.Uq,:,k)
+    avg_k = get_average(Uk,discrete_data.ops.wq)
+    for i = 1:size(uL_k,1)
+        uL_k[i] = avg_k
+    end
+    mul!(P_k,T,Uk)
+    @. P_k = P_k-uL_k
 
     Lrho  = param.global_constants.POSTOL
     Lrhoe = param.global_constants.POSTOL
     Urho,UE = get_upper_bound(Uk,param)
 
-    zhang_shu_bound_limiter!(L,param,avg_k,P_k,k,Lrho,Lrhoe,Urho,UE,1)
+    zhang_shu_bound_limiter!(L,param,uL_k,P_k,k,Lrho,Lrhoe,Urho,UE,1)
     for i = 1:size(Uk,1)
-        Uk[i] = uL_k[i] + L[k]*P_k
+        Uk[i] = uL_k[i] + L[k]*P_k[i]
     end
 end
 
@@ -197,7 +202,7 @@ function get_average(Uk,wq)
 end
 
 function get_upper_bound(Uk,param)
-    @unpack η = param
+    @unpack η = param.limiting_param
 
     Urho = -Inf
     UE   = -Inf
