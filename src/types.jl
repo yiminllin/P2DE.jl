@@ -21,7 +21,7 @@ struct SubcellLimiter      <: PositivityLimiterType end
 abstract type ApproxBasisType end
 struct GaussCollocation   <: ApproxBasisType end
 struct LobattoCollocation <: ApproxBasisType end
-struct HybridGaussLGL     <: ApproxBasisType end    # TODO: haven't debugged hyrbid gauss-LGL
+struct HybridGaussLGL     <: ApproxBasisType end
 
 abstract type Dimension end
 struct Dim1 <: Dimension end

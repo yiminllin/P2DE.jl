@@ -106,9 +106,9 @@ end
 
 function update_limited_entropyproj_vars!(prealloc,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data_gauss)
     @unpack VqVDM = discrete_data_gauss.ops
-    @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k,U_k,Uq_k = prealloc
+    @unpack Uq,v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k,vq_k,U_k,Uq_k = prealloc
     
-    entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,view(Uq,0,k),θ,param,discrete_data_gauss,prealloc)
+    entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,view(Uq,:,k),θ,param,discrete_data_gauss,prealloc)
     calculate_limited_entropyproj_vars!(prealloc,param)
 end
 
@@ -116,6 +116,7 @@ function update_limited_entropyproj_vars!(prealloc,θ,k,entropyproj_limiter_type
     # Do nothing
 end
 
+# TODO: hardcoded for 1D
 function calculate_limited_entropyproj_vars!(prealloc,param)
     @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k = prealloc
     for i = 1:size(v3tilde,1)

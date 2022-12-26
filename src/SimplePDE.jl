@@ -36,6 +36,7 @@ include("./dg/DGPostProcessing.jl")
 include("./dg/DGFilter.jl")
 include("./dg/DGLimiter.jl")
 include("./dg/DGRHS.jl")
+include("./dg/DGUtils.jl")
 include("./timestepping/TimeStepping.jl")
 
 ################
@@ -59,5 +60,11 @@ export initialize_DG
 export primitive_to_conservative
 export SSP33!
 export calculate_error,plot_component,plot_rho_animation,write_to_jld2
+export check_positivity,check_conservation
+
+#####################
+# TODO: for testing #
+#####################
+export rhs!
 
 end

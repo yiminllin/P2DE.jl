@@ -1,3 +1,54 @@
+function rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    init_get_rhs!(param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    dt = get_rhs!(param.rhs_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    return dt
+end
+
+function init_get_rhs!(param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    if (nstage == 1)
+        update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops)
+    end
+end
+
+function init_get_rhs!(param,entropyproj_limiter_type::AdaptiveFilter,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    compute_modal_coefficients!(prealloc,param,discrete_data_gauss)
+    compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,nstage)
+    apply_entropyproj_filtering!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,nstage)
+    if (nstage == 1)
+        update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops)
+    end
+end
+
+function init_get_rhs!(param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,nstage)
+    if (nstage == 1)
+        update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops)
+    end
+end
+
+function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    @unpack rhsL,rhsU = prealloc
+    dt = rhs_pos_Gauss(param,discrete_data_gauss,discrete_data_LGL,bcdata,prealloc,t,dt,nstage)
+    copyto!(rhsU,rhsL)
+    return dt
+end
+
+function get_rhs!(rhs_type::EntropyStable,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    @unpack rhsH,rhsU = prealloc
+    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage)
+    copyto!(rhsU,rhsH)
+    return dt
+end
+
+function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    @unpack rhsH,rhsL,rhsU = prealloc
+    entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
+    dt = rhs_pos_Gauss(param,discrete_data_gauss,discrete_data_LGL,bcdata,prealloc,t,dt,nstage)
+    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage)
+    apply_zhang_shu_limiter!(prealloc,param,dt,nstage)
+    return dt
+end
+
 # TODO: dispatch on element type instead of the passed in discrete data
 function entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data,prealloc)
     @unpack VhPq_new,Vf_new   = prealloc
@@ -54,7 +105,7 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::ScaledExtr
         v_tilde_k = view(v_tilde,:,k)
         u_tilde_k = view(u_tilde,:,k)
         Uq_k      = view(Uq,:,k)
-        l_k       = Farr[k,nstage]
+        l_k       = prealloc.Farr[k,nstage]
         # TODO: we can skip LGL instead of applying identity
         if (LGLind[k])
             entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data_LGL,prealloc)
@@ -239,8 +290,9 @@ end
 
 function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,k,nstage)
     @unpack spatial,boundary,QF1,BF1,Vf_new,VhT_new,MinvVhT_new = prealloc
+    @unpack Nq,Nh = discrete_data_gauss.sizes
 
-    l_k = Farr[k,nstage]
+    l_k = prealloc.Farr[k,nstage]
     @. Vf_new = l_k*discrete_data_gauss.ops.Vf+(1.0-l_k)*discrete_data_gauss.ops.Vf_low
     VqT_new = @views VhT_new[:,1:Nq]
     VfT_new = @views VhT_new[:,Nq+1:Nh]
