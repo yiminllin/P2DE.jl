@@ -21,9 +21,7 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
     i = 1
     dt = CFL*dt0
     @time while t < T
-        if (dt > T-t)
-            dt = T-t
-        end
+        dt = min(CFL*dt0,T-t)
         @. resW = Uq    # TODO: rename, resW is now the copy of previous time step Uq, and Uq is wi in paper
         dt = rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,1)
         @. Uq = resW + dt*rhsU
@@ -36,10 +34,7 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
 
         t = t+dt
         i = i+1
-        if (i == 57)
-            break
-        end
-        
+
         push!(thist,t)
         push!(dthist,dt)
         if (mod(i,output_interval) == 0 || abs(t-T) < 1e-10)

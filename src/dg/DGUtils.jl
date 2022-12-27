@@ -1,16 +1,14 @@
-function check_positivity(prealloc,param,discrete_data_gauss)
+function check_positivity(U,param)
     @unpack equation = param
-    @unpack Nq       = discrete_data_gauss.sizes
-    @unpack Uq       = prealloc
     rhomin  = Inf
     rhoemin = Inf
     rhomax  = -Inf
     rhoemax = -Inf
     for k = 1:param.K
-        for i = 1:Nq
-            rho = Uq[i,k][1]
-            p    = pfun(equation,Uq[i,k])
-            rhoe = rhoe_ufun(equation,Uq[i,k])
+        for i = 1:size(U,1)
+            rho = U[i,k][1]
+            p    = pfun(equation,U[i,k])
+            rhoe = rhoe_ufun(equation,U[i,k])
             rhomin = min(rhomin,rho)
             rhomax = max(rhomax,rho)
             rhoemin = min(rhoemin,rhoe)

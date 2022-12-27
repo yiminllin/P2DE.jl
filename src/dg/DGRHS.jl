@@ -28,14 +28,14 @@ end
 
 function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
     @unpack rhsL,rhsU = prealloc
-    dt = rhs_pos_Gauss(param,discrete_data_gauss,discrete_data_LGL,bcdata,prealloc,t,dt,nstage)
+    dt = rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,true)
     copyto!(rhsU,rhsL)
     return dt
 end
 
 function get_rhs!(rhs_type::EntropyStable,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
     @unpack rhsH,rhsU = prealloc
-    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage)
+    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,true)
     copyto!(rhsU,rhsH)
     return dt
 end
@@ -43,8 +43,8 @@ end
 function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
     @unpack rhsH,rhsL,rhsU = prealloc
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
-    dt = rhs_pos_Gauss(param,discrete_data_gauss,discrete_data_LGL,bcdata,prealloc,t,dt,nstage)
-    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage)
+    dt = rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,false)
+    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,false)
     apply_zhang_shu_limiter!(prealloc,param,dt,nstage)
     return dt
 end
@@ -330,7 +330,7 @@ end
 ##########################################
 ### RHS of positivity preserving Gauss ###
 ##########################################
-function rhs_pos_Gauss(param,discrete_data_gauss,discrete_data_LGL,bcdata,prealloc,t,dt,nstage,need_proj=true)
+function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,need_proj=true)
     @unpack entropyproj_limiter_type             = param
     @unpack mapP,mapI,mapO,inflowarr             = bcdata
     @unpack Jq                                   = discrete_data_gauss.geom
@@ -380,10 +380,11 @@ function calculate_low_order_CFL(prealloc,param,discrete_data_gauss,discrete_dat
     Nh  = size(prealloc.u_tilde,1)
     Nfp = Nh-Nq
     wavespeed_f = @view wavespeed[Nq+1:Nh,:]
+    utilde_f    = @view u_tilde[Nq+1:Nh,:]
     dt = min(CFL*dt0,T-t)
     for k = 1:param.K
-        αarr[1,k]   = find_alpha(param,Uq[1,k],u_tilde[1,k])
-        αarr[end,k] = find_alpha(param,Uq[end,k],u_tilde[end,k])
+        αarr[1,k]   = find_alpha(param,Uq[1,k],utilde_f[1,k])
+        αarr[end,k] = find_alpha(param,Uq[end,k],utilde_f[end,k])
         for i = 1:Nq
             wq_i = LGLind[k] ? discrete_data_LGL.ops.wq[i] : discrete_data_gauss.ops.wq[i]
             wJq_i    = Jq[i,k]*wq_i
@@ -408,6 +409,7 @@ function calculate_low_order_CFL(prealloc,param,discrete_data_gauss,discrete_dat
 end
 
 # TODO: refactor with bisection
+# Find alpha s.t. alpha*ui - uitilde >= 0
 function find_alpha(param,ui,uitilde)
     @unpack equation = param
     POSTOL = param.global_constants.POSTOL

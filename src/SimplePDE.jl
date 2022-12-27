@@ -65,6 +65,6 @@ export check_positivity,check_conservation
 #####################
 # TODO: for testing #
 #####################
-export rhs!
+export rhs!,rhs_pos_Gauss!,rhs_modalESDG!,compute_entropyproj_limiting_param!
 
 end
