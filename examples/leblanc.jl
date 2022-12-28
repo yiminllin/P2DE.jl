@@ -93,7 +93,7 @@ plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
                "outputs/figures/leblanc/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png",
                true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],Int64(round(0.7*K)),Int64(round(0.9*K)))
 
-plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,3,
+plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,1.2,
                    "outputs/figures/leblanc/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
 
 df = DataFrame(param = Param[], data_hist = DataHistory[], err_data = ErrorData[])
