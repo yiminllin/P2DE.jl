@@ -56,6 +56,7 @@ export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas
 ##################
 # Export methods #
 ##################
+export get_γ
 export initialize_DG
 export primitive_to_conservative
 export SSP33!

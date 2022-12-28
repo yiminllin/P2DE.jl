@@ -220,7 +220,7 @@ function enforce_BC!(prealloc,param,bcdata)
     for i = 1:size(mapO,1)
         io = mapO[i]
         # TODO: hardcoded
-        uP[io]       = Uq[end,end]
+        uP[io]       = prealloc.Uq[end,end]
         betaP[io]    = betafun(equation,uP[io])
         rhologP[io]  = log(uP[io][1])
         betalogP[io] = log(betaP[io])
