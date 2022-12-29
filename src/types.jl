@@ -201,6 +201,7 @@ mutable struct Preallocation
     resW     ::Array{SVector{3,Float64},2}
     resZ     ::Array{SVector{3,Float64},2}
     Farr     ::Array{Float64,2}
+    θ_local_arr::Array{Float64,3}
     αarr     ::Array{Float64,2}
     LGLind   ::BitArray
     L_G2L_arr::Array{Float64,2}

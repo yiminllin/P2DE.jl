@@ -42,6 +42,7 @@ function initialize_preallocations(param,sizes)
     resW      = zeros(SVector{3,Float64},Nq,K)
     resZ      = zeros(SVector{3,Float64},Nq,K)
     Farr      = zeros(Float64,K,Ns)            # TODO: rename F, eta to theta
+    θ_local_arr = zeros(Float64,Nfp,K,Ns)
     αarr      = zeros(Float64,Nfp,K)
     resW      = zeros(SVector{3,Float64},Nq,K)
     resZ      = zeros(SVector{3,Float64},Nq,K)
@@ -49,7 +50,7 @@ function initialize_preallocations(param,sizes)
     L_G2L_arr = ones(Float64,K,Ns)
     L_L2G_arr = ones(Float64,K,Ns)
     L_Vf_arr  = ones(Float64,K,Ns)              # TODO: Refactor with Farr
-    VhPq_new  = zeros(Float64,Nh,Nq)
+    VhPq_new  = zeros(Float64,Nh,Nq)            # TODO: unnecessary?
     VhPq_new[1:Nq,1:Nq] = diagm(ones(Nq))
     Vf_new      = zeros(Float64,Nfp,Nq)
     VhT_new     = zeros(Float64,Np,Nh)
@@ -57,7 +58,7 @@ function initialize_preallocations(param,sizes)
     uL_k      = zeros(SVector{3,Float64},Nq)
     P_k       = zeros(SVector{3,Float64},Nq)
 
-    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,wavespeed,alphaarr,rhsL,Larr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k)
+    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,wavespeed,alphaarr,rhsL,Larr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k)
     return prealloc
 end
 
