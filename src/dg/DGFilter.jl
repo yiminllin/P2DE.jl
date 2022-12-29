@@ -1,3 +1,4 @@
+# TODO: put into entropy projection to avoid an extra projection step
 function compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,nstage)
     @unpack Farr,U_modal,LGLind = prealloc
 
@@ -5,7 +6,7 @@ function compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,
     for k = 1:param.K
         if (!LGLind[k])
             bound = get_relaxed_bound(param,prealloc,k)
-            Farr[k,nstage] = solve_theta!(prealloc,k,bound,param.entropyproj_limiter_type,param,discrete_data_gauss)
+            solve_theta!(prealloc,k,nstage,bound,param.entropyproj_limiter_type,param,discrete_data_gauss)
         end
     end
 end
@@ -23,6 +24,11 @@ end
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ElementwiseScaledExtrapolation,nstage)
     view(prealloc.Farr,:,nstage) .= 1.0
+end
+
+# TODO: unnecessary?
+function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::NodewiseScaledExtrapolation,nstage)
+    view(prealloc.θ_local_arr,:,:,nstage) .= 1.0
 end
 
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::NoEntropyProjectionLimiter,nstage)
@@ -55,29 +61,39 @@ function get_relaxed_bound(param,prealloc,k)
     return bound
 end
 
-function solve_theta!(prealloc,k,bound,entropyproj_limiter_type::ExponentialFilter,param,discrete_data_gauss)
-    f(θ) = update_and_check_bound_limited_entropyproj_var!(prealloc,θ,k,bound,param,discrete_data_gauss)
-    return bisection(f,-log(param.global_constants.ZEROTOL),0.0)
+function solve_theta!(prealloc,k,nstage,bound,entropyproj_limiter_type::ExponentialFilter,param,discrete_data_gauss)
+    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,θ,k,bound,param,discrete_data_gauss)
+    prealloc.Farr[k,nstage] = bisection(f,-log(param.global_constants.ZEROTOL),0.0)
 end
 
-function solve_theta!(prealloc,k,bound,entropyproj_limiter_type::ZhangShuFilter,param,discrete_data_gauss)
-    f(θ) = update_and_check_bound_limited_entropyproj_var!(prealloc,θ,k,bound,param,discrete_data_gauss)
-    return bisection(f,0.0,1.0)
+function solve_theta!(prealloc,k,nstage,bound,entropyproj_limiter_type::ZhangShuFilter,param,discrete_data_gauss)
+    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,θ,k,bound,param,discrete_data_gauss)
+    prealloc.Farr[k,nstage] = bisection(f,0.0,1.0)
 end
 
-function solve_theta!(prealloc,k,bound,entropyproj_limiter_type::ElementwiseScaledExtrapolation,param,discrete_data_gauss)
-    f(θ) = update_and_check_bound_limited_entropyproj_var!(prealloc,θ,k,bound,param,discrete_data_gauss)
-    return bisection(f,0.0,1.0)
+function solve_theta!(prealloc,k,nstage,bound,entropyproj_limiter_type::ElementwiseScaledExtrapolation,param,discrete_data_gauss)
+    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,θ,k,bound,param,discrete_data_gauss)
+    prealloc.Farr[k,nstage] = bisection(f,0.0,1.0)
+end
+
+function solve_theta!(prealloc,k,nstage,bound,entropyproj_limiter_type::NodewiseScaledExtrapolation,param,discrete_data_gauss)
+    calculate_entropy_var!(prealloc.vq_k,view(prealloc.Uq,:,k),param,discrete_data_gauss)    # TODO: calculation of vq seems duplicate with entropy projection step
+    for i = 1:discrete_data_gauss.sizes.Nfp
+        f(θ_i) = update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,θ_i,i,k,bound,param,discrete_data_gauss)
+        prealloc.θ_local_arr[i,k,nstage] = bisection(f,0.0,1.0)
+    end
+    # TODO: hardcode for post postprocessing
+    prealloc.Farr[k,nstage] = sum(view(prealloc.θ_local_arr,:,k,nstage))/discrete_data_gauss.sizes.Nfp
 end
 
 function solve_theta!(prealloc,k,bound,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data_gauss)
     return 0.0
 end
 
-function update_and_check_bound_limited_entropyproj_var!(prealloc,θ,k,bound,param,discrete_data_gauss)
+function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,θ,k,bound,param,discrete_data_gauss)
     try
-        update_limited_entropyproj_vars!(prealloc,θ,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
-        if check_bound(prealloc,bound,param,discrete_data_gauss.sizes)
+        update_limited_entropyproj_vars_on_element!(prealloc,θ,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
+        if check_bound_on_element(prealloc,bound,param,discrete_data_gauss.sizes)
             return true
         end
     catch err
@@ -90,7 +106,7 @@ function update_and_check_bound_limited_entropyproj_var!(prealloc,θ,k,bound,par
     return false
 end
 
-function update_limited_entropyproj_vars!(prealloc,θ,k,entropyproj_limiter_type::AdaptiveFilter,param,discrete_data_gauss)
+function update_limited_entropyproj_vars_on_element!(prealloc,θ,k,entropyproj_limiter_type::AdaptiveFilter,param,discrete_data_gauss)
     @unpack VqVDM                    = discrete_data_gauss.ops
     @unpack U_modal,U_k,Uq_k         = prealloc
     @unpack vq_k,v_tilde_k,u_tilde_k = prealloc
@@ -101,15 +117,15 @@ function update_limited_entropyproj_vars!(prealloc,θ,k,entropyproj_limiter_type
     
     # TODO: only project to Gauss element
     entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,1.0,param,discrete_data_gauss,prealloc)
-    calculate_limited_entropyproj_vars!(prealloc,param)
+    calculate_limited_entropyproj_vars_on_element!(prealloc,param)
 end
 
-function update_limited_entropyproj_vars!(prealloc,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data_gauss)
+function update_limited_entropyproj_vars_on_element!(prealloc,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data_gauss)
     @unpack VqVDM = discrete_data_gauss.ops
     @unpack Uq,v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k,vq_k,U_k,Uq_k = prealloc
     
     entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,view(Uq,:,k),θ,param,discrete_data_gauss,prealloc)
-    calculate_limited_entropyproj_vars!(prealloc,param)
+    calculate_limited_entropyproj_vars_on_element!(prealloc,param)
 end
 
 function update_limited_entropyproj_vars!(prealloc,θ,k,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data_gauss)
@@ -117,29 +133,76 @@ function update_limited_entropyproj_vars!(prealloc,θ,k,entropyproj_limiter_type
 end
 
 # TODO: hardcoded for 1D
-function calculate_limited_entropyproj_vars!(prealloc,param)
-    @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k = prealloc
-    for i = 1:size(v3tilde,1)
-        v3tilde[i]   = v_tilde_k[i][end]
-        rhotilde[i]  = u_tilde_k[i][1]
-        rhoetilde[i] = rhoe_ufun(param.equation,u_tilde_k[i])
+function calculate_limited_entropyproj_vars_on_element!(prealloc,param)
+    for i = 1:size(prealloc.v3tilde,1)
+        calculate_limited_entropyproj_vars_on_node!(prealloc,i,param)
     end
 end
 
-function check_bound(prealloc,bound,param,sizes) 
+function calculate_limited_entropyproj_vars_on_node!(prealloc,i,param)
+    @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k = prealloc
+    v3tilde[i]   = v_tilde_k[i][end]
+    rhotilde[i]  = u_tilde_k[i][1]
+    rhoetilde[i] = rhoe_ufun(param.equation,u_tilde_k[i])
+end
+
+function check_bound_on_element(prealloc,bound,param,sizes) 
     @unpack v3tilde,rhotilde,rhoetilde = prealloc
 
     v3max,rhomin,rhomax,rhoemin,rhoemax = bound
-    for i = 1:sizes.Nh
-        if ((v3tilde[i] > v3max)
-         || (rhotilde[i] < rhomin)
-         || (rhotilde[i] > rhomax)
-         || (rhoetilde[i] < rhoemin)
-         || (rhoetilde[i] > rhoemax))
+    for i = 1:sizes.Nh                 # TODO: change to Nq?
+        if !check_bound_on_node(i,prealloc,bound,param,sizes)
             return false
         end
     end
     return true
+end
+
+# TODO: skip volume quadrature points
+function check_bound_on_node(i,prealloc,bound,param,sizes) 
+    @unpack v3tilde,rhotilde,rhoetilde = prealloc
+    v3max,rhomin,rhomax,rhoemin,rhoemax = bound
+    if ((v3tilde[i] > v3max)
+        || (rhotilde[i] < rhomin)
+        || (rhotilde[i] > rhomax)
+        || (rhoetilde[i] < rhoemin)
+        || (rhoetilde[i] > rhoemax))
+        return false
+    end
+    return true
+end
+
+# TODO: Refactor. element versus. node - use multiple dispatch
+function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,θ_i,i,k,bound,param,discrete_data_gauss)
+    try
+        update_limited_entropyproj_vars_on_face_node!(prealloc,θ_i,i,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
+        if check_bound_on_face_node(i,prealloc,bound,param,discrete_data_gauss.sizes)
+            return true
+        end
+    catch err
+        if isa(err, DomainError)
+            return false
+        else
+            throw(err)
+        end
+    end
+    return false
+end
+
+function update_limited_entropyproj_vars_on_face_node!(prealloc,θ_i,i,k,entropyproj_limiter_type::NodewiseScaledExtrapolation,param,discrete_data_gauss)
+    @unpack Uq,v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k,vq_k,U_k,Uq_k = prealloc
+    
+    entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,θ_i,param,discrete_data_gauss,prealloc)
+    calculate_limited_entropyproj_vars_on_face_node!(prealloc,i,param)
+end
+
+function calculate_limited_entropyproj_vars_on_face_node!(prealloc,i,param)
+    Nq = size(prealloc.Uq,1)
+    calculate_limited_entropyproj_vars_on_node!(prealloc,i+Nq,param)
+end
+
+function check_bound_on_face_node(i,prealloc,bound,param,sizes)
+    return check_bound_on_node(i+sizes.Nq,prealloc,bound,param,sizes)  
 end
 
 #########################

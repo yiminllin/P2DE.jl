@@ -50,27 +50,46 @@ function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discr
 end
 
 # TODO: dispatch on element type instead of the passed in discrete data
+# TODO: refactor with NodewiseScaledExtrapolation
 function entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data,prealloc)
     @unpack VhPq_new,Vf_new   = prealloc
-    @unpack Nh,Nq             = discrete_data.sizes
+    @unpack Nh,Nq,Nfp         = discrete_data.sizes
     @unpack Vf,Vf_low,Pq,VhPq = discrete_data.ops
 
+    calculate_entropy_var!(vq_k,Uq_k,param,discrete_data)    # TODO: move calculating entropy var out of entropy projection
+    # For nodal collocation, quad values are the same
+    for i = 1:Nq
+        entropy_projection_volume_node!(v_tilde_k,u_tilde_k,vq_k,Uq_k,i,param,discrete_data,prealloc)
+    end
+    for i = 1:Nfp
+        entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k,param,discrete_data,prealloc)
+    end
+end
+
+function calculate_entropy_var!(vq_k,Uq_k,param,discrete_data)
+    @unpack Nq = discrete_data.sizes
     for i = 1:Nq
         vq_k[i] = v_ufun(param.equation,Uq_k[i])
     end
-    # TODO: use dispatch for this if-else?
-    if (l_k == 1.0)
-        mul!(v_tilde_k,VhPq,vq_k)
+end
+
+function entropy_projection_volume_node!(v_tilde_k,u_tilde_k,vq_k,Uq_k,i,param,discrete_data,prealloc)
+    v_tilde_k[i] = vq_k[i]
+    u_tilde_k[i] = Uq_k[i]
+end
+
+function entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k_i,param,discrete_data,prealloc)
+    @unpack Nh,Nq     = discrete_data.sizes
+    @unpack Vf,Vf_low = discrete_data.ops
+    @unpack Vf_new    = prealloc
+    if (l_k_i != 1.0)   # TODO: require l_k ∈ [0,1]
+        @views Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]   # TODO: Vf_new only allocate 1D vector instead of 2D matrix?
+        v_tilde_k[i+Nq] = @views sum(Vf_new[i,:].*vq_k)
     else
-        # TODO: precompute VfPq and VflowPq, and simply take linear combination
-        @. Vf_new = l_k*Vf+(1.0-l_k)*Vf_low
-        VfPq_new = @views VhPq_new[Nq+1:Nh,:]
-        mul!(VfPq_new,Vf_new,Pq)
-        mul!(v_tilde_k,VhPq_new,vq_k)
+        # Nothing is applied if l_k == 1
+        v_tilde_k[i+Nq] = @views sum(Vf[i,:].*vq_k)
     end
-    for i = 1:Nh
-        u_tilde_k[i] = u_vfun(param.equation,v_tilde_k[i])
-    end
+    u_tilde_k[i+Nq] = u_vfun(param.equation,v_tilde_k[i+Nq])
 end
 
 # TODO: ugly dispatch
@@ -95,7 +114,7 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::Union{Adap
 end
 
 # TODO: ugly dispatch
-function entropy_projection!(prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,nstage)
+function entropy_projection!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,nstage)
     @unpack K = param
     @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
     @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
@@ -111,6 +130,34 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::ScaledExtr
             entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data_LGL,prealloc)
         else
             entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data_gauss,prealloc)
+        end
+    end
+end
+
+# TODO: ugly dispatch
+function entropy_projection!(prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,nstage)
+    @unpack K = param
+    @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
+    @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
+    
+    for k = 1:K
+        vq_k      = view(vq,:,k)
+        v_tilde_k = view(v_tilde,:,k)
+        u_tilde_k = view(u_tilde,:,k)
+        Uq_k      = view(Uq,:,k)
+        # TODO: we can skip LGL instead of applying identity
+        if (LGLind[k])
+            entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data_LGL,prealloc)
+        else
+            # TODO: refactor
+            calculate_entropy_var!(vq_k,Uq_k,param,discrete_data_gauss)
+            for i = 1:Nq
+                entropy_projection_volume_node!(v_tilde_k,u_tilde_k,vq_k,Uq_k,i,param,discrete_data_gauss,prealloc)
+            end
+            for i = 1:Nfp
+                l_k_i = prealloc.θ_local_arr[i,k,nstage]
+                entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k_i,param,discrete_data_gauss,prealloc)
+            end
         end
     end
 end
@@ -292,8 +339,7 @@ function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_typ
     @unpack spatial,boundary,QF1,BF1,Vf_new,VhT_new,MinvVhT_new = prealloc
     @unpack Nq,Nh = discrete_data_gauss.sizes
 
-    l_k = prealloc.Farr[k,nstage]
-    @. Vf_new = l_k*discrete_data_gauss.ops.Vf+(1.0-l_k)*discrete_data_gauss.ops.Vf_low
+    update_limited_extrapolation!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,k,nstage)
     VqT_new = @views VhT_new[:,1:Nq]
     VfT_new = @views VhT_new[:,Nq+1:Nh]
     VqT_new .= transpose(discrete_data_gauss.ops.Vq)
@@ -302,6 +348,23 @@ function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_typ
     MinvVfT_new = @views MinvVhT_new[:,Nq+1:Nh]
     @views mul!(spatial[:,k],MinvVhT_new,QF1[:,k])
     @views mul!(boundary[:,k],MinvVfT_new,BF1[:,k])
+end
+
+function update_limited_extrapolation!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,k,nstage)
+    @unpack Vf_new    = prealloc
+    @unpack Vf,Vf_low = discrete_data_gauss.ops
+    l_k = prealloc.Farr[k,nstage]
+    @. Vf_new = l_k*Vf+(1.0-l_k)*Vf_low
+end
+
+function update_limited_extrapolation!(prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data_gauss,k,nstage)
+    @unpack Vf_new    = prealloc
+    @unpack Vf,Vf_low = discrete_data_gauss.ops
+    l_k = prealloc.Farr[k,nstage]
+    for i = 1:discrete_data_gauss.sizes.Nfp
+        l_k_i = prealloc.θ_local_arr[i,k,nstage]
+        @views Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]
+    end
 end
 
 # TODO: dispatch
