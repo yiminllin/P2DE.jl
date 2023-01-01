@@ -453,7 +453,7 @@ function calculate_wavespeed_and_inviscid_flux!(prealloc,param)
     end
 end
 
-# TODO: hardcoded
+# TODO: hardcoded for 1D
 function get_face_value(prealloc,i,k,surface_flux_type::LaxFriedrichsOnNodalVal)
     @unpack Uq = prealloc
     if (i == 1)
