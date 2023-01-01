@@ -1,8 +1,36 @@
 
 abstract type RHSType end
-struct LowOrderPositivity   <: RHSType end
-struct EntropyStable        <: RHSType end
-struct ESLimitedLowOrderPos <: RHSType end
+Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE}   <: RHSType
+    surface_flux_type::SURFACEFLUXTYPE
+end
+Base.@kwdef struct EntropyStable{SURFACEFLUXTYPE}        <: RHSType
+    surface_flux_type::SURFACEFLUXTYPE
+end
+Base.@kwdef struct ESLimitedLowOrderPos{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE} <: RHSType
+    low_order_surface_flux_type ::LOWSURFACEFLUXTYPE
+    high_order_surface_flux_type::HIGHSURFACEFLUXTYPE
+end
+
+function get_low_order_surface_flux(rhs_type::LowOrderPositivity)
+    return rhs_type.surface_flux_type
+end
+
+function get_low_order_surface_flux(rhs_type::ESLimitedLowOrderPos)
+    return rhs_type.low_order_surface_flux_type
+end
+
+function get_high_order_surface_flux(rhs_type::EntropyStable)
+    return rhs_type.surface_flux_type
+end
+
+function get_high_order_surface_flux(rhs_type::ESLimitedLowOrderPos)
+    return rhs_type.high_order_surface_flux_type
+end
+
+abstract type SurfaceFluxType end
+struct ChandrashekarOnProjectedVal <: SurfaceFluxType end
+struct LaxFriedrichsOnNodalVal     <: SurfaceFluxType end
+struct LaxFriedrichsOnProjectedVal <: SurfaceFluxType end
 
 abstract type EntropyProjectionLimiterType end
 abstract type AdaptiveFilter          <: EntropyProjectionLimiterType end
