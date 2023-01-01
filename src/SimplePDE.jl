@@ -46,6 +46,7 @@ export Param,BCData,DataHistory,ErrorData
 export GlobalConstant,TimesteppingParameter,PostprocessingParameter,
        LimitingParameter
 export LowOrderPositivity,EntropyStable,ESLimitedLowOrderPos
+export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjectedVal
 export NoEntropyProjectionLimiter,ExponentialFilter,ZhangShuFilter,
        ElementwiseScaledExtrapolation,NodewiseScaledExtrapolation
 export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter

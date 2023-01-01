@@ -307,7 +307,6 @@ function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_dat
 end
 
 function flux_differencing_surface!(prealloc,param)
-    @unpack equation           = param
     @unpack BF1,u_tilde,uP,LFc = prealloc
 
     Nq = size(prealloc.Uq,1)
@@ -317,9 +316,7 @@ function flux_differencing_surface!(prealloc,param)
     for k  = 1:param.K
         # Boundary contributions (B F)1
         for i = 1:Nfp
-            # BF1[i,k] = fS_prim_log(equation,(uf[i,k][1],uf[i,k][2]/uf[i,k][1],betaf[i,k],rhologf[i,k],betalogf[i,k]),
-            #                                 (uP[i,k][1],uP[i,k][2]/uP[i,k][1],betaP[i,k],rhologP[i,k],betalogP[i,k]))
-            BF1[i,k] = .5*(euler_fluxes(equation,uf[i,k])+euler_fluxes(equation,uP[i,k]))
+            BF1[i,k] = evaluate_high_order_surface_flux(prealloc,param,i,k,get_high_order_surface_flux(param.rhs_type))
         end
         BF1[1,k] = -BF1[1,k]     # TODO: hardcode scale by normal
         # LF dissipation
@@ -327,6 +324,28 @@ function flux_differencing_surface!(prealloc,param)
             BF1[i,k] -= LFc[i,k]*(uP[i,k]-uf[i,k])
         end
     end
+end
+
+function evaluate_high_order_surface_flux(prealloc,param,i,k,surface_flux_type::ChandrashekarOnProjectedVal)
+    @unpack equation                                              = param
+    @unpack u_tilde,beta,rholog,betalog,uP,betaP,rhologP,betalogP = prealloc
+    Nq = size(prealloc.Uq,1)
+    Nh = size(u_tilde,1)
+    uf       = @view u_tilde[Nq+1:Nh,:]
+    betaf    = @view beta[Nq+1:Nh,:]
+    rhologf  = @view rholog[Nq+1:Nh,:]
+    betalogf = @view betalog[Nq+1:Nh,:]
+    return fS_prim_log(equation,(uf[i,k][1],uf[i,k][2]/uf[i,k][1],betaf[i,k],rhologf[i,k],betalogf[i,k]),
+                                (uP[i,k][1],uP[i,k][2]/uP[i,k][1],betaP[i,k],rhologP[i,k],betalogP[i,k]))
+end
+
+function evaluate_high_order_surface_flux(prealloc,param,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
+    @unpack equation   = param
+    @unpack uP,u_tilde = prealloc
+    Nq = size(prealloc.Uq,1)
+    Nh = size(u_tilde,1)
+    uf = @view u_tilde[Nq+1:Nh,:]
+    return .5*(euler_fluxes(equation,uf[i,k])+euler_fluxes(equation,uP[i,k]))
 end
 
 function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data_gauss,k,nstage)
@@ -424,13 +443,29 @@ end
 function calculate_wavespeed_and_inviscid_flux!(prealloc,param)
     @unpack equation = param
     @unpack Uq,u_tilde,wavespeed,flux = prealloc
+    Nq = size(Uq,1)
     for k = 1:param.K
         for i = 1:size(u_tilde,1)
-            ui = (i <= size(Uq,1)) ? Uq[i,k] : u_tilde[i,k]
+            ui = (i <= Nq) ? Uq[i,k] : get_face_value(prealloc,i-Nq,k,get_low_order_surface_flux(param.rhs_type))
             wavespeed[i,k] = wavespeed_davis_estimate(equation,ui)
             flux[i,k]      = euler_fluxes(equation,ui)
         end
     end
+end
+
+# TODO: hardcoded for 1D
+function get_face_value(prealloc,i,k,surface_flux_type::LaxFriedrichsOnNodalVal)
+    @unpack Uq = prealloc
+    if (i == 1)
+        return Uq[1,k]
+    elseif (i == 2)
+        return Uq[end,k]
+    end
+end
+
+function get_face_value(prealloc,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
+    @unpack u_tilde = prealloc
+    return u_tilde[i+size(prealloc.Uq,1),k]
 end
 
 function calculate_low_order_CFL(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
@@ -459,10 +494,10 @@ function calculate_low_order_CFL(prealloc,param,discrete_data_gauss,discrete_dat
                 end
             end
             if i == 1
-                lambda_i += LGLind[k] ? .5*max(wavespeed_f[1,k],wavespeed_f[mapP[1+(k-1)*Nfp]]) : αarr[1,k]*.5*max(wavespeed_f[1,k],wavespeed_f[mapP[1+(k-1)*Nfp]]) + .5*wavespeed[i,k]
+                lambda_i += LGLind[k] ? get_lambda_B(prealloc,mapP,1,k) : get_lambda_B(prealloc,mapP,1,k,get_low_order_surface_flux(param.rhs_type))
             end
             if i == Nq
-                lambda_i += LGLind[k] ? .5*max(wavespeed_f[2,k],wavespeed_f[mapP[2+(k-1)*Nfp]]) : αarr[2,k]*.5*max(wavespeed_f[2,k],wavespeed_f[mapP[2+(k-1)*Nfp]]) + .5*wavespeed[i,k]
+                lambda_i += LGLind[k] ? get_lambda_B(prealloc,mapP,2,k) : get_lambda_B(prealloc,mapP,2,k,get_low_order_surface_flux(param.rhs_type))
             end
 
             dt = min(dt, CFL*.5*wJq_i/lambda_i)
@@ -502,6 +537,28 @@ function find_alpha(param,ui,uitilde)
     end
 
     return alphaR
+end
+
+function get_lambda_B(prealloc,mapP,i,k)
+    @unpack wavespeed = prealloc
+    Nq  = size(prealloc.Uq,1)
+    Nh  = size(prealloc.u_tilde,1)
+    Nfp = size(mapP,1)
+    wavespeed_f = @view wavespeed[Nq+1:Nh,:]
+    return .5*max(wavespeed_f[i,k],wavespeed_f[mapP[i+(k-1)*Nfp]])
+end
+
+function get_lambda_B(prealloc,mapP,i,k,surface_flux_type::LaxFriedrichsOnNodalVal)
+    return get_lambda_B(prealloc,mapP,i,k) 
+end
+
+function get_lambda_B(prealloc,mapP,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
+    @unpack αarr,wavespeed = prealloc
+    Nq  = size(prealloc.Uq,1)
+    Nh  = size(prealloc.u_tilde,1)
+    Nfp = size(mapP,1)
+    wavespeed_f = @view wavespeed[Nq+1:Nh,:]
+    return αarr[i,k]*.5*max(wavespeed_f[i,k],wavespeed_f[mapP[i+(k-1)*Nfp]]) + .5*wavespeed[i,k]
 end
 
 function clear_low_order_rhs!(prealloc,param)
