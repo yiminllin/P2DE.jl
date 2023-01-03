@@ -45,7 +45,7 @@ function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discr
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
     dt = rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,false)
     rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,false)
-    apply_zhang_shu_limiter!(prealloc,param,dt,nstage)
+    apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,param.positivity_limiter_type)
     return dt
 end
 
@@ -307,7 +307,7 @@ function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_dat
 end
 
 function flux_differencing_surface!(prealloc,param)
-    @unpack BF1,u_tilde,uP,LFc = prealloc
+    @unpack BF1,u_tilde,uP,LFc,flux_H = prealloc
 
     Nq = size(prealloc.Uq,1)
     Nh = size(u_tilde,1)
@@ -317,11 +317,15 @@ function flux_differencing_surface!(prealloc,param)
         # Boundary contributions (B F)1
         for i = 1:Nfp
             BF1[i,k] = evaluate_high_order_surface_flux(prealloc,param,i,k,get_high_order_surface_flux(param.rhs_type))
+            flux_H[i,k] = BF1[i,k]   # TODO: refactor
         end
         BF1[1,k] = -BF1[1,k]     # TODO: hardcode scale by normal
+        flux_H[1,k] = -flux_H[1,k]
         # LF dissipation
         for i = 1:Nfp
-            BF1[i,k] -= LFc[i,k]*(uP[i,k]-uf[i,k])
+            lf = LFc[i,k]*(uP[i,k]-uf[i,k])
+            BF1[i,k] -= lf
+            flux_H[i,k] -= lf   # TODO: refactor
         end
     end
 end
@@ -593,8 +597,8 @@ end
 
 function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     @unpack equation = param
-    @unpack Uq,rhsL,flux,wavespeed,LGLind,u_tilde = prealloc
-    @unpack mapP,mapI,mapO,inflowarr              = bcdata
+    @unpack Uq,rhsL,flux,flux_L,wavespeed,LGLind,u_tilde = prealloc
+    @unpack mapP,mapI,mapO,inflowarr                     = bcdata
 
     Nq  = size(Uq,1)
     Nh  = size(u_tilde,1)
@@ -611,10 +615,13 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
             fluxP   = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : flux_f[mapP[idx]]
             utildeP = !isnothing(Iidx) ? inflowarr[Iidx] : utilde_f[mapP[idx]]
             lambdaD = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : .5*max(wavespeed_f[idx], wavespeed_f[mapP[idx]])
+            # TODO: hardcoded scale by normal
             if i == 1
-                rhsL[1,k]   -= -.5*(flux_f[idx]+fluxP)-lambdaD*(utildeP-utilde_f[idx])
+                flux_L[i,k] = -.5*(flux_f[idx]+fluxP)-lambdaD*(utildeP-utilde_f[idx])
+                rhsL[1,k]  -= flux_L[i,k] 
             elseif i == 2
-                rhsL[end,k] -=  .5*(flux_f[idx]+fluxP)-lambdaD*(utildeP-utilde_f[idx])
+                flux_L[i,k]  = .5*(flux_f[idx]+fluxP)-lambdaD*(utildeP-utilde_f[idx])
+                rhsL[end,k] -= flux_L[i,k]
             end
         end
     end

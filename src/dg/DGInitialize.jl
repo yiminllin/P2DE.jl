@@ -23,10 +23,13 @@ function initialize_preallocations(param,sizes)
     rhologP  = zeros(Float64,Nfp,K)
     betalogP = zeros(Float64,Nfp,K)
     flux       = zeros(SVector{3,Float64},Nh,K)
+    flux_H     = zeros(SVector{3,Float64},Nfp,K)
+    flux_L     = zeros(SVector{3,Float64},Nfp,K)
     wavespeed  = zeros(Float64,Nh,K)
     alphaarr   = zeros(Float64,Nfp,K)
     rhsL    = zeros(SVector{3,Float64},Nq,K)
     Larr    = zeros(Float64,K,Ns)
+    L_local_arr = zeros(Float64,Nq+1,K,Ns)
     rhsU    = zeros(SVector{3,Float64},Nq,K)
     v3tilde   = zeros(Float64,Nh)
     rhotilde  = zeros(Float64,Nh)
@@ -57,8 +60,11 @@ function initialize_preallocations(param,sizes)
     MinvVhT_new = zeros(Float64,Np,Nh)
     uL_k      = zeros(SVector{3,Float64},Nq)
     P_k       = zeros(SVector{3,Float64},Nq)
+    f_bar_H   = zeros(SVector{3,Float64},Nq+1,K)
+    f_bar_L   = zeros(SVector{3,Float64},Nq+1,K)
+    f_bar_lim = zeros(SVector{3,Float64},Nq+1,K)  # TODO: unnecessary
 
-    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,wavespeed,alphaarr,rhsL,Larr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k)
+    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim)
     return prealloc
 end
 

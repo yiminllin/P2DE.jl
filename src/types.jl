@@ -1,4 +1,4 @@
-
+# TODO: better display of types
 abstract type RHSType end
 Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE}   <: RHSType
     surface_flux_type::SURFACEFLUXTYPE
@@ -210,10 +210,13 @@ mutable struct Preallocation
     rhologP ::Array{Float64,2}
     betalogP::Array{Float64,2}
     flux     ::Array{SVector{3,Float64},2}
+    flux_H   ::Array{SVector{3,Float64},2}
+    flux_L   ::Array{SVector{3,Float64},2}
     wavespeed::Array{Float64,2}
     alphaarr ::Array{Float64,2}
     rhsL     ::Array{SVector{3,Float64},2}
     Larr     ::Array{Float64,2}
+    L_local_arr::Array{Float64,3}
     rhsU     ::Array{SVector{3,Float64},2}
     v3tilde  ::Array{Float64,1}
     rhotilde ::Array{Float64,1}
@@ -241,6 +244,9 @@ mutable struct Preallocation
     MinvVhT_new::Array{Float64,2}
     uL_k     ::Array{SVector{3,Float64},1}
     P_k      ::Array{SVector{3,Float64},1}
+    f_bar_H  ::Array{SVector{3,Float64},2}
+    f_bar_L  ::Array{SVector{3,Float64},2}
+    f_bar_lim::Array{SVector{3,Float64},2}
 end
 
 mutable struct DataHistory 
