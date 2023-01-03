@@ -91,37 +91,9 @@ function get_limiting_param_bound_component(param,rhoL,rhoP,Lrho,Urho)
     end
 end
 
-############################################
-### Appy positivity limiter to limit RHS ###
-############################################
-function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,positivity_limiter_type::ZhangShuLimiter)
-    @unpack rhsL,rhsH,rhsU = prealloc
-    @unpack Uq,uL_k,P_k    = prealloc
-    ζ = param.limiting_param.ζ
-    for k = 1:param.K
-        @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
-        @views @. P_k  = dt*(rhsH[:,k]-rhsL[:,k])
-        Lrho(uL_i)  = ζ*uL_i[1]
-        Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
-        Urho = Inf
-        UE   = Inf
-        zhang_shu_bound_limiter!(prealloc.Larr,param,uL_k,P_k,k,Lrho,Lrhoe,Urho,UE,nstage)
-        l = prealloc.Larr[k,nstage]
-        @views @. rhsU[:,k] = (1-l)*rhsL[:,k] + l*(rhsH[:,k])
-    end
-end
-
-function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,positivity_limiter_type::SubcellLimiter)
-    @unpack rhsL,rhsH,rhsU    = prealloc
-    @unpack Uq,uL_k,f_bar_lim = prealloc
-    @unpack L_local_arr       = prealloc
-
-    accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage)
-    accumulate_f_bar_limited!(prealloc,param,nstage)
-    apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-end
-
+###############################
+### Subcell limiter methods ###
+###############################
 function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack rhsL,rhsH,f_bar_H,f_bar_L,flux_H,flux_L = prealloc
     Nq = size(prealloc.Uq,1)
@@ -176,7 +148,7 @@ end
 function accumulate_f_bar_limited!(prealloc,param,nstage)
     @unpack L_local_arr,f_bar_H,f_bar_L,f_bar_lim = prealloc
     Nq = size(prealloc.Uq,1)
-    # TODO: f_bar_H, f_bar_L could be combine into a single cache?
+    # TODO: f_bar_H, f_bar_L could be combine into a single cache? df_bar?
     for k = 1:param.K
         for i = 1:Nq+1
             f_bar_lim[i,k] = L_local_arr[i,k,nstage]*f_bar_H[i,k] + (1-L_local_arr[i,k,nstage])*f_bar_L[i,k]
@@ -196,6 +168,37 @@ function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data
             rhsU[i,k] = (f_bar_lim[i+1,k]-f_bar_lim[i,k])/wJq_i
         end
     end
+end
+
+############################################
+### Appy positivity limiter to limit RHS ###
+############################################
+function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,positivity_limiter_type::ZhangShuLimiter)
+    @unpack rhsL,rhsH,rhsU = prealloc
+    @unpack Uq,uL_k,P_k    = prealloc
+    ζ = param.limiting_param.ζ
+    for k = 1:param.K
+        @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
+        @views @. P_k  = dt*(rhsH[:,k]-rhsL[:,k])
+        Lrho(uL_i)  = ζ*uL_i[1]
+        Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
+        Urho = Inf
+        UE   = Inf
+        zhang_shu_bound_limiter!(prealloc.Larr,param,uL_k,P_k,k,Lrho,Lrhoe,Urho,UE,nstage)
+        l = prealloc.Larr[k,nstage]
+        @views @. rhsU[:,k] = (1-l)*rhsL[:,k] + l*(rhsH[:,k])
+    end
+end
+
+function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,positivity_limiter_type::SubcellLimiter)
+    @unpack rhsL,rhsH,rhsU    = prealloc
+    @unpack Uq,uL_k,f_bar_lim = prealloc
+    @unpack L_local_arr       = prealloc
+
+    accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
+    subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage)
+    accumulate_f_bar_limited!(prealloc,param,nstage)
+    apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
 end
 
 ####################################################

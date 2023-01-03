@@ -40,12 +40,11 @@ param = Param(N=3, K=80, XL=0.0, XR=1.0,
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
               postprocessing_param=PostprocessingParameter(output_interval=1000),
               equation=CompressibleEulerIdealGas{Dim1}(γ),
-              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
+              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=ExponentialFilter(),
-
-              positivity_limiter_type=ZhangShuLimiter())
+              positivity_limiter_type=SubcellLimiter())
 
 T = param.timestepping_param.T
 N = param.N
@@ -59,14 +58,14 @@ data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcda
 err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
 
 plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
-               [u[1] for u in prealloc.Uq],1,K,0,3,"outputs/figures/sine-wave/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png",
+               [u[1] for u in prealloc.Uq],1,K,0,3,"outputs/figures/sine-wave/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png",
                true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],1,K)
 plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
-               [u[1] for u in prealloc.Uq],Int64(round(K*3/4)),K,0,0.02,"outputs/figures/sine-wave/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png",
+               [u[1] for u in prealloc.Uq],Int64(round(K*3/4)),K,0,0.02,"outputs/figures/sine-wave/N=$N,K=$K,rhs=$(param.rhs_type),vproj_limiter=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png",
                true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],Int64(round(K*3/4)),K)
 
 plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,3,
-                   "outputs/figures/sine-wave/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
+                   "outputs/figures/sine-wave/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
 
 df = DataFrame(param = Param[], data_hist = DataHistory[], err_data = ErrorData[])
 write_to_jld2(param,data_hist,err_data,df,"outputs/jld2/sine-wave/sine-wave.jld2")
