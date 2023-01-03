@@ -72,7 +72,7 @@ param = Param(N=2, K=200, XL=0.0, XR=1.0,
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=ExponentialFilter(),
-              positivity_limiter_type=ZhangShuLimiter())
+              positivity_limiter_type=SubcellLimiter())
 
 T = param.timestepping_param.T
 N = param.N
