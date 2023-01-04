@@ -267,3 +267,27 @@ mutable struct ErrorData
     L2err  ::Float64
     L1err  ::Float64
 end
+
+#####################
+# Readable printing #
+#####################
+function Base.show(io::IO,::MIME"text/plain",param::Param)
+    @nospecialize param
+    println(io,"N=$(param.N),K=$(param.K),η=$(param.limiting_param.η),ζ=$(param.limiting_param.ζ)")
+    println(io,"basis                      type: ", param.approximation_basis_type)
+    println(io,"rhs                        type: ", param.rhs_type)
+    println(io,"entropy projection limiter type: ", param.entropyproj_limiter_type)
+    println(io,"positivity limiter         type: ", param.positivity_limiter_type)
+end
+
+function Base.show(io::IO,rhs_type::ESLimitedLowOrderPos)
+    text = print(io,"ESLimitedLowOrderPos(FBL=",get_low_order_surface_flux(rhs_type),",FBH=",get_high_order_surface_flux(rhs_type))
+end
+
+function Base.show(io::IO,rhs_type::LowOrderPositivity)
+    text = print(io,"LowOrderPositivity(FBL=",get_low_order_surface_flux(rhs_type))
+end
+
+function Base.show(io::IO,rhs_type::EntropyStable)
+    text = print(io,"LowOrderPositivity(FBL=",get_high_order_surface_flux(rhs_type))
+end
