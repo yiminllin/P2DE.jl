@@ -281,5 +281,13 @@ function Base.show(io::IO,::MIME"text/plain",param::Param)
 end
 
 function Base.show(io::IO,rhs_type::ESLimitedLowOrderPos)
-    text = print(io,"ESLimitedLowOrderPos(FBL=",rhs_type.low_order_surface_flux_type,",FBH=",rhs_type.high_order_surface_flux_type)
+    text = print(io,"ESLimitedLowOrderPos(FBL=",get_low_order_surface_flux(rhs_type),",FBH=",get_high_order_surface_flux(rhs_type))
+end
+
+function Base.show(io::IO,rhs_type::LowOrderPositivity)
+    text = print(io,"LowOrderPositivity(FBL=",get_low_order_surface_flux(rhs_type))
+end
+
+function Base.show(io::IO,rhs_type::EntropyStable)
+    text = print(io,"LowOrderPositivity(FBL=",get_high_order_surface_flux(rhs_type))
 end
