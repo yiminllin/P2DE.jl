@@ -108,7 +108,13 @@ function write_to_jld2(param,data_hist,err_data,df,output_filename)
     catch
     end
 
-    push!(df,(param,data_hist,err_data))
-    @show output_filename
+    params = [getfield(param,n) for n in fieldnames(Param)]
+    errs   = [getfield(err_data,n) for n in fieldnames(ErrorData)]
+    push!(df,(params...,errs...,data_hist))
     save(output_filename,"data",df)
+    visualize_error_data(df)
+end
+
+function visualize_error_data(df)
+    pretty_table(df[:, [:N,:K,:limiting_param,:rhs_type,:entropyproj_limiter_type,:positivity_limiter_type,:L1err,:L2err,:Linferr]])
 end
