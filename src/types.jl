@@ -263,9 +263,9 @@ mutable struct DataHistory
 end
 
 mutable struct ErrorData
-    Linferr::Float64
-    L2err  ::Float64
     L1err  ::Float64
+    L2err  ::Float64
+    Linferr::Float64
 end
 
 #####################
