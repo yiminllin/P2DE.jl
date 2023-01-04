@@ -67,5 +67,5 @@ plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
 plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,3,
                    "outputs/figures/sine-wave/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
 
-df = DataFrame(param = Param[], data_hist = DataHistory[], err_data = ErrorData[])
+df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
 write_to_jld2(param,data_hist,err_data,df,"outputs/jld2/sine-wave/sine-wave.jld2")
