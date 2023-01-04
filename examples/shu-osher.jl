@@ -71,5 +71,5 @@ plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
 plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,6,
                    "outputs/figures/shu-osher/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
 
-df = DataFrame(param = Param[], data_hist = DataHistory[], err_data = ErrorData[])
+df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
 write_to_jld2(param,data_hist,err_data,df,"outputs/jld2/shu-osher/shu-osher.jld2")
