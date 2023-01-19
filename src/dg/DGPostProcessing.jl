@@ -116,5 +116,5 @@ function write_to_jld2(param,data_hist,err_data,df,output_filename)
 end
 
 function visualize_error_data(df)
-    pretty_table(df[:, [:N,:K,:limiting_param,:rhs_type,:entropyproj_limiter_type,:positivity_limiter_type,:L1err,:L2err,:Linferr]])
+    pretty_table(df[:, [:N,:K,:timestepping_param,:limiting_param,:rhs_type,:entropyproj_limiter_type,:positivity_limiter_type,:L1err,:L2err,:Linferr]])
 end

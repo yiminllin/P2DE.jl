@@ -4,7 +4,7 @@ using StaticArrays
 using DataFrames
 using MAT
 
-using SimplePDE
+using P2DE
 
 function exact_sol(eqn,x,t)
     # TODO: not exact solution
@@ -38,18 +38,20 @@ function initial_condition(param,x)
     return primitive_to_conservative(param.equation,SVector{3,Float64}(exact_sol(param.equation,x,t0)))
 end
 
+jld_path = "outputs/jld2/shu-osher/shu-soher.jld2"
+
 γ = 1.4
-param = Param(N=3, K=128, XL=-5.0, XR=5.0,
+param = Param(N=3, K=64, XL=-5.0, XR=5.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
-              timestepping_param=TimesteppingParameter(T=1.8, CFL=0.8, dt0=1e-4, t0=0.0),
+              timestepping_param=TimesteppingParameter(T=1.8, CFL=0.5, dt0=1e-4, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
               postprocessing_param=PostprocessingParameter(output_interval=1000),
               equation=CompressibleEulerIdealGas{Dim1}(γ),
-              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
+              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
-              entropyproj_limiter_type=ExponentialFilter(),
-              positivity_limiter_type=ZhangShuLimiter())
+              entropyproj_limiter_type=ElementwiseScaledExtrapolation(),
+              positivity_limiter_type=SubcellLimiter())
 
 T = param.timestepping_param.T
 N = param.N
@@ -62,14 +64,17 @@ data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcda
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
 
+plot_path     = "outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
+gif_path      = "outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
+
 weno_sol = matread("data/weno5_shuosher.mat")
 plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
                [u[1] for u in prealloc.Uq],1,K,0,6,
-               "outputs/figures/shu-osher/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png",
+               plot_path,
                true,weno_sol["x"],weno_sol["rho"],1,size(weno_sol["x"],2))
 
 plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,6,
                    "outputs/figures/shu-osher/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
 
 df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
-write_to_jld2(param,data_hist,err_data,df,"outputs/jld2/shu-osher/shu-osher.jld2")
+write_to_jld2(param,data_hist,err_data,df,jld_path)

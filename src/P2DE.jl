@@ -1,4 +1,4 @@
-module SimplePDE
+module P2DE
 
 ###########################
 # Load necessary packages #

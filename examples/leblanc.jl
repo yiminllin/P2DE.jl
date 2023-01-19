@@ -3,7 +3,9 @@ using UnPack
 using StaticArrays
 using DataFrames
 
-using SimplePDE
+using P2DE
+
+using JLD2
 
 function exact_sol(eqn,x,t)
     rhoL = 1.0
@@ -60,15 +62,16 @@ function initial_condition(param,x)
     return primitive_to_conservative(param.equation,SVector{3,Float64}(exact_sol(param.equation,x,t0)))
 end
 
+jld_path = "outputs/jld2/leblanc/leblanc.jld2"
 
 γ = 5/3
 param = Param(N=2, K=200, XL=0.0, XR=1.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
-              timestepping_param=TimesteppingParameter(T=2/3, CFL=0.5, dt0=1e-3, t0=0.01),
+              timestepping_param=TimesteppingParameter(T=2/3, CFL=0.25, dt0=1e-3, t0=0.01),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
               postprocessing_param=PostprocessingParameter(output_interval=1000),
               equation=CompressibleEulerIdealGas{Dim1}(γ),
-              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
+              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=ExponentialFilter(),
@@ -85,17 +88,24 @@ data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcda
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
 
+plot_path     = "outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
+plotzoom_path = "outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
+gif_path      = "outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.gif"
+
 plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
                [u[1] for u in prealloc.Uq],1,K,0,1.2,
-               "outputs/figures/leblanc/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png",
+               plot_path,
                true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],1,K)
 plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
                [u[1] for u in prealloc.Uq],Int64(round(0.7*K)),Int64(round(0.9*K)),0,0.11,
-               "outputs/figures/leblanc/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png",
+               plotzoom_path,
                true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],Int64(round(0.7*K)),Int64(round(0.9*K)))
 
 plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,1.2,
-                   "outputs/figures/leblanc/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
+                   gif_path)
 
 df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
-write_to_jld2(param,data_hist,err_data,df,"outputs/jld2/leblanc/leblanc.jld2")
+write_to_jld2(param,data_hist,err_data,df,jld_path)
+
+df = load(jld_path,"data")
+visualize_error_data(df)
