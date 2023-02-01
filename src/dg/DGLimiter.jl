@@ -115,6 +115,7 @@ function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data
     K = param.K
     Nq = size(Uq,1)
     ζ = param.limiting_param.ζ
+    @views @. L_local_arr[:,:,nstage] = 1.0
     # Calculate limiting parameter
     for k = 1:param.K
         wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
@@ -125,14 +126,13 @@ function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data
         Urho = Inf
         UE   = Inf
         # TODO: ugly...
-        L_local_arr[1] = 1.0
-        for i = 2:Nq+1
-            wJq_im1 = (wq[i-1]*Jq[i-1,k])
-            L_local_arr[i,k,nstage] = get_limiting_param(param,uL_k[i-1],2*dt*(f_bar_H[i-1,k]-f_bar_L[i-1,k])/wJq_im1,Lrho(uL_k[i-1]),Lrhoe(uL_k[i-1]),Urho,UE)
-        end
         for i = 1:Nq
             wJq_i = (wq[i]*Jq[i,k])
-            L_local_arr[i,k,nstage] = min(L_local_arr[i],get_limiting_param(param,uL_k[i],-2*dt*(f_bar_H[i,k]-f_bar_L[i,k])/wJq_i,Lrho(uL_k[i]),Lrhoe(uL_k[i]),Urho,UE))
+            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i],-2*dt*(f_bar_H[i,k]-f_bar_L[i,k])/wJq_i,Lrho(uL_k[i]),Lrhoe(uL_k[i]),Urho,UE))
+        end
+        for i = 2:Nq+1
+            wJq_im1 = (wq[i-1]*Jq[i-1,k])
+            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i-1],2*dt*(f_bar_H[i,k]-f_bar_L[i,k])/wJq_im1,Lrho(uL_k[i-1]),Lrhoe(uL_k[i-1]),Urho,UE))
         end
     end
 
