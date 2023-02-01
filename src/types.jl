@@ -247,6 +247,7 @@ mutable struct Preallocation
     f_bar_H  ::Array{SVector{3,Float64},2}
     f_bar_L  ::Array{SVector{3,Float64},2}
     f_bar_lim::Array{SVector{3,Float64},2}
+    Uf       ::Array{SVector{3,Float64},2}
 end
 
 mutable struct DataHistory 
