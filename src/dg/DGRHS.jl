@@ -470,7 +470,7 @@ function update_face_value!(prealloc,i,k,surface_flux_type::LaxFriedrichsOnNodal
 end
 
 function update_face_value!(prealloc,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack u_tilde = prealloc
+    @unpack u_tilde,Uf = prealloc
     Uf[i,k] = u_tilde[i+size(prealloc.Uq,1),k]
 end
 
