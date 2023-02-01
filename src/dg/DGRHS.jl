@@ -449,9 +449,13 @@ function calculate_wavespeed_and_inviscid_flux!(prealloc,param)
     @unpack equation = param
     @unpack Uq,Uf,u_tilde,wavespeed,flux = prealloc
     Nq = size(Uq,1)
+    Nh  = size(prealloc.u_tilde,1)
+    Nfp = Nh-Nq
     for k = 1:param.K
+        for i = 1:Nfp
+            update_face_value!(prealloc,i,k,get_low_order_surface_flux(param.rhs_type))
+        end
         for i = 1:size(u_tilde,1)
-            update_face_value!(prealloc,i-Nq,k,get_low_order_surface_flux(param.rhs_type))
             ui = (i <= Nq) ? Uq[i,k] : Uf[i-Nq,k]
             wavespeed[i,k] = wavespeed_davis_estimate(equation,ui)
             flux[i,k]      = euler_fluxes(equation,ui)
