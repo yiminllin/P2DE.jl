@@ -1,8 +1,10 @@
 # TODO: put into entropy projection to avoid an extra projection step
 function compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,nstage)
-    @unpack Farr,U_modal,LGLind = prealloc
+    @unpack Farr,U_modal,LGLind,Uq,Uf = prealloc
 
     clear_entropyproj_limiting_parameter_cache!(prealloc,param.entropyproj_limiter_type,nstage)
+    # TODO: refactor, only work for gauss
+    mul!(Uf,discrete_data_gauss.ops.Vf,Uq)
     for k = 1:param.K
         if (!LGLind[k])
             bound = get_relaxed_bound(param,prealloc,k)
@@ -36,18 +38,20 @@ function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limite
 end
 
 function get_relaxed_bound(param,prealloc,k)
-    Uq = prealloc.Uq
+    @unpack Uq,Uf = prealloc
     ϵ  = param.global_constants.POSTOL
     η  = param.limiting_param.η
     ζ  = param.limiting_param.ζ
+    Nq  = size(Uq,1)
+    Nfp = size(Uf,1)
 
     v3max   = typemin(Float64)
     rhomax  = typemin(Float64)
     rhoemax = typemin(Float64)
     rhomin  = typemax(Float64)
     rhoemin = typemax(Float64)
-    for i = 1:size(Uq,1)
-        u_i    = Uq[i,k]
+    for i = 1:Nq+Nfp
+        u_i    = i <= Nq ? Uq[i,k] : Uf[i-Nq,k]
         rho_i  = u_i[1]
         rhoe_i = rhoe_ufun(param.equation,u_i)
         v3_i   = v3_ufun(param.equation,u_i)
