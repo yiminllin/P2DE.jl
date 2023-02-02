@@ -440,17 +440,23 @@ function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
     accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
+    # check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
 
     return dt
 end
 
 function calculate_wavespeed_and_inviscid_flux!(prealloc,param)
     @unpack equation = param
-    @unpack Uq,u_tilde,wavespeed,flux = prealloc
+    @unpack Uq,Uf,u_tilde,wavespeed,flux = prealloc
     Nq = size(Uq,1)
+    Nh  = size(prealloc.u_tilde,1)
+    Nfp = Nh-Nq
     for k = 1:param.K
+        for i = 1:Nfp
+            update_face_value!(prealloc,i,k,get_low_order_surface_flux(param.rhs_type))
+        end
         for i = 1:size(u_tilde,1)
-            ui = (i <= Nq) ? Uq[i,k] : get_face_value(prealloc,i-Nq,k,get_low_order_surface_flux(param.rhs_type))
+            ui = (i <= Nq) ? Uq[i,k] : Uf[i-Nq,k]
             wavespeed[i,k] = wavespeed_davis_estimate(equation,ui)
             flux[i,k]      = euler_fluxes(equation,ui)
         end
@@ -458,18 +464,18 @@ function calculate_wavespeed_and_inviscid_flux!(prealloc,param)
 end
 
 # TODO: hardcoded for 1D
-function get_face_value(prealloc,i,k,surface_flux_type::LaxFriedrichsOnNodalVal)
-    @unpack Uq = prealloc
+function update_face_value!(prealloc,i,k,surface_flux_type::LaxFriedrichsOnNodalVal)
+    @unpack Uq,Uf = prealloc
     if (i == 1)
-        return Uq[1,k]
+        Uf[i,k] = Uq[1,k]
     elseif (i == 2)
-        return Uq[end,k]
+        Uf[i,k] = Uq[end,k]
     end
 end
 
-function get_face_value(prealloc,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack u_tilde = prealloc
-    return u_tilde[i+size(prealloc.Uq,1),k]
+function update_face_value!(prealloc,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
+    @unpack u_tilde,Uf = prealloc
+    Uf[i,k] = u_tilde[i+size(prealloc.Uq,1),k]
 end
 
 function calculate_low_order_CFL(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
@@ -597,13 +603,12 @@ end
 
 function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     @unpack equation = param
-    @unpack Uq,rhsL,flux,flux_L,wavespeed,LGLind,u_tilde = prealloc
+    @unpack Uq,Uf,rhsL,flux,flux_L,wavespeed,LGLind,u_tilde = prealloc
     @unpack mapP,mapI,mapO,inflowarr                     = bcdata
 
     Nq  = size(Uq,1)
     Nh  = size(u_tilde,1)
     Nfp = size(bcdata.mapP,1)
-    utilde_f    = @view u_tilde[Nq+1:Nh,:]
     flux_f      = @view flux[Nq+1:Nh,:]
     wavespeed_f = @view wavespeed[Nq+1:Nh,:]
     for k = 1:param.K
@@ -613,14 +618,14 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
             Iidx = findfirst(x->(x==idx), mapI)
             Oidx = findfirst(x->(x==idx), mapO)
             fluxP   = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : flux_f[mapP[idx]]
-            utildeP = !isnothing(Iidx) ? inflowarr[Iidx] : utilde_f[mapP[idx]]
+            uP      = !isnothing(Iidx) ? inflowarr[Iidx] : Uf[mapP[idx]]
             lambdaD = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : .5*max(wavespeed_f[idx], wavespeed_f[mapP[idx]])
             # TODO: hardcoded scale by normal
             if i == 1
-                flux_L[i,k] = -.5*(flux_f[idx]+fluxP)-lambdaD*(utildeP-utilde_f[idx])
+                flux_L[i,k] = -.5*(flux_f[idx]+fluxP)-lambdaD*(uP-Uf[idx])
                 rhsL[1,k]  -= flux_L[i,k] 
             elseif i == 2
-                flux_L[i,k]  = .5*(flux_f[idx]+fluxP)-lambdaD*(utildeP-utilde_f[idx])
+                flux_L[i,k]  = .5*(flux_f[idx]+fluxP)-lambdaD*(uP-Uf[idx])
                 rhsL[end,k] -= flux_L[i,k]
             end
         end
@@ -636,6 +641,95 @@ function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discret
             wq_i = LGLind[k] ? discrete_data_LGL.ops.wq[i] : discrete_data_gauss.ops.wq[i]
             wJq_i    = Jq[i,k]*wq_i
             rhsL[i,k] = rhsL[i,k]/wJq_i
+        end
+    end
+end
+
+function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
+    @unpack Uq,rhsL,flux,flux_L,wavespeed,LGLind,u_tilde = prealloc
+    @unpack Jq = discrete_data_gauss.geom
+    @unpack mapP = bcdata
+
+    Nq  = size(Uq,1)
+    Nh  = size(u_tilde,1)
+    Nfp = size(bcdata.mapP,1)
+    flux_f      = @view flux[Nq+1:Nh,:]
+    wavespeed_f = @view wavespeed[Nq+1:Nh,:]
+    for k = 1:param.K
+        for i = 1:Nq
+            rhsL_i = zero(Uq[i,k])
+            rhsL_bar_i = zero(Uq[i,k])
+            lambda_i = 0.0
+            wq_i  = LGLind[k] ? discrete_data_LGL.ops.wq[i] : discrete_data_gauss.ops.wq[i]
+            wJq_i = Jq[i,k]*wq_i
+
+            # Volume
+            for j = 1:Nq
+                Sr0_ij = LGLind[k] ? discrete_data_LGL.ops.Sr0[i,j] : discrete_data_gauss.ops.Sr0[i,j]
+                if (Sr0_ij != 0)
+                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,k], wavespeed[j,k])
+                    lambda_i += lambda_ij
+                    rhsL_i -= (Sr0_ij*(flux[j,k]+flux[i,k])-lambda_ij*(Uq[j,k]-Uq[i,k]))/wJq_i
+                end
+            end
+            # boundary 
+            if i == 1
+                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,param.K)])
+                lambda_i += lambda_ij
+                rhsL_i -= (-.5*(flux[1,k]+flux[Nq,mod1(k-1,param.K)])-lambda_ij*(Uq[Nq,mod1(k-1,param.K)]-Uq[1,k]))/wJq_i
+            end
+            if i == Nq
+                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,param.K)])
+                lambda_i += lambda_ij
+                rhsL_i -= (.5*(flux[Nq,k]+flux[1,mod1(k+1,param.K)])-lambda_ij*(Uq[1,mod1(k+1,param.K)]-Uq[Nq,k]))/wJq_i
+            end
+
+            # Using bar states
+            for j = 1:Nq
+                Sr0_ij = discrete_data_gauss.ops.Sr0[i,j]
+                if (Sr0_ij != 0)
+                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,k], wavespeed[j,k])
+                    ubar_ij = .5*(Uq[i,k]+Uq[j,k])-.5*Sr0_ij/lambda_ij*(flux[j,k]-flux[i,k])
+                    is_positive,_,_ = check_positivity_node(ubar_ij,param)
+                    if !is_positive
+                        @show k,i,j
+                    end
+                    rhsL_bar_i += 2*lambda_ij*ubar_ij/wJq_i
+                    rhsL_bar_i -= 2*lambda_ij*Uq[i,k]/wJq_i
+                end
+            end
+            if i == 1
+                Br0_i = -.5
+                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,param.K)])
+                ubar_ij = .5*(Uq[1,k]+Uq[Nq,mod1(k-1,param.K)])-.5*Br0_i/lambda_ij*(flux[Nq,mod1(k-1,param.K)]-flux[1,k])
+                is_positive,_,_ = check_positivity_node(ubar_ij,param)
+                if !is_positive
+                    @show k,i,lambda_ij
+                end
+                rhsL_bar_i += 2*lambda_ij*ubar_ij/wJq_i
+                rhsL_bar_i -= 2*lambda_ij*Uq[1,k]/wJq_i
+            end
+            if i == Nq
+                Br0_i = .5
+                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,param.K)])
+                ubar_ij = .5*(Uq[Nq,k]+Uq[1,mod1(k+1,param.K)])-.5*Br0_i/lambda_ij*(flux[1,mod1(k+1,param.K)]-flux[Nq,k])
+                ubar_ij_L = .5*Uq[Nq,k]+.5*Br0_i/lambda_ij*flux[Nq,k]
+                ubar_L    = 2*lambda_ij*Uq[Nq,k] + flux[Nq,k]
+                ubar_ij_R = .5*Uq[1,mod1(k+1,param.K)]-.5*Br0_i/lambda_ij*flux[1,mod1(k+1,param.K)]
+                check_positivity_node(ubar_ij,param)
+                check_positivity_node(ubar_ij_L,param)
+                check_positivity_node(ubar_ij_R,param)
+                rhsL_bar_i += 2*lambda_ij*ubar_ij/wJq_i
+                rhsL_bar_i -= 2*lambda_ij*Uq[end,k]/wJq_i
+            end
+
+            if (norm(rhsL_i-rhsL_bar_i, Inf) > 1e-6)
+                @show k,i,rhsL_i-rhsL_bar_i
+            end
+
+            if (norm(rhsL_i-rhsL[i,k]) > 1e-10)
+                @show k,i,rhsL_i-rhsL[i,k]
+            end
         end
     end
 end
