@@ -1,8 +1,36 @@
-
+# TODO: better display of types
 abstract type RHSType end
-struct LowOrderPositivity   <: RHSType end
-struct EntropyStable        <: RHSType end
-struct ESLimitedLowOrderPos <: RHSType end
+Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE}   <: RHSType
+    surface_flux_type::SURFACEFLUXTYPE
+end
+Base.@kwdef struct EntropyStable{SURFACEFLUXTYPE}        <: RHSType
+    surface_flux_type::SURFACEFLUXTYPE
+end
+Base.@kwdef struct ESLimitedLowOrderPos{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE} <: RHSType
+    low_order_surface_flux_type ::LOWSURFACEFLUXTYPE
+    high_order_surface_flux_type::HIGHSURFACEFLUXTYPE
+end
+
+function get_low_order_surface_flux(rhs_type::LowOrderPositivity)
+    return rhs_type.surface_flux_type
+end
+
+function get_low_order_surface_flux(rhs_type::ESLimitedLowOrderPos)
+    return rhs_type.low_order_surface_flux_type
+end
+
+function get_high_order_surface_flux(rhs_type::EntropyStable)
+    return rhs_type.surface_flux_type
+end
+
+function get_high_order_surface_flux(rhs_type::ESLimitedLowOrderPos)
+    return rhs_type.high_order_surface_flux_type
+end
+
+abstract type SurfaceFluxType end
+struct ChandrashekarOnProjectedVal <: SurfaceFluxType end
+struct LaxFriedrichsOnNodalVal     <: SurfaceFluxType end
+struct LaxFriedrichsOnProjectedVal <: SurfaceFluxType end
 
 abstract type EntropyProjectionLimiterType end
 abstract type AdaptiveFilter          <: EntropyProjectionLimiterType end
@@ -182,10 +210,13 @@ mutable struct Preallocation
     rhologP ::Array{Float64,2}
     betalogP::Array{Float64,2}
     flux     ::Array{SVector{3,Float64},2}
+    flux_H   ::Array{SVector{3,Float64},2}
+    flux_L   ::Array{SVector{3,Float64},2}
     wavespeed::Array{Float64,2}
     alphaarr ::Array{Float64,2}
     rhsL     ::Array{SVector{3,Float64},2}
     Larr     ::Array{Float64,2}
+    L_local_arr::Array{Float64,3}
     rhsU     ::Array{SVector{3,Float64},2}
     v3tilde  ::Array{Float64,1}
     rhotilde ::Array{Float64,1}
@@ -201,6 +232,7 @@ mutable struct Preallocation
     resW     ::Array{SVector{3,Float64},2}
     resZ     ::Array{SVector{3,Float64},2}
     Farr     ::Array{Float64,2}
+    θ_local_arr::Array{Float64,3}
     αarr     ::Array{Float64,2}
     LGLind   ::BitArray
     L_G2L_arr::Array{Float64,2}
@@ -212,6 +244,10 @@ mutable struct Preallocation
     MinvVhT_new::Array{Float64,2}
     uL_k     ::Array{SVector{3,Float64},1}
     P_k      ::Array{SVector{3,Float64},1}
+    f_bar_H  ::Array{SVector{3,Float64},2}
+    f_bar_L  ::Array{SVector{3,Float64},2}
+    f_bar_lim::Array{SVector{3,Float64},2}
+    Uf       ::Array{SVector{3,Float64},2}
 end
 
 mutable struct DataHistory 
@@ -228,7 +264,31 @@ mutable struct DataHistory
 end
 
 mutable struct ErrorData
-    Linferr::Float64
-    L2err  ::Float64
     L1err  ::Float64
+    L2err  ::Float64
+    Linferr::Float64
+end
+
+#####################
+# Readable printing #
+#####################
+function Base.show(io::IO,::MIME"text/plain",param::Param)
+    @nospecialize param
+    println(io,"N=$(param.N),K=$(param.K),η=$(param.limiting_param.η),ζ=$(param.limiting_param.ζ)")
+    println(io,"basis                      type: ", param.approximation_basis_type)
+    println(io,"rhs                        type: ", param.rhs_type)
+    println(io,"entropy projection limiter type: ", param.entropyproj_limiter_type)
+    println(io,"positivity limiter         type: ", param.positivity_limiter_type)
+end
+
+function Base.show(io::IO,rhs_type::ESLimitedLowOrderPos)
+    text = print(io,"ESLimitedLowOrderPos(FBL=",get_low_order_surface_flux(rhs_type),",FBH=",get_high_order_surface_flux(rhs_type))
+end
+
+function Base.show(io::IO,rhs_type::LowOrderPositivity)
+    text = print(io,"LowOrderPositivity(FBL=",get_low_order_surface_flux(rhs_type))
+end
+
+function Base.show(io::IO,rhs_type::EntropyStable)
+    text = print(io,"LowOrderPositivity(FBL=",get_high_order_surface_flux(rhs_type))
 end

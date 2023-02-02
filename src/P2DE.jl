@@ -1,4 +1,4 @@
-module SimplePDE
+module P2DE
 
 ###########################
 # Load necessary packages #
@@ -23,6 +23,7 @@ using Plots
 using DataFrames
 using JLD2
 using MAT
+using PrettyTables
 
 
 ########################
@@ -46,6 +47,7 @@ export Param,BCData,DataHistory,ErrorData
 export GlobalConstant,TimesteppingParameter,PostprocessingParameter,
        LimitingParameter
 export LowOrderPositivity,EntropyStable,ESLimitedLowOrderPos
+export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjectedVal
 export NoEntropyProjectionLimiter,ExponentialFilter,ZhangShuFilter,
        ElementwiseScaledExtrapolation,NodewiseScaledExtrapolation
 export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter
@@ -56,10 +58,12 @@ export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas
 ##################
 # Export methods #
 ##################
+export get_γ
 export initialize_DG
 export primitive_to_conservative
 export SSP33!
 export calculate_error,plot_component,plot_rho_animation,write_to_jld2
+export visualize_error_data
 export check_positivity,check_conservation
 
 #####################

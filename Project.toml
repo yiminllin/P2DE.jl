@@ -1,4 +1,4 @@
-name = "SimplePDE"
+name = "P2DE"
 uuid = "d8974cc4-f144-4ed3-ae9e-a1685f186403"
 authors = ["Yimin Lin"]
 version = "0.0.1"
@@ -11,6 +11,7 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
 NodesAndModes = "7aca2e03-f7e2-4192-9ec8-f4ca66d597fb"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StartUpDG = "472ebc20-7c99-4d4b-9470-8fde4e9faa0f"
@@ -19,6 +20,8 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [compat]
 JLD2 = "0.4"
+Plots = "1"
+StartUpDG = "0.15"
 julia = "1.7.3"
 
 [extras]

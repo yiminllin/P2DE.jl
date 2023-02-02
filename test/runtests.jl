@@ -1,6 +1,6 @@
-using SimplePDE
+using P2DE
 using Test
 
-@testset "SimplePDE.jl" begin
+@testset "P2DE.jl" begin
     # Write your tests here.
 end
