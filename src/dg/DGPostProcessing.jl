@@ -98,7 +98,7 @@ function plot_limiting_bar!(entropyproj_limiter_type::ExponentialFilter,x,barL,n
     plot!(x,barL[k]*ones(2)/normalization_factor,st=:bar,alpha=0.2)
 end
 
-function plot_limiting_bar!(entropyproj_limiter_type::Union{ZhangShuFilter,ElementwiseScaledExtrapolation},x,barL,normalization_factor,k)
+function plot_limiting_bar!(entropyproj_limiter_type::Union{ZhangShuFilter,ScaledExtrapolation},x,barL,normalization_factor,k)
     plot!(x,(1-barL[k])*ones(2),st=:bar,alpha=0.2)
 end
 
@@ -108,7 +108,13 @@ function write_to_jld2(param,data_hist,err_data,df,output_filename)
     catch
     end
 
-    push!(df,(param,data_hist,err_data))
-    @show output_filename
+    params = [getfield(param,n) for n in fieldnames(Param)]
+    errs   = [getfield(err_data,n) for n in fieldnames(ErrorData)]
+    push!(df,(params...,errs...,data_hist))
     save(output_filename,"data",df)
+    visualize_error_data(df)
+end
+
+function visualize_error_data(df)
+    pretty_table(df[:, [:N,:K,:timestepping_param,:limiting_param,:rhs_type,:entropyproj_limiter_type,:positivity_limiter_type,:L1err,:L2err,:Linferr]])
 end
