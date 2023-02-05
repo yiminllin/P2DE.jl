@@ -33,6 +33,7 @@ function initial_condition(param,x)
     return primitive_to_conservative(param.equation,SVector{3,Float64}(exact_sol(param.equation,x,t0)))
 end
 
+# TODO: refactor convergence
 jld_path = "outputs/jld2/sine-wave/sine-wave.jld2"
 
 for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter(),LobattoCollocation());
