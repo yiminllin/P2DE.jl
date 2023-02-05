@@ -83,9 +83,7 @@ end
 function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,θ,k,param,discrete_data_gauss)
     try
         update_limited_entropyproj_vars_on_element!(prealloc,θ,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
-        if check_bound_on_element(k,prealloc,param,discrete_data_gauss.sizes)
-            return true
-        end
+        return check_bound_on_element(k,prealloc,param,discrete_data_gauss.sizes)
     catch err
         if isa(err, DomainError)
             return false
@@ -172,9 +170,7 @@ end
 function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,θ_i,i,k,param,discrete_data_gauss)
     try
         update_limited_entropyproj_vars_on_face_node!(prealloc,θ_i,i,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
-        if check_bound_on_face_node(i,k,prealloc,param,discrete_data_gauss.sizes)
-            return true
-        end
+        return check_bound_on_face_node(i,k,prealloc,param,discrete_data_gauss.sizes)
     catch err
         if isa(err, DomainError)
             return false
