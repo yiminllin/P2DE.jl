@@ -292,5 +292,5 @@ function Base.show(io::IO,rhs_type::LowOrderPositivity)
 end
 
 function Base.show(io::IO,rhs_type::EntropyStable)
-    text = print(io,"LowOrderPositivity(FBL=",get_high_order_surface_flux(rhs_type))
+    text = print(io,"EntropyStable(FBL=",get_high_order_surface_flux(rhs_type))
 end
