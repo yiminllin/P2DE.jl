@@ -165,7 +165,7 @@ function check_bound_on_face_node(i,k,prealloc,param,sizes)
     # @show v3tilde[Nq+i] < min(VUf[i,k][end],ϵ)
     # display(v3tilde)
     # display(VUf[i,k])
-    return (v3tilde[Nq+i] < ζ*min(VUf[i,k][end],-ϵ)
+    return (v3tilde[Nq+i] < min(ζ*VUf[i,k][end],-ϵ)
          && rhotilde[Nq+i] > max((1-η)*Uf[i,k][1], ϵ)
          && rhotilde[Nq+i] < (1+η)*Uf[i,k][1]
          && rhoetilde[Nq+i] > max((1-η)*rhoef[i,k], ϵ)
