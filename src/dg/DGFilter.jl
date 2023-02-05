@@ -3,18 +3,8 @@ function compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,
     @unpack Farr,U_modal,LGLind,Uq,vq,Uf,VUf,rhoef = prealloc
 
     clear_entropyproj_limiting_parameter_cache!(prealloc,param.entropyproj_limiter_type,nstage)
-    # TODO: refactor, only work for gauss
-    mul!(Uf,discrete_data_gauss.ops.Vf,Uq)
-    # TODO: possible redundant calculation
-    for k = 1:param.K
-        for i = 1:size(vq,1)
-            vq[i,k] = v_ufun(param.equation,Uq[i,k])
-        end
-        for i = 1:size(VUf,1)
-            rhoef[i,k] = rhoe_ufun(param.equation,Uf[i,k])
-        end
-    end
-    mul!(VUf,discrete_data_gauss.ops.Vf,vq)
+    # TODO: possible redundant calculation, only used for calculation of bounds on the fly
+    calc_face_values!(prealloc,param,discrete_data_gauss)
     for k = 1:param.K
         if (!LGLind[k])
             solve_theta!(prealloc,k,nstage,param.entropyproj_limiter_type,param,discrete_data_gauss)
@@ -44,6 +34,21 @@ end
 
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::NoEntropyProjectionLimiter,nstage)
     # Do nothing
+end
+
+# TODO: refactor, only work for gauss
+function calc_face_values!(prealloc,param,discrete_data_gauss)
+    @unpack Uq,vq,Uf,VUf,rhoef = prealloc
+    mul!(Uf,discrete_data_gauss.ops.Vf,Uq)
+    for k = 1:param.K
+        for i = 1:size(vq,1)
+            vq[i,k] = v_ufun(param.equation,Uq[i,k])
+        end
+        for i = 1:size(VUf,1)
+            rhoef[i,k] = rhoe_ufun(param.equation,Uf[i,k])
+        end
+    end
+    mul!(VUf,discrete_data_gauss.ops.Vf,vq)
 end
 
 function solve_theta!(prealloc,k,nstage,entropyproj_limiter_type::ExponentialFilter,param,discrete_data_gauss)
