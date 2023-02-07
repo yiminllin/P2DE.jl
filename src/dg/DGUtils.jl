@@ -44,3 +44,19 @@ function check_conservation(prealloc,param,discrete_data_gauss,discrete_data_LGL
     end
     return sum(total)
 end
+
+function check_entropy(prealloc,param,discrete_data_gauss,discrete_data_LGL)
+    @unpack Uq,vq,LGLind = prealloc
+    for k = 1:param.K
+        for i = 1:size(vq,1)
+            vq[i,k] = v_ufun(param.equation,Uq[i,k])
+        end
+    end
+    total = zero(SVector{3,Float64})   # TODO: hardcoded
+    for k = 1:param.K
+        for i = 1:size(Uq,1)
+            total += LGLind[k] ? discrete_data_LGL.geom.J[i,k]*discrete_data_LGL.ops.wq[i]*(vq[i,k].*Uq[i,k]) : discrete_data_gauss.geom.J[i,k]*discrete_data_gauss.ops.wq[i]*(vq[i,k].*Uq[i,k])
+        end
+    end
+    return sum(total)
+end

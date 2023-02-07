@@ -48,7 +48,9 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
             push!(L_Vf_hist,copy(Farr))
             println("Current time $t with time step size $dt, and final time $T, step $i")
             total_conservation = check_conservation(prealloc,param,discrete_data_gauss,discrete_data_LGL)
+            total_entropy      = check_entropy(prealloc,param,discrete_data_gauss,discrete_data_LGL)
             @show total_conservation
+            @show total_entropy
         end
     end
     
