@@ -72,44 +72,30 @@ function initialize_preallocations(param,sizes)
 end
 
 function initialize_Gauss_rd(param)
-    # TODO: refactor
     @unpack N = param
 
-    # Set up reference element and the mesh
-    # This set up the basis at Gauss node
-    rd = RefElemData(Line(),N)
-    @unpack fv = rd
+    rd = RefElemData(Line(),N,quad_rule_vol=gauss_quad(0,0,N))
+    gauss_to_lobatto = rd.Pq
+    lobatto_to_gauss = inv(gauss_to_lobatto)
+    # Set Gauss RefElemData to be defined on Lagrangian basis on Gauss nodes
+    # instead of LGL nodes
+    # TODO: fv, Fmask, should not be used
+    rst  = tuple(rd.rq)
+    V1   = lobatto_to_gauss*rd.V1
+    VDM  = lobatto_to_gauss*rd.VDM
+    Vp   = rd.Vp*gauss_to_lobatto
+    Vq   = rd.Vq*gauss_to_lobatto    # I
+    Vf   = rd.Vf*gauss_to_lobatto
+    M    = gauss_to_lobatto'*rd.M*gauss_to_lobatto
+    Pq   = lobatto_to_gauss*rd.Pq    # I
+    Dr   = lobatto_to_gauss*rd.Dr*gauss_to_lobatto
+    LIFT = rd.M\(rd.Vf')
 
-    elem = Line()
-    Nplot = 10
-    # Construct matrices on reference elements
-    r,w = gauss_quad(0,0,N)
-    Fmask = [1 N+1]
-    VDM = vandermonde(elem, N, r)
-    Dr = grad_vandermonde(elem, N, r)/VDM
-
-    V1 = vandermonde(elem, 1, r)/vandermonde(elem, 1, [-1; 1])
-
-    rq, wq = gauss_quad(0,0,N)
-    Vq = vandermonde(elem, N, rq) / VDM
-    M = Vq' * diagm(wq) * Vq
-    Pq = M \ (Vq' * diagm(wq))
-
-    rf  = [-1.0; 1.0]
-    nrJ = [-1.0; 1.0]
-    wf  = [1.0; 1.0]
-    Vf = vandermonde(elem, N, rf) / VDM
-    LIFT = M \ (Vf') # lift matrix
-
-    # plotting nodes
-    rp = equi_nodes(elem, Nplot)
-    Vp = vandermonde(elem, N, rp) / VDM
-
-    rd = RefElemData(Line(), Polynomial, N, fv, V1,
-                     tuple(r), VDM, vec(Fmask),
-                     Nplot, tuple(rp), Vp,
-                     tuple(rq), wq, Vq,
-                     tuple(rf), wf, Vf, tuple(nrJ),
+    rd = RefElemData(Line(), Polynomial, N, rd.fv, V1,
+                     rst, VDM, rd.Fmask,
+                     rd.Nplot, rd.rstp, Vp,
+                     rd.rstq, rd.wq, Vq,
+                     rd.rstf, rd.wf, Vf, rd.nrstJ,
                      M, Pq, tuple(Dr), LIFT)
 
     return rd
