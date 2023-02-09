@@ -107,16 +107,19 @@ function initialize_operators(param,rd)
     @unpack N,K,XL,XR = param
     ZEROTOL = param.global_constants.ZEROTOL
 
-    # VX,EToV = uniform_mesh(Line(),K)
-    # VX = VX[1]
-    # @. VX = (VX + 1.0)/2.0
-    # TODO: refactor
+    # TODO: Assume uniform mesh
+    # Construct mesh
     VX = LinRange(XL,XR,K+1)
     EToV = transpose(reshape(sort([1:K; 2:K+1]),2,K))
     md = MeshData(VX,EToV,rd)
 
     @unpack x,xq,rxJ,nxJ,J,mapP = md
     @unpack r,rq,wq,wf,M,Pq,Vq,Vf,LIFT,nrJ,Dr,VDM = rd
+
+    # Construct geometric factors
+    Jq   = Vq*J
+    Vh   = [Vq;Vf]
+    rxJh = Vh*rxJ
 
     # Construct hybridized SBP operators
     Qr = Pq'*M*Dr*Pq
@@ -128,9 +131,8 @@ function initialize_operators(param,rd)
     Qrh_skew = Matrix(droptol!(sparse(Qrh_skew),ZEROTOL))
     Qrh_skew_db = 2*Qrh_skew
 
-    # TODO: hardcoded
-    Ns  = 3
-    Nc  = 3
+    Ns  = 3   # TODO: define get_num_stage() for RK time stepper
+    Nc  = 3   # TODO: define get_num_components() for different equation types
     Np  = N+1
     Nq  = length(wq)
     Nfp = size(Vf,1) 
@@ -145,9 +147,6 @@ function initialize_operators(param,rd)
     Qr0 = droptol!(sparse(Tridiagonal(dl,d,du)),ZEROTOL)
     Sr0 = droptol!(sparse(.5*(Qr0-Qr0')),ZEROTOL)
 
-    Jq       = Vq*J
-    Vh       = [Vq;Vf]
-    rxJh     = Vh*rxJ
     MinvVhT  = M\transpose(Vh)
     VDMinvPq = VDM\Pq
     VqVDM    = Vq*VDM
@@ -168,7 +167,18 @@ function initialize_operators(param,rd)
     geom  = GeomData(J,Jq,rxJh)
     ops   = Operators(Qrh,Qrh_skew_db,Qrh_skew_low_db,Sr0,Br,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,LIFT,wq)
     discrete_data = DiscretizationData(sizes,geom,ops)
+
     return md,discrete_data
+end
+
+function initialize_transfer_operators(param,rd_gauss,rd_LGL)
+    @unpack N = param
+
+    T_g2l = vandermonde(Line(),N,rd_LGL.r)/vandermonde(Line(),N,rd_gauss.r)
+    T_l2g = vandermonde(Line(),N,rd_gauss.r)/vandermonde(Line(),N,rd_LGL.r)
+    transfer_ops = TransferOperators(T_g2l,T_l2g)
+
+    return transfer_ops
 end
 
 function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
@@ -188,12 +198,10 @@ end
 function initialize_data(param)
     @unpack N = param
 
-    rd_gauss,rd_LGL = initialize_reference_data(param)
+    rd_gauss,rd_LGL              = initialize_reference_data(param)
     md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss)
-    md_LGL,discrete_data_LGL = initialize_operators(param,rd_LGL)
-    T_g2l = vandermonde(Line(),N,rd_LGL.r)/vandermonde(Line(),N,rd_gauss.r)
-    T_l2g = vandermonde(Line(),N,rd_gauss.r)/vandermonde(Line(),N,rd_LGL.r)
-    transfer_ops = TransferOperators(T_g2l,T_l2g)
+    md_LGL  ,discrete_data_LGL   = initialize_operators(param,rd_LGL)
+    transfer_ops                 = initialize_transfer_operators(param,rd_gauss,rd_LGL)
 
     return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops
 end
