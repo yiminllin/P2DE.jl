@@ -71,7 +71,7 @@ function initialize_preallocations(param,sizes)
     return prealloc
 end
 
-function initialize_Gauss_rd(param)
+function initialize_reference_data(param)
     @unpack N = param
 
     rd = RefElemData(Line(),N,quad_rule_vol=gauss_quad(0,0,N))
@@ -91,21 +91,15 @@ function initialize_Gauss_rd(param)
     Dr   = lobatto_to_gauss*rd.Dr*gauss_to_lobatto
     LIFT = rd.M\(rd.Vf')
 
-    rd = RefElemData(Line(), Polynomial, N, rd.fv, V1,
-                     rst, VDM, rd.Fmask,
-                     rd.Nplot, rd.rstp, Vp,
-                     rd.rstq, rd.wq, Vq,
-                     rd.rstf, rd.wf, Vf, rd.nrstJ,
-                     M, Pq, tuple(Dr), LIFT)
+    rd_gauss = RefElemData(Line(), Polynomial, N, rd.fv, V1,
+                           rst, VDM, rd.Fmask,
+                           rd.Nplot, rd.rstp, Vp,
+                           rd.rstq, rd.wq, Vq,
+                           rd.rstf, rd.wf, Vf, rd.nrstJ,
+                           M, Pq, tuple(Dr), LIFT)
+    rd_LGL   = RefElemData(Line(),N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
 
-    return rd
-end
-
-function initialize_LGL_rd(param)
-    @unpack N = param
-
-    rd = RefElemData(Line(),N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
-    return rd
+    return rd_gauss,rd_LGL
 end
 
 # TODO: specialize for 1D
@@ -194,8 +188,7 @@ end
 function initialize_data(param)
     @unpack N = param
 
-    rd_gauss = initialize_Gauss_rd(param)
-    rd_LGL   = initialize_LGL_rd(param)
+    rd_gauss,rd_LGL = initialize_reference_data(param)
     md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss)
     md_LGL,discrete_data_LGL = initialize_operators(param,rd_LGL)
     T_g2l = vandermonde(Line(),N,rd_LGL.r)/vandermonde(Line(),N,rd_gauss.r)
