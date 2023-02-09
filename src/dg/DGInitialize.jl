@@ -71,55 +71,35 @@ function initialize_preallocations(param,sizes)
     return prealloc
 end
 
-function initialize_Gauss_rd(param)
-    # TODO: refactor
+function initialize_reference_data(param)
     @unpack N = param
 
-    # Set up reference element and the mesh
-    # This set up the basis at Gauss node
-    rd = RefElemData(Line(),N)
-    @unpack fv = rd
+    rd = RefElemData(Line(),N,quad_rule_vol=gauss_quad(0,0,N))
+    gauss_to_lobatto = rd.Pq
+    lobatto_to_gauss = inv(gauss_to_lobatto)
+    # Set Gauss RefElemData to be defined on Lagrangian basis on Gauss nodes
+    # instead of LGL nodes
+    # TODO: fv, Fmask, should not be used
+    rst  = tuple(rd.rq)
+    V1   = lobatto_to_gauss*rd.V1
+    VDM  = lobatto_to_gauss*rd.VDM
+    Vp   = rd.Vp*gauss_to_lobatto
+    Vq   = rd.Vq*gauss_to_lobatto    # I
+    Vf   = rd.Vf*gauss_to_lobatto
+    M    = gauss_to_lobatto'*rd.M*gauss_to_lobatto
+    Pq   = lobatto_to_gauss*rd.Pq    # I
+    Dr   = lobatto_to_gauss*rd.Dr*gauss_to_lobatto
+    LIFT = rd.M\(rd.Vf')
 
-    elem = Line()
-    Nplot = 10
-    # Construct matrices on reference elements
-    r,w = gauss_quad(0,0,N)
-    Fmask = [1 N+1]
-    VDM = vandermonde(elem, N, r)
-    Dr = grad_vandermonde(elem, N, r)/VDM
+    rd_gauss = RefElemData(Line(), Polynomial, N, rd.fv, V1,
+                           rst, VDM, rd.Fmask,
+                           rd.Nplot, rd.rstp, Vp,
+                           rd.rstq, rd.wq, Vq,
+                           rd.rstf, rd.wf, Vf, rd.nrstJ,
+                           M, Pq, tuple(Dr), LIFT)
+    rd_LGL   = RefElemData(Line(),N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
 
-    V1 = vandermonde(elem, 1, r)/vandermonde(elem, 1, [-1; 1])
-
-    rq, wq = gauss_quad(0,0,N)
-    Vq = vandermonde(elem, N, rq) / VDM
-    M = Vq' * diagm(wq) * Vq
-    Pq = M \ (Vq' * diagm(wq))
-
-    rf  = [-1.0; 1.0]
-    nrJ = [-1.0; 1.0]
-    wf  = [1.0; 1.0]
-    Vf = vandermonde(elem, N, rf) / VDM
-    LIFT = M \ (Vf') # lift matrix
-
-    # plotting nodes
-    rp = equi_nodes(elem, Nplot)
-    Vp = vandermonde(elem, N, rp) / VDM
-
-    rd = RefElemData(Line(), Polynomial, N, fv, V1,
-                     tuple(r), VDM, vec(Fmask),
-                     Nplot, tuple(rp), Vp,
-                     tuple(rq), wq, Vq,
-                     tuple(rf), wf, Vf, tuple(nrJ),
-                     M, Pq, tuple(Dr), LIFT)
-
-    return rd
-end
-
-function initialize_LGL_rd(param)
-    @unpack N = param
-
-    rd = RefElemData(Line(),N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
-    return rd
+    return rd_gauss,rd_LGL
 end
 
 # TODO: specialize for 1D
@@ -127,16 +107,19 @@ function initialize_operators(param,rd)
     @unpack N,K,XL,XR = param
     ZEROTOL = param.global_constants.ZEROTOL
 
-    # VX,EToV = uniform_mesh(Line(),K)
-    # VX = VX[1]
-    # @. VX = (VX + 1.0)/2.0
-    # TODO: refactor
+    # TODO: Assume uniform mesh
+    # Construct mesh
     VX = LinRange(XL,XR,K+1)
     EToV = transpose(reshape(sort([1:K; 2:K+1]),2,K))
     md = MeshData(VX,EToV,rd)
 
     @unpack x,xq,rxJ,nxJ,J,mapP = md
     @unpack r,rq,wq,wf,M,Pq,Vq,Vf,LIFT,nrJ,Dr,VDM = rd
+
+    # Construct geometric factors
+    Jq   = Vq*J
+    Vh   = [Vq;Vf]
+    rxJh = Vh*rxJ
 
     # Construct hybridized SBP operators
     Qr = Pq'*M*Dr*Pq
@@ -148,9 +131,8 @@ function initialize_operators(param,rd)
     Qrh_skew = Matrix(droptol!(sparse(Qrh_skew),ZEROTOL))
     Qrh_skew_db = 2*Qrh_skew
 
-    # TODO: hardcoded
-    Ns  = 3
-    Nc  = 3
+    Ns  = 3   # TODO: define get_num_stage() for RK time stepper
+    Nc  = 3   # TODO: define get_num_components() for different equation types
     Np  = N+1
     Nq  = length(wq)
     Nfp = size(Vf,1) 
@@ -165,9 +147,6 @@ function initialize_operators(param,rd)
     Qr0 = droptol!(sparse(Tridiagonal(dl,d,du)),ZEROTOL)
     Sr0 = droptol!(sparse(.5*(Qr0-Qr0')),ZEROTOL)
 
-    Jq       = Vq*J
-    Vh       = [Vq;Vf]
-    rxJh     = Vh*rxJ
     MinvVhT  = M\transpose(Vh)
     VDMinvPq = VDM\Pq
     VqVDM    = Vq*VDM
@@ -188,7 +167,18 @@ function initialize_operators(param,rd)
     geom  = GeomData(J,Jq,rxJh)
     ops   = Operators(Qrh,Qrh_skew_db,Qrh_skew_low_db,Sr0,Br,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,LIFT,wq)
     discrete_data = DiscretizationData(sizes,geom,ops)
+
     return md,discrete_data
+end
+
+function initialize_transfer_operators(param,rd_gauss,rd_LGL)
+    @unpack N = param
+
+    T_g2l = vandermonde(Line(),N,rd_LGL.r)/vandermonde(Line(),N,rd_gauss.r)
+    T_l2g = vandermonde(Line(),N,rd_gauss.r)/vandermonde(Line(),N,rd_LGL.r)
+    transfer_ops = TransferOperators(T_g2l,T_l2g)
+
+    return transfer_ops
 end
 
 function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
@@ -208,13 +198,10 @@ end
 function initialize_data(param)
     @unpack N = param
 
-    rd_gauss = initialize_Gauss_rd(param)
-    rd_LGL   = initialize_LGL_rd(param)
+    rd_gauss,rd_LGL              = initialize_reference_data(param)
     md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss)
-    md_LGL,discrete_data_LGL = initialize_operators(param,rd_LGL)
-    T_g2l = vandermonde(Line(),N,rd_LGL.r)/vandermonde(Line(),N,rd_gauss.r)
-    T_l2g = vandermonde(Line(),N,rd_gauss.r)/vandermonde(Line(),N,rd_LGL.r)
-    transfer_ops = TransferOperators(T_g2l,T_l2g)
+    md_LGL  ,discrete_data_LGL   = initialize_operators(param,rd_LGL)
+    transfer_ops                 = initialize_transfer_operators(param,rd_gauss,rd_LGL)
 
     return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops
 end
