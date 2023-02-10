@@ -12,7 +12,7 @@ function primitive_to_conservative(equation::CompressibleIdealGas{Dim2},U)
     rhou = rho*u
     rhov = rho*v
     E = p/(γ-1) + .5*rho*(u^2+v^2)
-    return SVector{3,Float64}(rho,rhou,rhov,E)
+    return SVector{4,Float64}(rho,rhou,rhov,E)
 end
 
 @inline function pfun(equation::CompressibleIdealGas{Dim1},U)
