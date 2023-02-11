@@ -94,9 +94,9 @@ end
 
 # TODO: ugly dispatch
 function entropy_projection!(prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data_gauss,discrete_data_LGL,nstage)
-    @unpack K                                                     = param
     @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
     @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
+    K = get_num_elements(param)
     
     for k = 1:K
         vq_k      = view(vq,:,k)
@@ -115,9 +115,9 @@ end
 
 # TODO: ugly dispatch
 function entropy_projection!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,nstage)
-    @unpack K = param
     @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
     @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
+    K = get_num_elements(param)
     
     for k = 1:K
         vq_k      = view(vq,:,k)
@@ -136,9 +136,9 @@ end
 
 # TODO: ugly dispatch
 function entropy_projection!(prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,nstage)
-    @unpack K = param
     @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
     @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
+    K = get_num_elements(param)
     
     for k = 1:K
         vq_k      = view(vq,:,k)
@@ -188,9 +188,11 @@ function rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
 end
 
 function calculate_primitive_variables!(prealloc,param,bcdata)
-    @unpack K,equation = param
+    @unpack equation   = param
     @unpack mapP       = bcdata
     @unpack beta,rholog,betalog,u_tilde,uP,betaP,rhologP,betalogP = prealloc
+    K = get_num_elements(param)
+
     for k = 1:K
         for i = 1:size(beta,1)
             beta[i,k]    = betafun(equation,u_tilde[i,k])
@@ -220,10 +222,11 @@ end
 
 function calculate_interface_dissipation_coeff!(prealloc,param,bcdata)
     @unpack lam,LFc,u_tilde = prealloc
-    @unpack K,equation      = param
+    @unpack equation        = param
     @unpack mapP            = bcdata
 
     # TODO: refactor
+    K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     Nh = size(prealloc.u_tilde,1)
     uf = @view u_tilde[Nq+1:Nh,:]
@@ -281,8 +284,10 @@ function clear_flux_differencing_cache!(prealloc)
 end
 
 function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_data_gauss,rxJh)
-    @unpack K,equation = param
+    @unpack equation = param
     @unpack QF1,u_tilde,beta,rholog,betalog,Ui,Uj,LGLind = prealloc
+
+    K  = get_num_elements(param)
     Nh = size(u_tilde,1)
     for k = 1:K
         for j = 1:Nh
@@ -309,11 +314,12 @@ end
 function flux_differencing_surface!(prealloc,param)
     @unpack BF1,u_tilde,uP,LFc,flux_H = prealloc
 
+    K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     Nh = size(u_tilde,1)
     Nfp = size(BF1,1)
     uf = @view u_tilde[Nq+1:Nh,:]
-    for k  = 1:param.K
+    for k  = 1:K
         # Boundary contributions (B F)1
         for i = 1:Nfp
             BF1[i,k] = evaluate_high_order_surface_flux(prealloc,param,i,k,get_high_order_surface_flux(param.rhs_type))
@@ -393,8 +399,10 @@ end
 # TODO: dispatch
 function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nstage,J)
     @unpack spatial,boundary,QF1,BF1,LGLind,rhsH = prealloc
+
+    K  = get_num_elements(param)
     # Assemble RHS
-    for k = 1:param.K
+    for k = 1:K
         if LGLind[k]
             @views mul!(spatial[:,k],discrete_data_LGL.ops.MinvVhT,QF1[:,k])
             @views mul!(boundary[:,k],discrete_data_LGL.ops.LIFT,BF1[:,k])
@@ -448,10 +456,12 @@ end
 function calculate_wavespeed_and_inviscid_flux!(prealloc,param)
     @unpack equation = param
     @unpack Uq,Uf,u_tilde,wavespeed,flux = prealloc
+    
+    K  = get_num_elements(param)
     Nq = size(Uq,1)
     Nh  = size(prealloc.u_tilde,1)
     Nfp = Nh-Nq
-    for k = 1:param.K
+    for k = 1:K
         for i = 1:Nfp
             update_face_value!(prealloc,i,k,get_low_order_surface_flux(param.rhs_type))
         end
@@ -484,13 +494,14 @@ function calculate_low_order_CFL(prealloc,param,discrete_data_gauss,discrete_dat
     @unpack mapP      = bcdata
     @unpack αarr,LGLind,wavespeed,Uq,u_tilde = prealloc
 
+    K  = get_num_elements(param)
     Nq  = size(prealloc.Uq,1)
     Nh  = size(prealloc.u_tilde,1)
     Nfp = Nh-Nq
     wavespeed_f = @view wavespeed[Nq+1:Nh,:]
     utilde_f    = @view u_tilde[Nq+1:Nh,:]
     dt = min(CFL*dt0,T-t)
-    for k = 1:param.K
+    for k = 1:K
         αarr[1,k]   = find_alpha(param,Uq[1,k],utilde_f[1,k])
         αarr[end,k] = find_alpha(param,Uq[end,k],utilde_f[end,k])
         for i = 1:Nq
@@ -572,9 +583,10 @@ function get_lambda_B(prealloc,mapP,i,k,surface_flux_type::LaxFriedrichsOnProjec
 end
 
 function clear_low_order_rhs!(prealloc,param)
+    K  = get_num_elements(param)
     rhsL = prealloc.rhsL
     # Assemble RHS
-    for k = 1:param.K
+    for k = 1:K
         for i = 1:size(rhsL,1)
             rhsL[i,k] = zero(SVector{3,Float64})
         end
@@ -583,8 +595,10 @@ end
 
 function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack Uq,rhsL,flux,wavespeed,LGLind = prealloc
+    
+    K  = get_num_elements(param)
     Nq = size(Uq,1)
-    for k = 1:param.K
+    for k = 1:K
         # Volume contributions
         for j = 1:Nq
             for i = j+1:Nq
@@ -606,12 +620,13 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
     @unpack Uq,Uf,rhsL,flux,flux_L,wavespeed,LGLind,u_tilde = prealloc
     @unpack mapP,mapI,mapO,inflowarr                     = bcdata
 
+    K  = get_num_elements(param)
     Nq  = size(Uq,1)
     Nh  = size(u_tilde,1)
     Nfp = size(bcdata.mapP,1)
     flux_f      = @view flux[Nq+1:Nh,:]
     wavespeed_f = @view wavespeed[Nq+1:Nh,:]
-    for k = 1:param.K
+    for k = 1:K
         # Surface contributions
         for i = 1:Nfp
             idx = i+Nfp*(k-1)
@@ -635,7 +650,9 @@ end
 function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack rhsL,LGLind = prealloc
     @unpack Jq = discrete_data_gauss.geom
-    for k = 1:param.K
+
+    K  = get_num_elements(param)
+    for k = 1:K
         # Divide by mass
         for i = 1:size(rhsL,1)
             wq_i = LGLind[k] ? discrete_data_LGL.ops.wq[i] : discrete_data_gauss.ops.wq[i]
@@ -650,12 +667,13 @@ function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_L
     @unpack Jq = discrete_data_gauss.geom
     @unpack mapP = bcdata
 
+    K  = get_num_elements(param)
     Nq  = size(Uq,1)
     Nh  = size(u_tilde,1)
     Nfp = size(bcdata.mapP,1)
     flux_f      = @view flux[Nq+1:Nh,:]
     wavespeed_f = @view wavespeed[Nq+1:Nh,:]
-    for k = 1:param.K
+    for k = 1:K
         for i = 1:Nq
             rhsL_i = zero(Uq[i,k])
             rhsL_bar_i = zero(Uq[i,k])
@@ -674,14 +692,14 @@ function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_L
             end
             # boundary 
             if i == 1
-                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,param.K)])
+                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,K)])
                 lambda_i += lambda_ij
-                rhsL_i -= (-.5*(flux[1,k]+flux[Nq,mod1(k-1,param.K)])-lambda_ij*(Uq[Nq,mod1(k-1,param.K)]-Uq[1,k]))/wJq_i
+                rhsL_i -= (-.5*(flux[1,k]+flux[Nq,mod1(k-1,K)])-lambda_ij*(Uq[Nq,mod1(k-1,K)]-Uq[1,k]))/wJq_i
             end
             if i == Nq
-                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,param.K)])
+                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,K)])
                 lambda_i += lambda_ij
-                rhsL_i -= (.5*(flux[Nq,k]+flux[1,mod1(k+1,param.K)])-lambda_ij*(Uq[1,mod1(k+1,param.K)]-Uq[Nq,k]))/wJq_i
+                rhsL_i -= (.5*(flux[Nq,k]+flux[1,mod1(k+1,K)])-lambda_ij*(Uq[1,mod1(k+1,K)]-Uq[Nq,k]))/wJq_i
             end
 
             # Using bar states
@@ -700,8 +718,8 @@ function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_L
             end
             if i == 1
                 Br0_i = -.5
-                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,param.K)])
-                ubar_ij = .5*(Uq[1,k]+Uq[Nq,mod1(k-1,param.K)])-.5*Br0_i/lambda_ij*(flux[Nq,mod1(k-1,param.K)]-flux[1,k])
+                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,K)])
+                ubar_ij = .5*(Uq[1,k]+Uq[Nq,mod1(k-1,K)])-.5*Br0_i/lambda_ij*(flux[Nq,mod1(k-1,K)]-flux[1,k])
                 is_positive,_,_ = check_positivity_node(ubar_ij,param)
                 if !is_positive
                     @show k,i,lambda_ij
@@ -711,11 +729,11 @@ function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_L
             end
             if i == Nq
                 Br0_i = .5
-                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,param.K)])
-                ubar_ij = .5*(Uq[Nq,k]+Uq[1,mod1(k+1,param.K)])-.5*Br0_i/lambda_ij*(flux[1,mod1(k+1,param.K)]-flux[Nq,k])
+                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,K)])
+                ubar_ij = .5*(Uq[Nq,k]+Uq[1,mod1(k+1,K)])-.5*Br0_i/lambda_ij*(flux[1,mod1(k+1,K)]-flux[Nq,k])
                 ubar_ij_L = .5*Uq[Nq,k]+.5*Br0_i/lambda_ij*flux[Nq,k]
                 ubar_L    = 2*lambda_ij*Uq[Nq,k] + flux[Nq,k]
-                ubar_ij_R = .5*Uq[1,mod1(k+1,param.K)]-.5*Br0_i/lambda_ij*flux[1,mod1(k+1,param.K)]
+                ubar_ij_R = .5*Uq[1,mod1(k+1,K)]-.5*Br0_i/lambda_ij*flux[1,mod1(k+1,K)]
                 check_positivity_node(ubar_ij,param)
                 check_positivity_node(ubar_ij_L,param)
                 check_positivity_node(ubar_ij_R,param)

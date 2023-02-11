@@ -4,6 +4,7 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
     @unpack Farr,Larr,αarr,LGLind,L_L2G_arr,L_G2L_arr,L_Vf_arr,rhsU,resW,resZ = prealloc
     @unpack Uq = prealloc
 
+    Nc = get_num_components(param.equation)
     Uhist      = []
     Lhist      = []
     Fhist      = []
@@ -52,6 +53,6 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
         end
     end
     
-    data_hist = DataHistory(Uhist,Lhist,Fhist,alphahist,thist,dthist,LGLindhist,L_L2G_hist,L_G2L_hist,L_Vf_hist)
+    data_hist = DataHistory{Nc}(Uhist,Lhist,Fhist,alphahist,thist,dthist,LGLindhist,L_L2G_hist,L_G2L_hist,L_Vf_hist)
     return data_hist
 end

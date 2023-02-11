@@ -1,9 +1,9 @@
 # TODO: change file names
 # TODO: preallocation to cache
 function initialize_preallocations(param,md,sizes)
-    @unpack K                  = md
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
 
+    K  = get_num_elements(param)
     Uq      = zeros(SVector{Nc,Float64},Nq,K)
     vq      = zeros(SVector{Nc,Float64},Nq,K)
     v_tilde = zeros(SVector{Nc,Float64},Nh,K)
@@ -296,9 +296,9 @@ function initialize_transfer_operators(elem_type,param,rd_gauss,rd_LGL)
 end
 
 function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
-    @unpack K  = md_gauss
     @unpack Nq = discrete_data_gauss.sizes
 
+    K  = get_num_elements(param)
     update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,true)
     for k = 1:K
         for i = 1:Nq

@@ -15,6 +15,7 @@ end
 function initial_boundary_conditions(param,md)
     @unpack K,xf,yf,mapM,mapP,mapB = md
 
+    Nc = get_num_components(param.equation)
     # Make periodic
     md = make_periodic(md)
     @unpack mapP = md
@@ -23,7 +24,7 @@ function initial_boundary_conditions(param,md)
     mapO = []
     inflowarr = []
 
-    bcdata = BCData(mapP,mapI,mapO,inflowarr)
+    bcdata = BCData{Nc}(mapP,mapI,mapO,inflowarr)
 
     return bcdata
 end

@@ -144,13 +144,26 @@ Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROP
     positivity_limiter_type ::POSITIVITYLIMITERTYPE
 end
 
+# TODO: refactor
+function get_num_elements(param)
+    return get_num_elements(param,param.equation)
+end
+
+function get_num_elements(param,equation::EquationType{Dim1})
+    return param.K
+end
+
+function get_num_elements(param,equation::EquationType{Dim2})
+    return param.K[1]*param.K[2]
+end
+
 # TODO: tuple
-mutable struct BCData
+mutable struct BCData{Nc}
     mapP::Array{Int64,2}
     mapI::Array{Int64,1}
     mapO::Array{Int64,1}  # List of global indices with inflow and outflow 
                           # boundary conditions
-    inflowarr::Array{SVector{3,Float64},1}
+    inflowarr::Array{SVector{Nc,Float64},1}
 end
 
 # TODO: tuple
@@ -261,8 +274,8 @@ mutable struct Preallocation{Nc}
     rhoef    ::Array{Float64,2}
 end
 
-mutable struct DataHistory 
-    Uhist     ::Vector{Array{SVector{3,Float64},2}}
+mutable struct DataHistory{Nc}
+    Uhist     ::Vector{Array{SVector{Nc,Float64},2}}
     Lhist     ::Vector{Array{Float64,2}}
     Fhist     ::Vector{Array{Float64,2}}
     alphahist ::Vector{Array{Float64,2}}

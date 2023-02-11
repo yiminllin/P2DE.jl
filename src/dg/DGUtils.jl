@@ -1,10 +1,12 @@
 function check_positivity(U,param)
     @unpack equation = param
+    
+    K  = get_num_elements(param)
     rhomin  = Inf
     rhoemin = Inf
     rhomax  = -Inf
     rhoemax = -Inf
-    for k = 1:param.K
+    for k = 1:K
         for i = 1:size(U,1)
             is_positive,rho,p = check_positivity_node(U[i,k],param)
             if !is_positive
@@ -36,8 +38,10 @@ end
 
 function check_conservation(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack Uq,LGLind = prealloc
-    total = zero(SVector{3,Float64})   # TODO: hardcoded
-    for k = 1:param.K
+    
+    K  = get_num_elements(param)
+    total = zero(prealloc.Uq[1])
+    for k = 1:K
         for i = 1:size(Uq,1)
             total += LGLind[k] ? discrete_data_LGL.geom.J[i,k]*discrete_data_LGL.ops.wq[i]*Uq[i,k] : discrete_data_gauss.geom.J[i,k]*discrete_data_gauss.ops.wq[i]*Uq[i,k]
         end

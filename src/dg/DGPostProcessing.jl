@@ -1,6 +1,8 @@
 function calculate_error(U,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
-    @unpack equation,N,K = param
-    @unpack Nq,Nc        = discrete_data_gauss.sizes
+    @unpack equation,N = param
+    @unpack Nq,Nc      = discrete_data_gauss.sizes
+    
+    K  = get_num_elements(param)
     T = param.timestepping_param.T
 
     L1err     = zero(SVector{3,Float64})
@@ -59,9 +61,10 @@ function plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
 end
 
 function plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,limiting_hist,PlotL,PlotU,output_filename)
-    @unpack xL,xR,K = param
-    @unpack Uhist   = data_hist
+    @unpack xL,xR = param
+    @unpack Uhist = data_hist
 
+    K  = get_num_elements(param)
     gr(x_lim=[xL,xR],ylim=[PlotL,PlotU],label=false,legend=false)
     anim = Animation()
     normalization_factor = reduce(max, map(x->maximum(x), limiting_hist))
