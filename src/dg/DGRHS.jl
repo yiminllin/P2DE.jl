@@ -297,8 +297,8 @@ function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_dat
                 Ui[3] = beta[i,k]
                 Ui[4] = rholog[i,k]
                 Ui[5] = betalog[i,k]
-                Qrh_skew_db_ij = (LGLind[k]) ? discrete_data_LGL.ops.Qrh_skew_db[i,j] : discrete_data_gauss.ops.Qrh_skew_db[i,j]
-                QFij = Qrh_skew_db_ij*fS_prim_log(equation,Ui,Uj)
+                Srh_db_ij = (LGLind[k]) ? discrete_data_LGL.ops.Srh_db[i,j] : discrete_data_gauss.ops.Srh_db[i,j]
+                QFij = Srh_db_ij*fS_prim_log(equation,Ui,Uj)
                 QF1[i,k] += rxJh[i,k]*QFij
                 QF1[j,k] -= rxJh[j,k]*QFij
             end

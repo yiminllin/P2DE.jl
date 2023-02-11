@@ -40,10 +40,10 @@ end
 function plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
                         rhoq,kL,kR,PlotL,PlotU,output_filename,
                         plot_exact=false,xexact=nothing,rhoexact=nothing,kLexact=kL,kRexact=kR)
-    @unpack XL,XR = param
+    @unpack xL,xR = param
     @unpack Nq    = discrete_data_gauss.sizes
 
-    gr(x_lim=[XL,XR],ylim=[PlotL,PlotU],label=false,legend=false)
+    gr(x_lim=[xL,xR],ylim=[PlotL,PlotU],label=false,legend=false)
     xplot        = zeros(Float64,Nq,kR-kL+1)
     for k = kL:kR
         xplot[:,k-kL+1] = (prealloc.LGLind[k]) ? md_LGL.xq[:,k] : md_gauss.xq[:,k]
@@ -59,10 +59,10 @@ function plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
 end
 
 function plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,limiting_hist,PlotL,PlotU,output_filename)
-    @unpack XL,XR,K = param
+    @unpack xL,xR,K = param
     @unpack Uhist   = data_hist
 
-    gr(x_lim=[XL,XR],ylim=[PlotL,PlotU],label=false,legend=false)
+    gr(x_lim=[xL,xR],ylim=[PlotL,PlotU],label=false,legend=false)
     anim = Animation()
     normalization_factor = reduce(max, map(x->maximum(x), limiting_hist))
     xplot = zeros(Float64,size(md_gauss.xq,1),K)
@@ -74,8 +74,8 @@ function plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,limiting_hi
         plot(xplot[:],rho[:])
 
         # plot filter bars
-        Bl = XL
-        Br = XR
+        Bl = xL
+        Br = xR
         barL = (limiting_hist[i][:,1]+limiting_hist[i][:,2]+limiting_hist[i][:,3])/3
         # TODO: assume uniform mesh
         ptL = Bl+(Br-Bl)/K/2

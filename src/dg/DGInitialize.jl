@@ -1,54 +1,54 @@
 # TODO: change file names
 # TODO: preallocation to cache
-function initialize_preallocations(param,sizes)
-    @unpack K                  = param
+function initialize_preallocations(param,md,sizes)
+    @unpack K                  = md
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
 
-    Uq      = zeros(SVector{3,Float64},Nq,K)
-    vq      = zeros(SVector{3,Float64},Nq,K)
-    v_tilde = zeros(SVector{3,Float64},Nh,K)
-    u_tilde = zeros(SVector{3,Float64},Nh,K)
+    Uq      = zeros(SVector{Nc,Float64},Nq,K)
+    vq      = zeros(SVector{Nc,Float64},Nq,K)
+    v_tilde = zeros(SVector{Nc,Float64},Nh,K)
+    u_tilde = zeros(SVector{Nc,Float64},Nh,K)
     beta    = zeros(Float64,Nh,K)
     rholog  = zeros(Float64,Nh,K)
     betalog = zeros(Float64,Nh,K)
     lam     = zeros(Float64,Nfp,K)
     LFc     = zeros(Float64,Nfp,K)
-    rhsH    = zeros(SVector{3,Float64},Nq,K)
+    rhsH    = zeros(SVector{Nc,Float64},Nq,K)
     Ui      = zeros(Float64,Nc+2)
     Uj      = zeros(Float64,Nc+2)
-    QF1     = zeros(SVector{3,Float64},Nh,K)
-    BF1     = zeros(SVector{3,Float64},Nfp,K)
-    uP       = zeros(SVector{3,Float64},Nfp,K)
+    QF1     = zeros(SVector{Nc,Float64},Nh,K)
+    BF1     = zeros(SVector{Nc,Float64},Nfp,K)
+    uP       = zeros(SVector{Nc,Float64},Nfp,K)
     betaP    = zeros(Float64,Nfp,K)
     rhologP  = zeros(Float64,Nfp,K)
     betalogP = zeros(Float64,Nfp,K)
-    flux       = zeros(SVector{3,Float64},Nh,K)
-    flux_H     = zeros(SVector{3,Float64},Nfp,K)
-    flux_L     = zeros(SVector{3,Float64},Nfp,K)
+    flux       = zeros(SVector{Nc,Float64},Nh,K)
+    flux_H     = zeros(SVector{Nc,Float64},Nfp,K)
+    flux_L     = zeros(SVector{Nc,Float64},Nfp,K)
     wavespeed  = zeros(Float64,Nh,K)
     alphaarr   = zeros(Float64,Nfp,K)
-    rhsL    = zeros(SVector{3,Float64},Nq,K)
+    rhsL    = zeros(SVector{Nc,Float64},Nq,K)
     Larr    = zeros(Float64,K,Ns)
     L_local_arr = zeros(Float64,Nq+1,K,Ns)
-    rhsU    = zeros(SVector{3,Float64},Nq,K)
+    rhsU    = zeros(SVector{Nc,Float64},Nq,K)
     v3tilde   = zeros(Float64,Nh)
     rhotilde  = zeros(Float64,Nh)
     rhoetilde = zeros(Float64,Nh)
-    vq_k      = zeros(SVector{3,Float64},Nq)
-    v_tilde_k = zeros(SVector{3,Float64},Nh)      # TODO: refactor with v_tilde, u_tilde
-    u_tilde_k = zeros(SVector{3,Float64},Nh)
-    U_modal   = zeros(SVector{3,Float64},Np,K)
-    U_k       = zeros(SVector{3,Float64},Np)
-    Uq_k      = zeros(SVector{3,Float64},Nq)
-    spatial   = zeros(SVector{3,Float64},Np,K)
-    boundary  = zeros(SVector{3,Float64},Np,K)
-    resW      = zeros(SVector{3,Float64},Nq,K)
-    resZ      = zeros(SVector{3,Float64},Nq,K)
+    vq_k      = zeros(SVector{Nc,Float64},Nq)
+    v_tilde_k = zeros(SVector{Nc,Float64},Nh)      # TODO: refactor with v_tilde, u_tilde
+    u_tilde_k = zeros(SVector{Nc,Float64},Nh)
+    U_modal   = zeros(SVector{Nc,Float64},Np,K)
+    U_k       = zeros(SVector{Nc,Float64},Np)
+    Uq_k      = zeros(SVector{Nc,Float64},Nq)
+    spatial   = zeros(SVector{Nc,Float64},Np,K)
+    boundary  = zeros(SVector{Nc,Float64},Np,K)
+    resW      = zeros(SVector{Nc,Float64},Nq,K)
+    resZ      = zeros(SVector{Nc,Float64},Nq,K)
     Farr      = zeros(Float64,K,Ns)            # TODO: rename F, eta to theta
     θ_local_arr = zeros(Float64,Nfp,K,Ns)
     αarr      = zeros(Float64,Nfp,K)
-    resW      = zeros(SVector{3,Float64},Nq,K)
-    resZ      = zeros(SVector{3,Float64},Nq,K)
+    resW      = zeros(SVector{Nc,Float64},Nq,K)
+    resZ      = zeros(SVector{Nc,Float64},Nq,K)
     LGLind    = falses(K)                       # TODO: array of BasisType, singleton type
     L_G2L_arr = ones(Float64,K,Ns)
     L_L2G_arr = ones(Float64,K,Ns)
@@ -58,63 +58,104 @@ function initialize_preallocations(param,sizes)
     Vf_new      = zeros(Float64,Nfp,Nq)
     VhT_new     = zeros(Float64,Np,Nh)
     MinvVhT_new = zeros(Float64,Np,Nh)
-    uL_k      = zeros(SVector{3,Float64},Nq)
-    P_k       = zeros(SVector{3,Float64},Nq)
-    f_bar_H   = zeros(SVector{3,Float64},Nq+1,K)
-    f_bar_L   = zeros(SVector{3,Float64},Nq+1,K)
-    f_bar_lim = zeros(SVector{3,Float64},Nq+1,K)  # TODO: unnecessary
-    Uf        = zeros(SVector{3,Float64},Nfp,K)
-    VUf       = zeros(SVector{3,Float64},Nfp,K)
+    uL_k      = zeros(SVector{Nc,Float64},Nq)
+    P_k       = zeros(SVector{Nc,Float64},Nq)
+    f_bar_H   = zeros(SVector{Nc,Float64},Nq+1,K)
+    f_bar_L   = zeros(SVector{Nc,Float64},Nq+1,K)
+    f_bar_lim = zeros(SVector{Nc,Float64},Nq+1,K)  # TODO: unnecessary
+    Uf        = zeros(SVector{Nc,Float64},Nfp,K)
+    VUf       = zeros(SVector{Nc,Float64},Nfp,K)
     rhoef     = zeros(Float64,Nfp,K)
 
     prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef)
     return prealloc
 end
 
-function initialize_reference_data(param)
-    @unpack N = param
+function initialize_DG(param,initial_condition,initial_boundary_conditions)
+    rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops = initialize_data(param)
 
-    rd = RefElemData(Line(),N,quad_rule_vol=gauss_quad(0,0,N))
+    @unpack sizes = discrete_data_gauss 
+    bcdata = initial_boundary_conditions(param,md_gauss)
+    prealloc = initialize_preallocations(param,md_gauss,sizes)
+
+    init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
+
+    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc
+end
+
+function initialize_data(param)
+    @unpack N,equation = param
+
+    rd_gauss,rd_LGL              = initialize_reference_data(N,equation)
+    md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss,GaussQuadrature())
+    md_LGL  ,discrete_data_LGL   = initialize_operators(param,rd_LGL,LobattoQuadrature())
+    transfer_ops                 = initialize_transfer_operators(rd_gauss.element_type,param,rd_gauss,rd_LGL)
+
+    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops
+end
+
+function initialize_reference_data(N,equation::EquationType{Dim1})
+    element_type = Line()
+    rd_gauss = construct_gauss_reference_data(RefElemData(element_type,N,quad_rule_vol=gauss_quad(0,0,N)))
+    rd_LGL   = RefElemData(element_type,N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
+
+    return rd_gauss,rd_LGL
+end
+
+function initialize_reference_data(N,equation::EquationType{Dim2})
+    element_type = Quad()
+
+    # create degree N tensor product Gauss quadrature rule
+    r1D,w1D = gauss_quad(0, 0, N)
+    rq,sq = vec.(StartUpDG.meshgrid(r1D))
+    wr,ws = vec.(StartUpDG.meshgrid(w1D))
+    wq = @. wr*ws
+
+    rd_gauss = construct_gauss_reference_data(RefElemData(element_type,N,quad_rule_vol=(rq,sq,wq),quad_rule_face=(r1D,w1D)))
+    rd_LGL   = RefElemData(element_type,SBP(),N)
+
+    return rd_gauss,rd_LGL
+end
+
+# Construct Gauss collocation reference element data from the reference element
+# data with Lagrangian basis on LGL node and Gauss quadrature
+function construct_gauss_reference_data(rd)
     gauss_to_lobatto = rd.Pq
     lobatto_to_gauss = inv(gauss_to_lobatto)
     # Set Gauss RefElemData to be defined on Lagrangian basis on Gauss nodes
     # instead of LGL nodes
     # TODO: fv, Fmask, should not be used
-    rst  = tuple(rd.rq)
+    # TODO: sparsify
+    rst  = rd.rstq 
     V1   = lobatto_to_gauss*rd.V1
     VDM  = lobatto_to_gauss*rd.VDM
     Vp   = rd.Vp*gauss_to_lobatto
-    Vq   = rd.Vq*gauss_to_lobatto    # I
+    Vq   = I         # rd.Vq*gauss_to_lobatto
     Vf   = rd.Vf*gauss_to_lobatto
     M    = gauss_to_lobatto'*rd.M*gauss_to_lobatto
-    Pq   = lobatto_to_gauss*rd.Pq    # I
+    Pq   = I         # lobatto_to_gauss*rd.Pq
     Dr   = lobatto_to_gauss*rd.Dr*gauss_to_lobatto
+    Drst = (x->lobatto_to_gauss*x*gauss_to_lobatto).(rd.Drst)
     LIFT = rd.M\(rd.Vf')
 
-    rd_gauss = RefElemData(Line(), Polynomial, N, rd.fv, V1,
-                           rst, VDM, rd.Fmask,
-                           rd.Nplot, rd.rstp, Vp,
-                           rd.rstq, rd.wq, Vq,
-                           rd.rstf, rd.wf, Vf, rd.nrstJ,
-                           M, Pq, tuple(Dr), LIFT)
-    rd_LGL   = RefElemData(Line(),N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
-
-    return rd_gauss,rd_LGL
+    return RefElemData(rd.element_type, Polynomial, rd.N, rd.fv, V1,
+                       rst, VDM, rd.Fmask,
+                       rd.Nplot, rd.rstp, Vp,
+                       rd.rstq, rd.wq, Vq,
+                       rd.rstf, rd.wf, Vf, rd.nrstJ,
+                       M, Pq, Drst, LIFT)
 end
 
 # TODO: specialize for 1D
-function initialize_operators(param,rd)
-    @unpack N,K,XL,XR = param
+function initialize_operators(param,rd,quad_type)
+    @unpack N = param
     ZEROTOL = param.global_constants.ZEROTOL
 
     # TODO: Assume uniform mesh
     # Construct mesh
-    VX = LinRange(XL,XR,K+1)
-    EToV = transpose(reshape(sort([1:K; 2:K+1]),2,K))
-    md = MeshData(VX,EToV,rd)
-
+    md = initialize_uniform_mesh_data(param,rd,rd.element_type)
     @unpack x,xq,rxJ,nxJ,J,mapP = md
-    @unpack r,rq,wq,wf,M,Pq,Vq,Vf,LIFT,nrJ,Dr,VDM = rd
+    @unpack r,rq,wq,wf,M,Pq,Vq,Vf,LIFT,nrstJ,Drst,VDM = rd
 
     # Construct geometric factors
     Jq   = Vq*J
@@ -122,21 +163,69 @@ function initialize_operators(param,rd)
     rxJh = Vh*rxJ
 
     # Construct hybridized SBP operators
-    Qr = Pq'*M*Dr*Pq
+    Qrs = (A->Matrix(droptol!(sparse(Pq'*M*A*Pq),ZEROTOL))).(Drst)
     Ef = Vf*Pq
-    Br = diagm(wf.*nrJ)
-    Qrh = .5*[Qr-Qr' Ef'*Br;
-            -Br*Ef  Br]
-    Qrh_skew = .5*(Qrh-Qrh')
-    Qrh_skew = Matrix(droptol!(sparse(Qrh_skew),ZEROTOL))
-    Qrh_skew_db = 2*Qrh_skew
+    Brs = (A->Matrix(droptol!(sparse(diagm(wf.*A)),ZEROTOL))).(nrstJ)
+    Qrsh = (QB->Matrix(droptol!(sparse(.5*[QB[1]-QB[1]' Ef'*QB[2];
+                                          -QB[2]*Ef     QB[2]     ]),ZEROTOL))).(zip(Qrs,Brs))
+    Srsh = (A->.5*(A-A')).(Qrsh)
+    Srsh_db = Tuple((A->2*A).(Srsh))
 
+    # Define sizes
     Ns  = 3   # TODO: define get_num_stage() for RK time stepper
-    Nc  = 3   # TODO: define get_num_components() for different equation types
-    Np  = N+1
+    Nc  = get_num_components(param.equation)
+    Np  = size(VDM,2)
     Nq  = length(wq)
     Nfp = size(Vf,1) 
     Nh  = Nq+Nfp
+
+    # Define operators
+    Vq,Pq = (A->typeof(A)<:UniformScaling ? diagm(ones(Nq)) : A).((Vq,Pq))  # TODO: bad runtime type check...
+    M,Vq,Vh,Pq = (A->Matrix(droptol!(sparse(A),ZEROTOL))).((M,Vq,Vh,Pq)) 
+    MinvVhT  = M\transpose(Vh)
+    VDMinvPq = VDM\Pq
+    VqVDM    = Vq*VDM
+    VhPq     = Vh*Pq
+
+    # Low order operators
+    Srs0,Vf_low = get_low_order_operators(param,rd,rd.element_type,quad_type)
+
+    sizes = SizeData(Nc,Np,Nq,Nfp,Nh,Ns)
+    geom  = GeomData(J,Jq,rxJh)
+    ops   = Operators(Srsh_db,Srs0,Brs,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,LIFT,wq)
+    discrete_data = DiscretizationData(sizes,geom,ops)
+
+    return md,discrete_data
+end
+
+function initialize_uniform_mesh_data(param,rd,element_type::Line)
+    @unpack xL,xR,K = param
+
+    VXYZ,EToV = uniform_mesh(rd.element_type,K)
+    VX = VXYZ[1]
+    @. VX = (VX+1.0)/2.0*(xR-xL)+xL
+    md = MeshData(VX,EToV,rd)
+
+    return md
+end
+
+function initialize_uniform_mesh_data(param,rd,element_type::Quad)
+    @unpack xL,xR,K = param
+
+    VXYZ,EToV = uniform_mesh(rd.element_type,K[1],K[2])
+    VX = VXYZ[1]
+    VY = VXYZ[2]
+    @. VX = (VX+1.0)/2.0*(xR[1]-xL[1]).+xL[1]
+    @. VY = (VY+1.0)/2.0*(xR[2]-xL[2]).+xL[2]
+    md = MeshData((VX,VY),EToV,rd)
+
+    return md
+end
+
+function construct_low_order_operators_1D(param)
+    N = param.N
+    ZEROTOL = param.global_constants.ZEROTOL
+    Nq = N+1
 
     # low order operator
     d  = zeros(Float64,Nq)
@@ -147,42 +236,67 @@ function initialize_operators(param,rd)
     Qr0 = droptol!(sparse(Tridiagonal(dl,d,du)),ZEROTOL)
     Sr0 = droptol!(sparse(.5*(Qr0-Qr0')),ZEROTOL)
 
-    MinvVhT  = M\transpose(Vh)
-    VDMinvPq = VDM\Pq
-    VqVDM    = Vq*VDM
-    VhPq     = Vh*Pq
-
-    Vf_low      = zero.(Vf)
+    Vf_low      = spzeros(2,Nq)
     Vf_low[1]   = 1.0
     Vf_low[end] = 1.0
 
-    Ef_low  = Vf_low*Pq
-    Qrh_low = Matrix(droptol!(.5*[Qr0-Qr0'   Ef_low'*Br;
-                                 -Br*Ef_low  Br         ],ZEROTOL))
-    Qrh_skew_low    = .5*(Qrh_low-Qrh_low')
-    Qrh_skew_low    = Matrix(droptol!(sparse(Qrh_skew_low),ZEROTOL))
-    Qrh_skew_low_db = 2.0*Qrh_skew_low
-
-    sizes = SizeData(Nc,Np,Nq,Nfp,Nh,Ns)
-    geom  = GeomData(J,Jq,rxJh)
-    ops   = Operators(Qrh,Qrh_skew_db,Qrh_skew_low_db,Sr0,Br,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,LIFT,wq)
-    discrete_data = DiscretizationData(sizes,geom,ops)
-
-    return md,discrete_data
+    return (Sr0,),Vf_low
 end
 
-function initialize_transfer_operators(param,rd_gauss,rd_LGL)
+function get_low_order_operators(param,rd,element_type::Line,quad_type)
+    return construct_low_order_operators_1D(param) 
+end
+
+function get_low_order_operators(param,rd,element_type::Quad,quad_type::GaussQuadrature)
+    _,w1D = gauss_quad(0,0,param.N)
+    return get_low_order_operators(param,rd,element_type,quad_type,w1D)
+end
+
+function get_low_order_operators(param,rd,element_type::Quad,quad_type::LobattoQuadrature)
+    _,w1D = gauss_lobatto_quad(0,0,param.N)
+    return get_low_order_operators(param,rd,element_type,quad_type,w1D)
+end
+
+function get_low_order_operators(param,rd,element_type::Quad,quad_type,w1D)
+    ZEROTOL = param.global_constants.ZEROTOL
+    M1D = diagm(w1D)
+    S01D,Vf1D_low = construct_low_order_operators_1D(param)
+    Sr0 = droptol!(sparse(kron(M1D,S01D[1])),ZEROTOL)
+    Ss0 = droptol!(sparse(kron(S01D[1],M1D)),ZEROTOL)
+    Vf_low = get_low_order_extrapolation(param,rd,element_type,quad_type)
+    return (Sr0,Ss0),Vf_low
+end
+
+function get_low_order_extrapolation(param,rd,element_type::Quad,quad_type::GaussQuadrature)
+    N    = param.N
+    Nq1D = N+1
+    Nq   = (N+1)*(N+1)
+    Nfp  = 4*(N+1)
+    Is = collect(1:Nfp)
+    Js = collect([1:Nq1D;
+                  ((Nq1D-1)*Nq1D+1):Nq1D*Nq1D;
+                  1:Nq1D:((Nq1D-1)*Nq1D+1);
+                  Nq1D:Nq1D:Nq1D*Nq1D])
+    Vs = ones(Nfp)
+    return sparse(Is,Js,Vs,Nfp,Nq)
+end
+
+function get_low_order_extrapolation(param,rd,element_type::Quad,quad_type::LobattoQuadrature)
+    return droptol!(sparse(rd.Vf),param.global_constants.ZEROTOL)
+end
+
+function initialize_transfer_operators(elem_type,param,rd_gauss,rd_LGL)
     @unpack N = param
 
-    T_g2l = vandermonde(Line(),N,rd_LGL.r)/vandermonde(Line(),N,rd_gauss.r)
-    T_l2g = vandermonde(Line(),N,rd_gauss.r)/vandermonde(Line(),N,rd_LGL.r)
+    T_g2l = vandermonde(elem_type,N,rd_LGL.rst...)/vandermonde(elem_type,N,rd_gauss.rst...)
+    T_l2g = vandermonde(elem_type,N,rd_gauss.rst...)/vandermonde(elem_type,N,rd_LGL.rst...)
     transfer_ops = TransferOperators(T_g2l,T_l2g)
 
     return transfer_ops
 end
 
 function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
-    @unpack K  = param
+    @unpack K  = md_gauss
     @unpack Nq = discrete_data_gauss.sizes
 
     update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,true)
@@ -193,27 +307,4 @@ function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gau
             prealloc.Uq[i,k] = initial_condition(param,xqi)
         end
     end
-end
-
-function initialize_data(param)
-    @unpack N = param
-
-    rd_gauss,rd_LGL              = initialize_reference_data(param)
-    md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss)
-    md_LGL  ,discrete_data_LGL   = initialize_operators(param,rd_LGL)
-    transfer_ops                 = initialize_transfer_operators(param,rd_gauss,rd_LGL)
-
-    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops
-end
-
-function initialize_DG(param,initial_condition,initial_boundary_conditions)
-    rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops = initialize_data(param)
-
-    @unpack sizes,geom,ops = discrete_data_gauss 
-    bcdata = initial_boundary_conditions(param,md_gauss)
-    prealloc = initialize_preallocations(param,sizes)
-
-    init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
-
-    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc
 end

@@ -46,7 +46,7 @@ end
 jld_path = "outputs/jld2/sedov/sedov.jld2"
 
 γ = 5/3
-param = Param(N=2, K=100, XL=-1.5, XR=1.5,
+param = Param(N=2, K=100, xL=-1.5, xR=1.5,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=1.0, CFL=0.75, dt0=1e-4, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=2.0),
