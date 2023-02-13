@@ -15,6 +15,7 @@ function initial_boundary_conditions(param,md)
     @unpack K    = param
     @unpack mapP = md
 
+    Nc = get_num_components(param.equation)
     # Make periodic
     mapP[1]   = mapP[end] 
     mapP[end] = 1
@@ -23,7 +24,7 @@ function initial_boundary_conditions(param,md)
     mapO = []
     inflowarr = []
 
-    bcdata = BCData(mapP,mapI,mapO,inflowarr)
+    bcdata = BCData{Nc}(mapP,mapI,mapO,inflowarr)
 
     return bcdata
 end
@@ -37,7 +38,7 @@ end
 jld_path = "outputs/jld2/sine-wave/sine-wave.jld2"
 
 γ = 1.4
-param = Param(N=3, K=80, XL=0.0, XR=1.0,
+param = Param(N=3, K=80, xL=0.0, xR=1.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=0.1, CFL=0.5, dt0=1e-4, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
@@ -46,7 +47,7 @@ param = Param(N=3, K=80, XL=0.0, XR=1.0,
               rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
-              entropyproj_limiter_type=ExponentialFilter(),
+              entropyproj_limiter_type=NodewiseScaledExtrapolation(),
               positivity_limiter_type=SubcellLimiter())
 
 T = param.timestepping_param.T

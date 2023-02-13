@@ -14,6 +14,7 @@ function initial_boundary_conditions(param,md)
     @unpack K    = param
     @unpack mapP = md
 
+    Nc = get_num_components(param.equation)
     # Make periodic
     mapP[1]   = mapP[end] 
     mapP[end] = 1
@@ -22,7 +23,7 @@ function initial_boundary_conditions(param,md)
     mapO = []
     inflowarr = []
 
-    bcdata = BCData(mapP,mapI,mapO,inflowarr)
+    bcdata = BCData{Nc}(mapP,mapI,mapO,inflowarr)
 
     return bcdata
 end
@@ -47,7 +48,7 @@ for K in [10;20;40;80]
 
 entropyproj_type,low_order_flux_type,pos_lim_type,discretization_type = limiter_type
 γ = 1.4
-param = Param(N=N, K=K, XL=0.0, XR=1.0,
+param = Param(N=N, K=K, xL=0.0, xR=1.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=0.1, CFL=0.75, dt0=1e-4, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=0.5),

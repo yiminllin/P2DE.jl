@@ -41,7 +41,7 @@ end
 jld_path = "outputs/jld2/shu-osher/shu-soher.jld2"
 
 γ = 1.4
-param = Param(N=3, K=64, XL=-5.0, XR=5.0,
+param = Param(N=3, K=64, xL=-5.0, xR=5.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=1.8, CFL=0.5, dt0=1e-4, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),

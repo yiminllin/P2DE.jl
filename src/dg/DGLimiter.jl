@@ -85,9 +85,11 @@ end
 ###############################
 function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack rhsL,rhsH,f_bar_H,f_bar_L,flux_H,flux_L = prealloc
+    
+    K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache?
-    for k = 1:param.K
+    for k = 1:K
         wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
         Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
         f_bar_H[1,k] = flux_H[1,k]
@@ -101,12 +103,13 @@ end
 
 function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage)
     @unpack Uq,uL_k,L_local_arr,f_bar_H,f_bar_L,rhsL = prealloc
-    K = param.K
+    
+    K  = get_num_elements(param)
     Nq = size(Uq,1)
     ζ = param.limiting_param.ζ
     @views @. L_local_arr[:,:,nstage] = 1.0
     # Calculate limiting parameter
-    for k = 1:param.K
+    for k = 1:K
         wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
         Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
         @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
@@ -136,9 +139,11 @@ end
 # TODO: not necessary
 function accumulate_f_bar_limited!(prealloc,param,nstage)
     @unpack L_local_arr,f_bar_H,f_bar_L,f_bar_lim = prealloc
+    
+    K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache? df_bar?
-    for k = 1:param.K
+    for k = 1:K
         for i = 1:Nq+1
             f_bar_lim[i,k] = L_local_arr[i,k,nstage]*f_bar_H[i,k] + (1-L_local_arr[i,k,nstage])*f_bar_L[i,k]
         end
@@ -147,9 +152,11 @@ end
 
 function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack rhsU,f_bar_lim = prealloc
+    
+    K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     # Update step
-    for k = 1:param.K
+    for k = 1:K
         wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
         Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
         for i = 1:Nq
@@ -165,8 +172,10 @@ end
 function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,positivity_limiter_type::ZhangShuLimiter)
     @unpack rhsL,rhsH,rhsU = prealloc
     @unpack Uq,uL_k,P_k    = prealloc
+    
+    K  = get_num_elements(param)
     ζ = param.limiting_param.ζ
-    for k = 1:param.K
+    for k = 1:K
         @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
         @views @. P_k  = dt*(rhsH[:,k]-rhsL[:,k])
         Lrho(uL_i)  = ζ*uL_i[1]
@@ -228,8 +237,10 @@ end
 
 function update_indicator!(prealloc,approximation_basis_type::HybridGaussLGL,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,firststep=false)
     @unpack LGLind,L_G2L_arr,L_L2G_arr = prealloc
+    
+    K  = get_num_elements(param)
     clear_transfer_cache!(prealloc)
-    for k = 1:param.K
+    for k = 1:K
         ind = transfer_indicator(prealloc,discrete_data_gauss,k)
         if (firststep)
             prealloc.LGLind[k] = ind

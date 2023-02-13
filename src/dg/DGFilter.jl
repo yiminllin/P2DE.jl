@@ -2,10 +2,11 @@
 function compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,nstage)
     @unpack Farr,U_modal,LGLind,Uq,vq,Uf,VUf,rhoef = prealloc
 
+    K  = get_num_elements(param)
     clear_entropyproj_limiting_parameter_cache!(prealloc,param.entropyproj_limiter_type,nstage)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
     calc_face_values!(prealloc,param,discrete_data_gauss)
-    for k = 1:param.K
+    for k = 1:K
         if (!LGLind[k])
             solve_theta!(prealloc,k,nstage,param.entropyproj_limiter_type,param,discrete_data_gauss)
         end
@@ -39,8 +40,10 @@ end
 # TODO: refactor, only work for gauss
 function calc_face_values!(prealloc,param,discrete_data_gauss)
     @unpack Uq,vq,Uf,VUf,rhoef = prealloc
+    
+    K  = get_num_elements(param)
     mul!(Uf,discrete_data_gauss.ops.Vf,Uq)
-    for k = 1:param.K
+    for k = 1:K
         for i = 1:size(vq,1)
             vq[i,k] = v_ufun(param.equation,Uq[i,k])
         end
@@ -194,7 +197,9 @@ end
 function compute_modal_coefficients!(prealloc,param,discrete_data_gauss)
     @unpack Uq,U_modal = prealloc
     @unpack VDMinvPq   = discrete_data_gauss.ops
-    for k = 1:param.K
+    
+    K  = get_num_elements(param)
+    for k = 1:K
         @views mul!(U_modal[:,k],VDMinvPq,Uq[:,k])      # TODO: why there is allocation when remove k = 1:K loop?
     end
 end
@@ -202,13 +207,15 @@ end
 function apply_entropyproj_filtering!(prealloc,param,entropyproj_limiter_type::AdaptiveFilter,discrete_data_gauss,nstage)
     @unpack Uq,Farr,U_modal,LGLind = prealloc
     @unpack VqVDM                  = discrete_data_gauss.ops
-    for k = 1:param.K
+    
+    K  = get_num_elements(param)
+    for k = 1:K
         if (!LGLind[k])
             U_modal_k = @views U_modal[:,k]
             apply_filter!(U_modal_k,param.entropyproj_limiter_type,param.equation,Farr[k,nstage])
         end
     end
-    for k = 1:param.K
+    for k = 1:K
         @views mul!(Uq[:,k],VqVDM,U_modal[:,k])      # TODO: why there is allocation when remove k = 1:K loop?
     end
 end

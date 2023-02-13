@@ -65,7 +65,7 @@ end
 jld_path = "outputs/jld2/leblanc/leblanc.jld2"
 
 γ = 5/3
-param = Param(N=2, K=200, XL=0.0, XR=1.0,
+param = Param(N=2, K=200, xL=0.0, xR=1.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=2/3, CFL=0.25, dt0=1e-3, t0=0.01),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
