@@ -327,9 +327,18 @@ function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gau
     update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,true)
     for k = 1:K
         for i = 1:Nq
-            xqi = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
-            # TODO: pass initial_condition differently
-            prealloc.Uq[i,k] = initial_condition(param,xqi)
+            set_initial_condition!(prealloc,i,k,param,initial_condition,md_gauss,md_LGL,param.equation)
         end
     end
+end
+
+function set_initial_condition!(prealloc,i,k,param,initial_condition,md_gauss,md_LGL,equation::EquationType{Dim1})
+    xqi = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
+    prealloc.Uq[i,k] = initial_condition(param,xqi)
+end
+
+function set_initial_condition!(prealloc,i,k,param,initial_condition,md_gauss,md_LGL,equation::EquationType{Dim2})
+    xqi = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
+    yqi = (prealloc.LGLind[k]) ? md_LGL.yq[i,k] : md_gauss.yq[i,k]
+    prealloc.Uq[i,k] = initial_condition(param,xqi,yqi)
 end
