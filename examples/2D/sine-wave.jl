@@ -69,24 +69,3 @@ y = md_LGL.yq[:]
 rho = [x[1] for x in prealloc.Uq][:]
 scatter(x,y,rho,zcolor=rho,camera=(0,90))
 savefig("~/Desktop/test.png")
-
-# # TODO: refactor
-# plot_path     = "outputs/figures/2D/sine-wave/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
-# plotzoom_path = "outputs/figures/2D/sine-wave/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
-# gif_path      = "outputs/figures/2D/sine-wave/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif"
-
-# plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
-#                [u[1] for u in prealloc.Uq],1,K,0,3,plot_path,
-#                true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],1,K)
-# plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
-#                [u[1] for u in prealloc.Uq],Int64(round(K*3/4)),K,0,0.02,plotzoom_path,
-#                true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],Int64(round(K*3/4)),K)
-
-# plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,3,
-#                    gif_path)
-
-# df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
-# write_to_jld2(param,data_hist,err_data,df,jld_path)
-
-# df = load(jld_path,"data")
-# visualize_error_data(df)
