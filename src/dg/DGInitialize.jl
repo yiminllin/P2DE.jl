@@ -157,6 +157,7 @@ function initialize_operators(param,rd,quad_type)
     md = initialize_uniform_mesh_data(param,rd,rd.element_type)
     @unpack x,xq,rxJ,nxJ,J,mapP = md
     @unpack r,rq,wq,wf,M,Pq,Vq,Vf,LIFT,nrstJ,Drst,VDM = rd
+    Vf = Matrix(Vf)
 
     # Construct geometric factors
     Jq,GJh = get_geometric_factors(param,rd,md,rd.element_type)
@@ -190,6 +191,7 @@ function initialize_operators(param,rd,quad_type)
 
     # Low order operators
     Srs0,Vf_low = get_low_order_operators(param,rd,rd.element_type,quad_type)
+    Vf_low = Matrix(Vf_low)  # TODO: for type stability...
 
     sizes = SizeData(Nc,Np,Nq,Nfp,Nh,Ns)
     geom  = GeomData(J,Jq,GJh)

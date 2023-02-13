@@ -189,10 +189,10 @@ mutable struct Operators{DIM}
     VqVDM      ::Array{Float64,2}
     VhPq       ::Array{Float64,2}
     Vq         ::Array{Float64,2}
-    Vf         ::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}}   # TODO: hardcoded...
-    Vf_low     ::SparseMatrixCSC{Float64,Int64}
+    Vf         ::Array{Float64,2}
+    Vf_low     ::Array{Float64,2}
     Pq         ::Array{Float64,2}
-    MinvVfT    ::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}}
+    MinvVfT    ::Array{Float64,2}
     wq         ::Array{Float64,1}
 end
 
