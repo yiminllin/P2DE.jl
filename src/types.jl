@@ -211,10 +211,10 @@ mutable struct SizeData
     Ns ::Int64    # number of stages in time integrator
 end
 
-mutable struct DiscretizationData
+mutable struct DiscretizationData{DIM,NGEO}
     sizes::SizeData
-    geom ::GeomData
-    ops  ::Operators
+    geom ::GeomData{NGEO}
+    ops  ::Operators{DIM}
 end
 
 mutable struct Preallocation{Nc}
