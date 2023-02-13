@@ -50,6 +50,12 @@ end
     return abs(U[2]/U[1]) + sqrt(γ*p/U[1])
 end
 
+# n - normalized normal
+@inline function wavespeed_davis_estimate(equation::CompressibleIdealGas{Dim2},U,n)
+    Un = SVector(U[1],n[1]*U[2]+n[2]*U[3],U[4])
+    return wavespeed_davis_estimate(get_equation_1D(equation),Un)
+end
+
 @inline function sfun(equation::CompressibleIdealGas{Dim},U) where {Dim}
     γ = get_γ(equation)
     p = pfun(equation,U)
