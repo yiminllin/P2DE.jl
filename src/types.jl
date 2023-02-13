@@ -83,6 +83,10 @@ function get_γ(equation::CompressibleIdealGas)
     return equation.γ
 end
 
+function get_equation_1D(equation::CompressibleIdealGas{Dim2})
+    return CompressibleEulerIdealGas{Dim1}(get_γ(equation))
+end
+
 function get_dim(equation::EquationType{Dim1})
     return 1
 end
@@ -167,10 +171,11 @@ mutable struct BCData{Nc}
 end
 
 # TODO: tuple
-mutable struct GeomData
+mutable struct GeomData{NGEO}
     J   ::Array{Float64,2}
     Jq  ::Array{Float64,2}
-    rxJh::Array{Float64,2}
+    GJh::NTuple{NGEO,Array{Float64,2}}   # rxJh in 1D
+                                         # rxJh, sxJh, ryJh, syJh in 2D
 end
 
 mutable struct Operators{DIM}
@@ -187,7 +192,7 @@ mutable struct Operators{DIM}
     Vf         ::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}}   # TODO: hardcoded...
     Vf_low     ::SparseMatrixCSC{Float64,Int64}
     Pq         ::Array{Float64,2}
-    LIFT       ::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}}
+    MinvVfT    ::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}}
     wq         ::Array{Float64,1}
 end
 
@@ -272,6 +277,7 @@ mutable struct Preallocation{Nc}
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
+    n_i      ::Array{Float64,1}
 end
 
 mutable struct DataHistory{Nc}
@@ -335,5 +341,19 @@ function Base.getproperty(ops::Operators{DIM}, s::Symbol) where {DIM}
         return getfield(ops,:Brs)[2]
     else
         return getfield(ops,s)
+    end
+end
+
+function Base.getproperty(geom::GeomData{NGEO}, s::Symbol) where {NGEO}
+    if s == :rxJh
+        return getfield(geom,:GJh)[1]
+    elseif s == :sxJh
+        return getfield(geom,:GJh)[2]
+    elseif s == :ryJh
+        return getfield(geom,:GJh)[3]
+    elseif s == :syJh
+        return getfield(geom,:GJh)[4]
+    else
+        return getfield(geom,s)
     end
 end

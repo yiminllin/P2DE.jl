@@ -66,8 +66,9 @@ function initialize_preallocations(param,md,sizes)
     Uf        = zeros(SVector{Nc,Float64},Nfp,K)
     VUf       = zeros(SVector{Nc,Float64},Nfp,K)
     rhoef     = zeros(Float64,Nfp,K)
+    n_i       = zeros(Float64,get_dim(param.equation))
 
-    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef)
+    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,n_i)
     return prealloc
 end
 
@@ -136,7 +137,7 @@ function construct_gauss_reference_data(rd)
     Pq   = I         # lobatto_to_gauss*rd.Pq
     Dr   = lobatto_to_gauss*rd.Dr*gauss_to_lobatto
     Drst = (x->lobatto_to_gauss*x*gauss_to_lobatto).(rd.Drst)
-    LIFT = rd.M\(rd.Vf')
+    LIFT = rd.M\(rd.Vf'*diagm(rd.wf))
 
     return RefElemData(rd.element_type, Polynomial, rd.N, rd.fv, V1,
                        rst, VDM, rd.Fmask,
@@ -158,11 +159,10 @@ function initialize_operators(param,rd,quad_type)
     @unpack r,rq,wq,wf,M,Pq,Vq,Vf,LIFT,nrstJ,Drst,VDM = rd
 
     # Construct geometric factors
-    Jq   = Vq*J
-    Vh   = [Vq;Vf]
-    rxJh = Vh*rxJ
+    Jq,GJh = get_geometric_factors(param,rd,md,rd.element_type)
 
     # Construct hybridized SBP operators
+    Vh   = [Vq;Vf]
     Qrs = (A->Matrix(droptol!(sparse(Pq'*M*A*Pq),ZEROTOL))).(Drst)
     Ef = Vf*Pq
     Brs = (A->Matrix(droptol!(sparse(diagm(wf.*A)),ZEROTOL))).(nrstJ)
@@ -183,6 +183,7 @@ function initialize_operators(param,rd,quad_type)
     Vq,Pq = (A->typeof(A)<:UniformScaling ? diagm(ones(Nq)) : A).((Vq,Pq))  # TODO: bad runtime type check...
     M,Vq,Vh,Pq = (A->Matrix(droptol!(sparse(A),ZEROTOL))).((M,Vq,Vh,Pq)) 
     MinvVhT  = M\transpose(Vh)
+    MinvVfT  = M\transpose(Vf)
     VDMinvPq = VDM\Pq
     VqVDM    = Vq*VDM
     VhPq     = Vh*Pq
@@ -191,8 +192,8 @@ function initialize_operators(param,rd,quad_type)
     Srs0,Vf_low = get_low_order_operators(param,rd,rd.element_type,quad_type)
 
     sizes = SizeData(Nc,Np,Nq,Nfp,Nh,Ns)
-    geom  = GeomData(J,Jq,rxJh)
-    ops   = Operators(Srsh_db,Srs0,Brs,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,LIFT,wq)
+    geom  = GeomData(J,Jq,GJh)
+    ops   = Operators(Srsh_db,Srs0,Brs,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,MinvVfT,wq)
     discrete_data = DiscretizationData(sizes,geom,ops)
 
     return md,discrete_data
@@ -220,6 +221,28 @@ function initialize_uniform_mesh_data(param,rd,element_type::Quad)
     md = MeshData((VX,VY),EToV,rd)
 
     return md
+end
+
+function get_geometric_factors(param,rd,md,element_type::Line)
+    @unpack Vq,Vf = rd
+    @unpack J,rxJ = md
+
+    Vh   = [Vq;Vf]
+    Jq   = Vq*J
+    rxJh = Vh*rxJ
+
+    return Jq,(rxJh,)
+end
+
+function get_geometric_factors(param,rd,md,element_type::Quad)
+    @unpack Vq,Vf = rd
+    @unpack J,rxJ,sxJ,ryJ,syJ = md
+
+    Vh = [Vq;Vf]
+    Jq = Vq*J
+    rxJh,sxJh,ryJh,syJh = (x->Vh*x).((rxJ,sxJ,ryJ,syJ))
+
+    return Jq,(rxJh,sxJh,ryJh,syJh)
 end
 
 function construct_low_order_operators_1D(param)
