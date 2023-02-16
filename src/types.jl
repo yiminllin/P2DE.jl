@@ -217,7 +217,7 @@ mutable struct DiscretizationData{DIM,NGEO}
     ops  ::Operators{DIM}
 end
 
-mutable struct Preallocation{Nc}
+mutable struct Preallocation{Nc,DIM,DIMP1}      # TODO: hardcoded DIMP1...
     Uq     ::Array{SVector{Nc,Float64},2}
     vq     ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
     v_tilde::Array{SVector{Nc,Float64},2}       # projected entropy variables
@@ -236,10 +236,10 @@ mutable struct Preallocation{Nc}
     betaP   ::Array{Float64,2}
     rhologP ::Array{Float64,2}
     betalogP::Array{Float64,2}
-    flux     ::Array{SVector{Nc,Float64},2}
+    flux     ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     flux_H   ::Array{SVector{Nc,Float64},2}
     flux_L   ::Array{SVector{Nc,Float64},2}
-    wavespeed::Array{Float64,2}
+    wavespeed::Array{Float64,DIMP1}             # TODO: inefficient storage for 2D
     alphaarr ::Array{Float64,2}
     rhsL     ::Array{SVector{Nc,Float64},2}
     Larr     ::Array{Float64,2}
@@ -278,6 +278,8 @@ mutable struct Preallocation{Nc}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
     n_i      ::Array{Float64,1}
+    λarr     ::Array{Float64,3}
+    λBarr    ::Array{Float64,2}
 end
 
 mutable struct DataHistory{Nc}
@@ -355,5 +357,15 @@ function Base.getproperty(geom::GeomData{NGEO}, s::Symbol) where {NGEO}
         return getfield(geom,:GJh)[4]
     else
         return getfield(geom,s)
+    end
+end
+
+function Base.getproperty(prealloc::Preallocation{Nc,DIM,DIMP1}, s::Symbol) where {Nc,DIM,DIMP1}
+    if s == :flux_x
+        return getfield(prealloc,:flux)[1]
+    elseif s == :flux_y
+        return getfield(prealloc,:flux)[2]
+    else
+        return getfield(prealloc,s)
     end
 end

@@ -4,6 +4,7 @@ function initialize_preallocations(param,md,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
 
     K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
     Uq      = zeros(SVector{Nc,Float64},Nq,K)
     vq      = zeros(SVector{Nc,Float64},Nq,K)
     v_tilde = zeros(SVector{Nc,Float64},Nh,K)
@@ -22,10 +23,10 @@ function initialize_preallocations(param,md,sizes)
     betaP    = zeros(Float64,Nfp,K)
     rhologP  = zeros(Float64,Nfp,K)
     betalogP = zeros(Float64,Nfp,K)
-    flux       = zeros(SVector{Nc,Float64},Nh,K)
+    flux       = tuple([zeros(SVector{Nc,Float64},Nh,K) for _ = 1:Nd]...)
     flux_H     = zeros(SVector{Nc,Float64},Nfp,K)
     flux_L     = zeros(SVector{Nc,Float64},Nfp,K)
-    wavespeed  = zeros(Float64,Nh,K)
+    wavespeed  = Nd == 1 ? zeros(Float64,Nh,K) : zeros(Float64,Nh,Nh,K)
     alphaarr   = zeros(Float64,Nfp,K)
     rhsL    = zeros(SVector{Nc,Float64},Nq,K)
     Larr    = zeros(Float64,K,Ns)
@@ -66,9 +67,11 @@ function initialize_preallocations(param,md,sizes)
     Uf        = zeros(SVector{Nc,Float64},Nfp,K)
     VUf       = zeros(SVector{Nc,Float64},Nfp,K)
     rhoef     = zeros(Float64,Nfp,K)
-    n_i       = zeros(Float64,get_dim(param.equation))
+    n_i       = zeros(Float64,Nd)
+    λarr      = zeros(Float64,Nq,Nq,K)
+    λBarr     = zeros(Float64,Nfp,K)
 
-    prealloc = Preallocation(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,n_i)
+    prealloc = Preallocation{Nc,Nd,Nd+1}(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,n_i,λarr,λBarr)
     return prealloc
 end
 
@@ -108,8 +111,8 @@ function initialize_reference_data(N,equation::EquationType{Dim2})
 
     # create degree N tensor product Gauss quadrature rule
     r1D,w1D = gauss_quad(0, 0, N)
-    rq,sq = vec.(StartUpDG.meshgrid(r1D))
-    wr,ws = vec.(StartUpDG.meshgrid(w1D))
+    sq,rq = vec.(StartUpDG.meshgrid(r1D))
+    ws,wr = vec.(StartUpDG.meshgrid(w1D))
     wq = @. wr*ws
 
     rd_gauss = construct_gauss_reference_data(RefElemData(element_type,N,quad_rule_vol=(rq,sq,wq),quad_rule_face=(r1D,w1D)))
@@ -192,6 +195,12 @@ function initialize_operators(param,rd,quad_type)
     # Low order operators
     Srs0,Vf_low = get_low_order_operators(param,rd,rd.element_type,quad_type)
     Vf_low = Matrix(Vf_low)  # TODO: for type stability...
+    # TODO: for LGL, there is value close to 1.0 but not exactly 1.0, hardcode for now...
+    for i = 1:Nfp
+        for j = 1:Nq
+            abs(Vf_low[i,j]-1.0) < param.global_constants.ZEROTOL ? Vf_low[i,j] = 1.0 : nothing
+        end
+    end
 
     sizes = SizeData(Nc,Np,Nq,Nfp,Nh,Ns)
     geom  = GeomData(J,Jq,GJh)
@@ -265,11 +274,12 @@ function construct_low_order_operators_1D(param)
     Vf_low[1]   = 1.0
     Vf_low[end] = 1.0
 
-    return (Sr0,),Vf_low
+    return Qr0,Sr0,Vf_low
 end
 
 function get_low_order_operators(param,rd,element_type::Line,quad_type)
-    return construct_low_order_operators_1D(param) 
+    _,Sr0,Vf_low = construct_low_order_operators_1D(param) 
+    return (Sr0,),Vf_low
 end
 
 function get_low_order_operators(param,rd,element_type::Quad,quad_type::GaussQuadrature)
@@ -285,9 +295,11 @@ end
 function get_low_order_operators(param,rd,element_type::Quad,quad_type,w1D)
     ZEROTOL = param.global_constants.ZEROTOL
     M1D = diagm(w1D)
-    S01D,Vf1D_low = construct_low_order_operators_1D(param)
-    Sr0 = droptol!(sparse(kron(M1D,S01D[1])),ZEROTOL)
-    Ss0 = droptol!(sparse(kron(S01D[1],M1D)),ZEROTOL)
+    Q01D,_,_ = construct_low_order_operators_1D(param)
+    Qr0 = droptol!(sparse(kron(M1D,Q01D)),ZEROTOL)
+    Qs0 = droptol!(sparse(kron(Q01D,M1D)),ZEROTOL)
+    Sr0 = droptol!(sparse(.5*(Qr0-Qr0')),ZEROTOL)
+    Ss0 = droptol!(sparse(.5*(Qs0-Qs0')),ZEROTOL)
     Vf_low = get_low_order_extrapolation(param,rd,element_type,quad_type)
     return (Sr0,Ss0),Vf_low
 end
@@ -298,10 +310,10 @@ function get_low_order_extrapolation(param,rd,element_type::Quad,quad_type::Gaus
     Nq   = (N+1)*(N+1)
     Nfp  = 4*(N+1)
     Is = collect(1:Nfp)
-    Js = collect([1:Nq1D;
-                  ((Nq1D-1)*Nq1D+1):Nq1D*Nq1D;
-                  1:Nq1D:((Nq1D-1)*Nq1D+1);
-                  Nq1D:Nq1D:Nq1D*Nq1D])
+    Js = collect([1:Nq1D:((Nq1D-1)*Nq1D+1);
+                  Nq1D:Nq1D:Nq1D*Nq1D;
+                  1:Nq1D;
+                  ((Nq1D-1)*Nq1D+1):Nq1D*Nq1D])
     Vs = ones(Nfp)
     return sparse(Is,Js,Vs,Nfp,Nq)
 end
