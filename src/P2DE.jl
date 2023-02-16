@@ -36,7 +36,7 @@ include("./dg/DGInitialize.jl")
 include("./dg/DGPostProcessing.jl")
 include("./dg/DGFilter.jl")
 include("./dg/DGLimiter.jl")
-include("./dg/DGRHS.jl")
+include("./dg/rhs/DGRHS.jl")
 include("./dg/DGUtils.jl")
 include("./timestepping/TimeStepping.jl")
 
