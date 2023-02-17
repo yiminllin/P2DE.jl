@@ -285,7 +285,6 @@ mutable struct Preallocation{Nc,DIM,DIMP1}      # TODO: hardcoded DIMP1...
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
-    n_i      ::Array{Float64,1}
     λarr     ::Array{Float64,3}
     λBarr    ::Array{Float64,2}
 end

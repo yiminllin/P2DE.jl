@@ -10,7 +10,7 @@ function rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
     end
 
     calculate_primitive_variables!(prealloc,param,bcdata)
-    calculate_interface_dissipation_coeff!(prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL,param.equation)
+    calculate_interface_dissipation_coeff!(prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL)
     enforce_BC!(prealloc,param,bcdata)
 
     # Flux differencing
@@ -55,59 +55,34 @@ function calculate_primitive_variables!(prealloc,param,bcdata)
     end
 end
 
-# TODO: refactor
-function calculate_interface_dissipation_coeff!(prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL,equation::EquationType{Dim1})
-    @unpack lam,LFc,u_tilde = prealloc
-    @unpack equation        = param
-    @unpack mapP            = bcdata
+function calculate_interface_dissipation_coeff!(prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL)
+    @unpack lam,LFc,u_tilde,LGLind = prealloc
+    @unpack equation               = param
+    @unpack mapP                   = bcdata
 
     # TODO: refactor
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     Nh = size(prealloc.u_tilde,1)
-    uf = @view u_tilde[Nq+1:Nh,:]
-    # Lax Friedrichs dissipation
-    for k = 1:K
-        for i = 1:size(lam,1)
-            lam[i,k] = wavespeed_davis_estimate(equation,uf[i,k])
-        end
-    end
-
-    for k = 1:K
-        for i = 1:size(LFc,1)
-            LFc[i,k] = 0.5*max(lam[i,k],lam[mapP[i,k]])
-        end
-    end
-end
-
-function calculate_interface_dissipation_coeff!(prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL,equation::EquationType{Dim2})
-    @unpack lam,LFc,u_tilde,n_i,LGLind = prealloc
-    @unpack equation                   = param
-    @unpack mapP                       = bcdata
-
-    # TODO: refactor
-    K  = get_num_elements(param)
-    Nq = size(prealloc.Uq,1)
-    Nh = size(prealloc.u_tilde,1)
+    Nfp = Nh-Nq
     uf = @view u_tilde[Nq+1:Nh,:]
     dim = get_dim_type(equation)
 
     # Lax Friedrichs dissipation
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        for i = 1:size(lam,1)
-            (Bx_i,By_i),n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
-            n_i[1] = Bx_i/n_i_norm
-            n_i[2] = By_i/n_i_norm
+        for i = 1:Nfp
+            Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
+            n_i = Bxy_i./n_i_norm 
             lam[i,k] = wavespeed_davis_estimate(equation,uf[i,k],n_i)
+            LFc[i,k] = .5*n_i_norm
         end
     end
 
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        for i = 1:size(LFc,1)
-            (Bx_i,By_i),n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)     # TODO: redundant calculation
-            LFc[i,k] = 0.5*n_i_norm*max(lam[i,k],lam[mapP[i,k]])
+        for i = 1:Nfp
+            LFc[i,k] = LFc[i,k]*max(lam[i,k],lam[mapP[i,k]])
         end
     end
 end
