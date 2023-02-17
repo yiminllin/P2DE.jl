@@ -160,25 +160,15 @@ function accumulate_U_beta!(U,idx,k,prealloc,equation)
     U[end]   = betalog[idx,k]
 end
 
-function accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation::EquationType{Dim1})
-    @unpack QF1 = prealloc
-    @unpack rxJh = discrete_data.geom
-
-    fx = fS_prim_log(equation,Ui,Uj)
-    Sxh_db_ij = get_Sx(i,j,k,discrete_data,Dim1())
-    Sxh_db_ji = get_Sx(j,i,k,discrete_data,Dim1())
-    QF1[i,k] += Sxh_db_ij[1]*fx
-    QF1[j,k] += Sxh_db_ji[1]*fx
-end
-
-function accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation::EquationType{Dim2})
+function accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation)
     @unpack QF1 = prealloc
 
-    fx,fy = fS_prim_log(equation,Ui,Uj)
-    Sxh_db_ij,Syh_db_ij = get_Sx(i,j,k,discrete_data,Dim2())
-    Sxh_db_ji,Syh_db_ji = get_Sx(j,i,k,discrete_data,Dim2())
-    QF1[i,k] += Sxh_db_ij*fx+Syh_db_ij*fy
-    QF1[j,k] += Sxh_db_ji*fx+Syh_db_ji*fy
+    dim = get_dim_type(equation)
+    fxy = fS_prim_log(equation,Ui,Uj)
+    Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
+    Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
+    QF1[i,k] += sum(Sxyh_db_ij .* fxy)    # TODO: StaticArray instead of NTuple
+    QF1[j,k] += sum(Sxyh_db_ji .* fxy)
 end
 
 function flux_differencing_surface!(prealloc,param,discrete_data_LGL,discrete_data_gauss)

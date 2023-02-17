@@ -196,7 +196,7 @@ end
     FxS2 = FxS1*uavg + pa
     FxS3 = f4aux*uavg
 
-    return SVector(FxS1,FxS2,FxS3)
+    return (SVector(FxS1,FxS2,FxS3),)
 end
 
 @inline function fS_prim_log(equation::CompressibleIdealGas{Dim2},UL,UR)
