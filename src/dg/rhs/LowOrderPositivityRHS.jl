@@ -66,6 +66,8 @@ function update_face_values!(prealloc,k,discrete_data,surface_flux_type::LaxFrie
     end
 end
 
+# TODO: wavespeed[i,j,k] = \beta(u_i, n_ij) = \beta(u_i, n_ji)
+#       not an efficient way to store the wavespeed...
 function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equation::EquationType{Dim1})
     @unpack u_tilde,wavespeed,wavespeed_f,flux_x,Uq,Uf = prealloc
     
@@ -74,7 +76,13 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equa
     Nfp = Nh-Nq
     for i = 1:Nq
         ui = Uq[i,k]
-        wavespeed[i,k] = wavespeed_davis_estimate(equation,ui)
+        for j = 1:Nq
+            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,Dim1())
+            if n_ij_norm > param.global_constants.ZEROTOL
+                n_ij = Sxy0J_ij./n_ij_norm
+                wavespeed[i,j,k] = wavespeed_davis_estimate(equation,ui,n_ij)
+            end
+        end
         flux_x[i,k]    = euler_fluxes(equation,ui)[1]
     end
 
@@ -97,8 +105,8 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equa
         for j = 1:Nq
             Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,Dim2())    # TODO: redundant calculation
             if n_ij_norm > param.global_constants.ZEROTOL
-                n_i = Sxy0J_ij./n_ij_norm
-                wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_i)
+                n_ij = Sxy0J_ij./n_ij_norm
+                wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
             end
         end
         flux_x[i,k],flux_y[i,k] = euler_fluxes(equation,u_i)
@@ -166,7 +174,7 @@ function get_lambda_i(i,k,prealloc,param,discrete_data,bcdata,equation::Equation
     for j = 1:Nq
         Sr0_ij = Sr0[i,j]
         if Sr0_ij != 0
-            lambda_i += abs(Sr0_ij)*max(wavespeed[i,k], wavespeed[j,k])
+            lambda_i += abs(Sr0_ij)*max(wavespeed[i,j,k], wavespeed[j,i,k])
         end
     end
     surface_flux_type = LGLind[k] ? LaxFriedrichsOnNodalVal() : get_low_order_surface_flux(param.rhs_type)  # TODO: hardcoding
@@ -283,7 +291,7 @@ function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,dis
                 Sr0_ij = LGLind[k] ? discrete_data_LGL.ops.Sr0[i,j] : discrete_data_gauss.ops.Sr0[i,j]
                 if Sr0_ij != 0
                     Fij      = .5*(flux_x[i,k]+flux_x[j,k])
-                    lambdaij = abs(Sr0_ij)*max(wavespeed[i,k], wavespeed[j,k])
+                    lambdaij = abs(Sr0_ij)*max(wavespeed[i,j,k], wavespeed[j,i,k])
                     LFij     = (2.0*Sr0_ij*Fij) - lambdaij*(Uq[j,k]-Uq[i,k])
                     rhsL[i,k] -= LFij
                     rhsL[j,k] += LFij
@@ -467,7 +475,7 @@ function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_L
             for j = 1:Nq
                 Sr0_ij = LGLind[k] ? discrete_data_LGL.ops.Sr0[i,j] : discrete_data_gauss.ops.Sr0[i,j]
                 if (Sr0_ij != 0)
-                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,k], wavespeed[j,k])
+                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,j,k], wavespeed[j,i,k])
                     lambda_i += lambda_ij
                     rhsL_i -= (Sr0_ij*(flux_x[j,k]+flux_x[i,k])-lambda_ij*(Uq[j,k]-Uq[i,k]))/wJq_i
                 end
@@ -488,7 +496,7 @@ function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_L
             for j = 1:Nq
                 Sr0_ij = discrete_data_gauss.ops.Sr0[i,j]
                 if (Sr0_ij != 0)
-                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,k], wavespeed[j,k])
+                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,j,k], wavespeed[j,i,k])
                     ubar_ij = .5*(Uq[i,k]+Uq[j,k])-.5*Sr0_ij/lambda_ij*(flux_x[j,k]-flux_x[i,k])
                     is_positive,_,_ = check_positivity_node(ubar_ij,param)
                     if !is_positive

@@ -66,7 +66,7 @@ end
 
 function get_Sx0_with_n(i,j,k,discrete_data,dim::Dim1)
     Sx0_ij = get_Sx0(i,j,k,discrete_data,dim)
-    return (Sx0_ij),abs(Sx0_ij)
+    return (Sx0_ij),abs(Sx0_ij[1])
 end
 
 function get_Sx0_with_n(i,j,k,discrete_data,dim::Dim2)
