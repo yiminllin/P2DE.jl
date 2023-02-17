@@ -152,39 +152,6 @@ function accumulate_alpha!(prealloc,k,param,discrete_data)
     end
 end
 
-# TODO: refactor with bisection
-# Find alpha s.t. alpha*ui - uitilde >= 0
-function find_alpha(param,ui,uitilde)
-    @unpack equation = param
-    POSTOL = param.global_constants.POSTOL
-    alphaL = 0.0
-    alphaR = 1.0
-    substate = alphaR*ui-uitilde
-    while (true)
-        if (substate[1] > POSTOL && rhoe_ufun(equation,substate) > POSTOL)
-            break
-        end
-        alphaR = 2*alphaR
-        substate = alphaR*ui-uitilde
-    end
-
-    maxit = 50
-    iter = 0.0
-    tolerance = 1e-8
-    while (iter < maxit || (alphaL-alphaR) > tolerance)
-        alphaM = (alphaL+alphaR)/2
-        substate = alphaM*ui-uitilde
-        if (substate[1] > POSTOL && rhoe_ufun(equation,substate) > POSTOL)
-            alphaR = alphaM
-        else
-            alphaL = alphaM
-        end
-        iter = iter + 1
-    end
-
-    return alphaR
-end
-
 function get_lambda_i(i,k,prealloc,param,discrete_data,bcdata,equation::EquationType{Dim1})
     @unpack wavespeed,LGLind = prealloc
     @unpack Sr0,wq = discrete_data.ops
@@ -452,7 +419,45 @@ function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discret
     end
 end
 
-# TODO: only works in 1D
+
+###############
+###  Utils  ###
+###############
+
+# TODO: refactor with bisection
+# Find alpha s.t. alpha*ui - uitilde >= 0
+function find_alpha(param,ui,uitilde)
+    @unpack equation = param
+    POSTOL = param.global_constants.POSTOL
+    alphaL = 0.0
+    alphaR = 1.0
+    substate = alphaR*ui-uitilde
+    while (true)
+        if (substate[1] > POSTOL && rhoe_ufun(equation,substate) > POSTOL)
+            break
+        end
+        alphaR = 2*alphaR
+        substate = alphaR*ui-uitilde
+    end
+
+    maxit = 50
+    iter = 0.0
+    tolerance = 1e-8
+    while (iter < maxit || (alphaL-alphaR) > tolerance)
+        alphaM = (alphaL+alphaR)/2
+        substate = alphaM*ui-uitilde
+        if (substate[1] > POSTOL && rhoe_ufun(equation,substate) > POSTOL)
+            alphaR = alphaM
+        else
+            alphaL = alphaM
+        end
+        iter = iter + 1
+    end
+
+    return alphaR
+end
+
+# TODO: only works in 1D, only for testing
 function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation::EquationType{Dim1})
     @unpack Uq,rhsL,flux_x,flux_L,wavespeed,LGLind,u_tilde = prealloc
     @unpack Jq = discrete_data_gauss.geom
