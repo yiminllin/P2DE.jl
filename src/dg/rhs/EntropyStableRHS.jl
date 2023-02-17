@@ -321,20 +321,18 @@ function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nsta
     K  = get_num_elements(param)
     # Assemble RHS
     for k = 1:K
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack MinvVhT,MinvVfT,Vq = discrete_data.ops
         if LGLind[k]
-            @views mul!(spatial[:,k],discrete_data_LGL.ops.MinvVhT,QF1[:,k])
-            @views mul!(boundary[:,k],discrete_data_LGL.ops.MinvVfT,BF1[:,k])
+            @views mul!(spatial[:,k],discrete_data.ops.MinvVhT,QF1[:,k])
+            @views mul!(boundary[:,k],discrete_data.ops.MinvVfT,BF1[:,k])
         else
-            project_flux_difference_to_quad!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,k,nstage)
+            project_flux_difference_to_quad!(prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage)
         end
         for i = 1:size(spatial,1)
             spatial[i,k] = -(spatial[i,k]+boundary[i,k])/J[i,k]
         end
-        if LGLind[k]
-            @views mul!(rhsH[:,k],discrete_data_LGL.ops.Vq,spatial[:,k])
-        else
-            @views mul!(rhsH[:,k],discrete_data_gauss.ops.Vq,spatial[:,k])
-        end
+        @views mul!(rhsH[:,k],discrete_data_LGL.ops.Vq,spatial[:,k])
     end
 end
 
