@@ -126,11 +126,9 @@ function clear_flux_differencing_cache!(prealloc)
     @. BF1 = zero(BF1)
 end
 
-# TODO: Assume uniform mesh, Need geom for LGL
 function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_data_gauss)
     @unpack equation = param
     @unpack QF1,u_tilde,beta,rholog,betalog,Ui,Uj,LGLind = prealloc
-    @unpack rxJh = discrete_data_gauss.geom
 
     K  = get_num_elements(param)
     Nh = size(u_tilde,1)
@@ -208,8 +206,6 @@ function evaluate_high_order_surface_flux(prealloc,param,i,k,surface_flux_type::
     betaf    = @view beta[Nq+1:Nh,:]
     rhologf  = @view rholog[Nq+1:Nh,:]
     betalogf = @view betalog[Nq+1:Nh,:]
-    # return fS_prim_log(equation,(uf[i,k][1],uf[i,k][2]/uf[i,k][1],uf[i,k][3]/uf[i,k][1],betaf[i,k],rhologf[i,k],betalogf[i,k]),
-    #                             (uP[i,k][1],uP[i,k][2]/uP[i,k][1],uP[i,k][3]/uP[i,k][1],betaP[i,k],rhologP[i,k],betalogP[i,k]))
     return fS_prim_log(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
                                 (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
 end
