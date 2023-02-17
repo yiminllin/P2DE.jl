@@ -147,25 +147,17 @@ function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_dat
 end
 
 # Accumulate U with (utilde, beta, log(rho), log(beta)) at index i,element k
-function accumulate_U_beta!(U,idx,k,prealloc,equation::EquationType{Dim1})
+function accumulate_U_beta!(U,idx,k,prealloc,equation)
     @unpack u_tilde,beta,rholog,betalog = prealloc
 
-    U[1] = u_tilde[idx,k][1]
-    U[2] = u_tilde[idx,k][2]/U[1]
-    U[3] = beta[idx,k]
-    U[4] = rholog[idx,k]
-    U[5] = betalog[idx,k]
-end
-
-function accumulate_U_beta!(U,idx,k,prealloc,equation::EquationType{Dim2})
-    @unpack u_tilde,beta,rholog,betalog = prealloc
-
-    U[1] = u_tilde[idx,k][1]
-    U[2] = u_tilde[idx,k][2]/U[1]
-    U[3] = u_tilde[idx,k][3]/U[1]
-    U[4] = beta[idx,k]
-    U[5] = rholog[idx,k]
-    U[6] = betalog[idx,k]
+    Nd = get_dim(equation)
+    U[1]     = u_tilde[idx,k][1]
+    for c = 2:2+Nd-1
+        U[c] = u_tilde[idx,k][c]/U[1]
+    end
+    U[end-2] = beta[idx,k]
+    U[end-1] = rholog[idx,k]
+    U[end]   = betalog[idx,k]
 end
 
 function accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation::EquationType{Dim1})
