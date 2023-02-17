@@ -41,7 +41,7 @@ function calculate_wavespeed_and_inviscid_flux!(prealloc,param,discrete_data_gau
     for k = 1:K
         discrete_data = (LGLind[k]) ? discrete_data_LGL : discrete_data_gauss
         update_face_values!(prealloc,k,discrete_data,get_low_order_surface_flux(param.rhs_type))
-        update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equation)
+        update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
     end
 end
 
@@ -66,59 +66,34 @@ function update_face_values!(prealloc,k,discrete_data,surface_flux_type::LaxFrie
     end
 end
 
-# TODO: wavespeed[i,j,k] = \beta(u_i, n_ij) = \beta(u_i, n_ji)
-#       not an efficient way to store the wavespeed...
-function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equation::EquationType{Dim1})
-    @unpack u_tilde,wavespeed,wavespeed_f,flux_x,Uq,Uf = prealloc
-    
-    Nq = size(Uq,1)
-    Nh = size(u_tilde,1)
-    Nfp = Nh-Nq
-    for i = 1:Nq
-        ui = Uq[i,k]
-        for j = 1:Nq
-            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,Dim1())
-            if n_ij_norm > param.global_constants.ZEROTOL
-                n_ij = Sxy0J_ij./n_ij_norm
-                wavespeed[i,j,k] = wavespeed_davis_estimate(equation,ui,n_ij)
-            end
-        end
-        flux_x[i,k]    = euler_fluxes(equation,ui)[1]
-    end
-
-    for i = 1:Nfp
-        ui = Uf[i,k]
-        wavespeed_f[i,k] = wavespeed_davis_estimate(equation,ui)
-        flux_x[i+Nq,k]   = euler_fluxes(equation,ui)[1]
-    end
-end
-
 # TODO: refactor with high order flux calculation
-function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equation::EquationType{Dim2})
-    @unpack LGLind,Uq,Uf,wavespeed,wavespeed_f,flux_x,flux_y = prealloc
+function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
+    @unpack equation = param
+    @unpack LGLind,Uq,Uf,wavespeed,wavespeed_f,flux = prealloc
 
     Nq  = size(Uq,1)
     Nfp = size(Uf,1)
+    dim = get_dim_type(equation)
     # Volume wavespeed and inviscid flux
     for i = 1:Nq
         u_i = Uq[i,k]
         for j = 1:Nq
-            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,Dim2())    # TODO: redundant calculation
+            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)    # TODO: redundant calculation
             if n_ij_norm > param.global_constants.ZEROTOL
                 n_ij = Sxy0J_ij./n_ij_norm
                 wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
             end
         end
-        flux_x[i,k],flux_y[i,k] = euler_fluxes(equation,u_i)
+        map((f,fval)->f[i,k]=fval,flux,euler_fluxes(equation,u_i))  # TODO: looks bad...
     end
 
     # Surface wavespeed and inviscid flux
     for i = 1:Nfp
         u_i = Uf[i,k]
-        Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,Dim2())    # TODO: redundant calculation
+        Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)    # TODO: redundant calculation
         n_i = Bxy_i./n_i_norm
         wavespeed_f[i,k] = wavespeed_davis_estimate(equation,u_i,n_i)
-        flux_x[i+Nq,k],flux_y[i+Nq,k] = euler_fluxes(equation,u_i)
+        map((f,fval)->f[i+Nq,k]=fval,flux,euler_fluxes(equation,u_i))  # TODO: looks bad...
     end
 end
 
