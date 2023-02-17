@@ -95,6 +95,14 @@ function get_dim(equation::EquationType{Dim2})
     return 2
 end
 
+function get_dim_type(equation::EquationType{Dim1})
+    return Dim1()
+end
+
+function get_dim_type(equation::EquationType{Dim2})
+    return Dim2()
+end
+
 function get_num_components(equation::EquationType{Dim1})
     return 3
 end

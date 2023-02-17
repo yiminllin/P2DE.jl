@@ -84,22 +84,19 @@ function calculate_interface_dissipation_coeff!(prealloc,param,bcdata,discrete_d
     @unpack lam,LFc,u_tilde,n_i,LGLind = prealloc
     @unpack equation                   = param
     @unpack mapP                       = bcdata
-    @unpack rxJh,ryJh,sxJh,syJh        = discrete_data_gauss.geom   # TODO: hardcoded
 
     # TODO: refactor
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     Nh = size(prealloc.u_tilde,1)
     uf = @view u_tilde[Nq+1:Nh,:]
-    rxJf,ryJf,sxJf,syJf = (x->view(x,Nq+1:Nh,:)).((rxJh,ryJh,sxJh,syJh))
+    dim = get_dim_type(equation)
+
     # Lax Friedrichs dissipation
     for k = 1:K
-        Br = LGLind[k] ? discrete_data_LGL.ops.Br : discrete_data_gauss.ops.Br
-        Bs = LGLind[k] ? discrete_data_LGL.ops.Bs : discrete_data_gauss.ops.Bs
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         for i = 1:size(lam,1)
-            Bx_i = rxJf[i,k]*Br[i,i]+sxJf[i,k]*Bs[i,i]      # TODO: refactor geometric factor calculation
-            By_i = ryJf[i,k]*Br[i,i]+syJf[i,k]*Bs[i,i]
-            n_i_norm = sqrt(Bx_i^2+By_i^2)
+            (Bx_i,By_i),n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             n_i[1] = Bx_i/n_i_norm
             n_i[2] = By_i/n_i_norm
             lam[i,k] = wavespeed_davis_estimate(equation,uf[i,k],n_i)
@@ -107,12 +104,9 @@ function calculate_interface_dissipation_coeff!(prealloc,param,bcdata,discrete_d
     end
 
     for k = 1:K
-        Br = LGLind[k] ? discrete_data_LGL.ops.Br : discrete_data_gauss.ops.Br
-        Bs = LGLind[k] ? discrete_data_LGL.ops.Bs : discrete_data_gauss.ops.Bs
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         for i = 1:size(LFc,1)
-            Bx_i = rxJf[i,k]*Br[i,i]+sxJf[i,k]*Bs[i,i]      # TODO: refactor geometric factor calculation
-            By_i = ryJf[i,k]*Br[i,i]+syJf[i,k]*Bs[i,i]
-            n_i_norm = sqrt(Bx_i^2+By_i^2)
+            (Bx_i,By_i),n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)     # TODO: redundant calculation
             LFc[i,k] = 0.5*n_i_norm*max(lam[i,k],lam[mapP[i,k]])
         end
     end
@@ -171,8 +165,7 @@ function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_dat
             accumulate_U_beta!(Uj,j,k,prealloc,param.equation)
             for i = j+1:Nh
                 accumulate_U_beta!(Ui,i,k,prealloc,param.equation)
-                QFxyrs_ij = get_QFrs_ij(i,j,Ui,Uj,discrete_data,equation)
-                accumulate_QF1!(prealloc,i,j,k,QFxyrs_ij,discrete_data,equation)
+                accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation)
             end
         end
     end
@@ -200,52 +193,25 @@ function accumulate_U_beta!(U,idx,k,prealloc,equation::EquationType{Dim2})
     U[6] = betalog[idx,k]
 end
 
-function get_QFrs_ij(i,j,Ui,Uj,discrete_data,equation::EquationType{Dim1})
-    @unpack Srh_db = discrete_data.ops
-
-    Srh_db_ij = Srh_db[i,j]
-    QFxr_ij = Srh_db_ij*fS_prim_log(equation,Ui,Uj)
-
-    return (QFxr_ij,)
-end
-
-function get_QFrs_ij(i,j,Ui,Uj,discrete_data,equation::EquationType{Dim2})
-    @unpack Srh_db,Ssh_db = discrete_data.ops
-
-    Srh_db_ij = Srh_db[i,j]
-    Ssh_db_ij = Ssh_db[i,j]
-    fx,fy = fS_prim_log(equation,Ui,Uj)
-    QFxr_ij = Srh_db_ij*fx
-    QFxs_ij = Ssh_db_ij*fx
-    QFyr_ij = Srh_db_ij*fy
-    QFys_ij = Ssh_db_ij*fy
-
-    # dfx/dr,dfx/ds,dfy/dr,dfy/ds
-    return (QFxr_ij,QFxs_ij,QFyr_ij,QFys_ij)
-end
-
-function accumulate_QF1!(prealloc,i,j,k,QFxyrs_ij,discrete_data,equation::EquationType{Dim1})
+function accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation::EquationType{Dim1})
     @unpack QF1 = prealloc
     @unpack rxJh = discrete_data.geom
 
-    QFxr_ij = QFxyrs_ij[1]
-    QF1[i,k] += rxJh[i,k]*QFxr_ij
-    QF1[j,k] -= rxJh[j,k]*QFxr_ij
+    fx = fS_prim_log(equation,Ui,Uj)
+    Sxh_db_ij = get_Sx(i,j,k,discrete_data,Dim1())
+    Sxh_db_ji = get_Sx(j,i,k,discrete_data,Dim1())
+    QF1[i,k] += Sxh_db_ij[1]*fx
+    QF1[j,k] += Sxh_db_ji[1]*fx
 end
 
-function accumulate_QF1!(prealloc,i,j,k,QFxyrs_ij,discrete_data,equation::EquationType{Dim2})
+function accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation::EquationType{Dim2})
     @unpack QF1 = prealloc
-    @unpack rxJh,ryJh,sxJh,syJh = discrete_data.geom
 
-    QFxr_ij,QFxs_ij,QFyr_ij,QFys_ij = QFxyrs_ij
-    dfxdx(idx) = rxJh[idx,k]*QFxr_ij+sxJh[idx,k]*QFxs_ij
-    dfydy(idx) = ryJh[idx,k]*QFyr_ij+syJh[idx,k]*QFys_ij
-    dfxdx_i = dfxdx(i)
-    dfydy_i = dfydy(i)
-    dfxdx_j = dfxdx(j)
-    dfydy_j = dfydy(j)
-    QF1[i,k] += dfxdx_i+dfydy_i
-    QF1[j,k] -= dfxdx_j+dfydy_j
+    fx,fy = fS_prim_log(equation,Ui,Uj)
+    Sxh_db_ij,Syh_db_ij = get_Sx(i,j,k,discrete_data,Dim2())
+    Sxh_db_ji,Syh_db_ji = get_Sx(j,i,k,discrete_data,Dim2())
+    QF1[i,k] += Sxh_db_ij*fx+Syh_db_ij*fy
+    QF1[j,k] += Sxh_db_ji*fx+Syh_db_ji*fy
 end
 
 function flux_differencing_surface!(prealloc,param,discrete_data_LGL,discrete_data_gauss)
@@ -286,7 +252,8 @@ function accumulate_BF1!(prealloc,k,param,discrete_data,equation::EquationType{D
     rxJf,ryJf,sxJf,syJf = (x->view(x,Nq+1:Nh,k)).((rxJh,ryJh,sxJh,syJh))
     for i = 1:Nfp
         fx,fy = evaluate_high_order_surface_flux(prealloc,param,i,k,equation,get_high_order_surface_flux(param.rhs_type))
-        BF1[i,k] = (rxJf[i]*Br[i,i]+sxJf[i]*Bs[i,i])*fx+(ryJf[i]*Br[i,i]+syJf[i]*Bs[i,i])*fy
+        Bx_i,By_i = get_Bx(i,k,discrete_data,Dim2())     # TODO: redundant calculation
+        BF1[i,k] = Bx_i*fx+By_i*fy
         flux_H[i,k] = BF1[i,k]
     end
 end

@@ -1,3 +1,4 @@
+include("./DGRHSUtils.jl")
 include("./EntropyStableRHS.jl")
 include("./LowOrderPositivityRHS.jl")
 
