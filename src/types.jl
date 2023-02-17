@@ -247,7 +247,8 @@ mutable struct Preallocation{Nc,DIM,DIMP1}      # TODO: hardcoded DIMP1...
     flux     ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     flux_H   ::Array{SVector{Nc,Float64},2}
     flux_L   ::Array{SVector{Nc,Float64},2}
-    wavespeed::Array{Float64,DIMP1}             # TODO: inefficient storage for 2D
+    wavespeed  ::Array{Float64,DIMP1}             # TODO: inefficient storage for 2D
+    wavespeed_f::Array{Float64,2}
     alphaarr ::Array{Float64,2}
     rhsL     ::Array{SVector{Nc,Float64},2}
     Larr     ::Array{Float64,2}

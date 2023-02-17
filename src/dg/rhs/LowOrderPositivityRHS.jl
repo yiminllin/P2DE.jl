@@ -67,27 +67,30 @@ function update_face_values!(prealloc,k,discrete_data,surface_flux_type::LaxFrie
 end
 
 function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equation::EquationType{Dim1})
-    @unpack u_tilde,wavespeed,flux_x,Uq,Uf = prealloc
+    @unpack u_tilde,wavespeed,wavespeed_f,flux_x,Uq,Uf = prealloc
     
     Nq = size(Uq,1)
-    for i = 1:size(u_tilde,1)
-        ui = (i <= Nq) ? Uq[i,k] : Uf[i-Nq,k]
+    Nh = size(u_tilde,1)
+    Nfp = Nh-Nq
+    for i = 1:Nq
+        ui = Uq[i,k]
         wavespeed[i,k] = wavespeed_davis_estimate(equation,ui)
         flux_x[i,k]    = euler_fluxes(equation,ui)[1]
+    end
+
+    for i = 1:Nfp
+        ui = Uf[i,k]
+        wavespeed_f[i,k] = wavespeed_davis_estimate(equation,ui)
+        flux_x[i+Nq,k]   = euler_fluxes(equation,ui)[1]
     end
 end
 
 # TODO: refactor with high order flux calculation
 function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equation::EquationType{Dim2})
-    @unpack LGLind,Uq,Uf,wavespeed,flux_x,flux_y= prealloc
+    @unpack LGLind,Uq,Uf,wavespeed,wavespeed_f,flux_x,flux_y = prealloc
 
     Nq  = size(Uq,1)
     Nfp = size(Uf,1)
-    # TODO: very ugly way to store wavespeed...
-    #       We store volume wavespeed at wavespeed[1:Nq,1:Nq],
-    #                where wavespeed[i,j] = \beta(u_i, n_ij) = \beta(u_i, n_ji), since n_ij = -n_ji
-    #       and store interface wavespeed at wavespeed[Nq+1,Nq+1] to wavespeed[Nh,Nh]
-    #                where wavespeed[i,i] = \beta(u_f,i, n_i)
     # Volume wavespeed and inviscid flux
     for i = 1:Nq
         u_i = Uq[i,k]
@@ -106,7 +109,7 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equa
         u_i = Uf[i,k]
         Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,Dim2())    # TODO: redundant calculation
         n_i = Bxy_i./n_i_norm
-        wavespeed[i+Nq,i+Nq,k] = wavespeed_davis_estimate(equation,u_i,n_i)
+        wavespeed_f[i,k] = wavespeed_davis_estimate(equation,u_i,n_i)
         flux_x[i+Nq,k],flux_y[i+Nq,k] = euler_fluxes(equation,u_i)
     end
 end
@@ -114,7 +117,7 @@ end
 function calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
     @unpack CFL,dt0,T = param.timestepping_param
     @unpack Jq        = discrete_data_gauss.geom
-    @unpack αarr,LGLind,wavespeed,Uq,u_tilde,λarr,λBarr = prealloc
+    @unpack αarr,LGLind,Uq,u_tilde,λarr,λBarr = prealloc
 
     λarr  .= 0.0
     λBarr .= 0.0
@@ -217,31 +220,24 @@ end
 
 # TODO: refactor
 function get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data,equation::EquationType{Dim1})
-    @unpack wavespeed = prealloc
+    @unpack wavespeed_f = prealloc
     
     Nq  = size(prealloc.Uq,1)
     Nh  = size(prealloc.u_tilde,1)
     Nfp = size(mapP,1)
-    wavespeed_f = @view wavespeed[Nq+1:Nh,:]
 
     return .5*max(wavespeed_f[i,k],wavespeed_f[mapP[i+(k-1)*Nfp]])
 end
 
 # TODO: refactor
 function get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data,equation::EquationType{Dim2})
-    @unpack wavespeed = prealloc
-    @unpack rxJh,ryJh,sxJh,syJh = discrete_data.geom
-    @unpack Br,Bs = discrete_data.ops
+    @unpack wavespeed_f = prealloc
 
-    Nq  = size(prealloc.Uq,1)
-    Nh  = size(prealloc.u_tilde,1)
-    Nfp = size(mapP,1)
-    wavespeed_f = @view wavespeed[Nq+1:Nh,Nq+1:Nh,:]
-    
+    Nfp = size(wavespeed_f,1)
     iP = mod1(mapP[i,k],Nfp)
     kP = div(mapP[i,k]-1,Nfp)+1
 
-    return .5*n_i_norm*max(wavespeed_f[i,i,k],wavespeed_f[iP,iP,kP])
+    return .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
 end
 
 function get_lambda_B_CFL(prealloc,i,n_i_norm,k,equation,surface_flux_type::LaxFriedrichsOnNodalVal)
@@ -249,23 +245,18 @@ function get_lambda_B_CFL(prealloc,i,n_i_norm,k,equation,surface_flux_type::LaxF
 end
 
 function get_lambda_B_CFL(prealloc,i,n_i_norm,k,equation::EquationType{Dim1},surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack λBarr,αarr,wavespeed = prealloc
+    @unpack λBarr,αarr,wavespeed_f = prealloc
     
     Nq  = size(prealloc.Uq,1)
     Nh  = size(prealloc.u_tilde,1)
-    wavespeed_f = @view wavespeed[Nq+1:Nh,:]
 
     return αarr[i,k]*λBarr[i,k] + .5*wavespeed_f[i,k]
 end
 
 function get_lambda_B_CFL(prealloc,i,n_i_norm,k,equation::EquationType{Dim2},surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack λBarr,αarr,wavespeed = prealloc
+    @unpack λBarr,αarr,wavespeed_f = prealloc
 
-    Nq  = size(prealloc.Uq,1)
-    Nh  = size(prealloc.u_tilde,1)
-    wavespeed_f = @view wavespeed[Nq+1:Nh,Nq+1:Nh,:]
-
-    return αarr[i,k]*λBarr[i,k] + .5*n_i_norm*wavespeed_f[i,i,k]
+    return αarr[i,k]*λBarr[i,k] + .5*n_i_norm*wavespeed_f[i,k]
 end
 
 function clear_low_order_rhs!(prealloc,param)
@@ -332,7 +323,7 @@ end
 
 function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation::EquationType{Dim1})
     @unpack equation = param
-    @unpack Uq,Uf,rhsL,flux_x,flux_L,wavespeed,LGLind,u_tilde = prealloc
+    @unpack Uq,Uf,rhsL,flux_x,flux_L,wavespeed_f,LGLind,u_tilde = prealloc
     @unpack mapP,mapI,mapO,inflowarr                     = bcdata
 
     K  = get_num_elements(param)
@@ -340,7 +331,6 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
     Nh  = size(u_tilde,1)
     Nfp = size(bcdata.mapP,1)
     flux_f      = @view flux_x[Nq+1:Nh,:]
-    wavespeed_f = @view wavespeed[Nq+1:Nh,:]
     for k = 1:K
         # Surface contributions
         for i = 1:Nfp
@@ -365,7 +355,7 @@ end
 # TODO: refactor
 function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation::EquationType{Dim2})
     @unpack equation = param
-    @unpack Uq,Uf,rhsL,flux_x,flux_y,flux_L,wavespeed,LGLind,u_tilde,λBarr = prealloc
+    @unpack Uq,Uf,rhsL,flux_x,flux_y,flux_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
     @unpack mapP,mapI,mapO,inflowarr = bcdata
 
     K  = get_num_elements(param)
@@ -374,7 +364,6 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
     Nfp = size(bcdata.mapP,1)
     flux_x_f      = @view flux_x[Nq+1:Nh,:]
     flux_y_f      = @view flux_y[Nq+1:Nh,:]
-    wavespeed_f = @view wavespeed[Nq+1:Nh,Nq+1:Nh,:]
     for k = 1:K
         # Surface contributions
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
@@ -457,7 +446,7 @@ end
 
 # TODO: only works in 1D, only for testing
 function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation::EquationType{Dim1})
-    @unpack Uq,rhsL,flux_x,flux_L,wavespeed,LGLind,u_tilde = prealloc
+    @unpack Uq,rhsL,flux_x,flux_L,wavespeed,wavespeed_f,LGLind,u_tilde = prealloc
     @unpack Jq = discrete_data_gauss.geom
     @unpack mapP = bcdata
 
@@ -466,7 +455,6 @@ function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_L
     Nh  = size(u_tilde,1)
     Nfp = size(bcdata.mapP,1)
     flux_f      = @view flux_x[Nq+1:Nh,:]
-    wavespeed_f = @view wavespeed[Nq+1:Nh,:]
     for k = 1:K
         for i = 1:Nq
             rhsL_i = zero(Uq[i,k])
