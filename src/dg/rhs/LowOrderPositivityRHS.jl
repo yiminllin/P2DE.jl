@@ -241,8 +241,7 @@ function get_lambda_i(i,k,prealloc,param,discrete_data,bcdata,equation::Equation
     end
     
     surface_flux_type = LGLind[k] ? LaxFriedrichsOnNodalVal() : get_low_order_surface_flux(param.rhs_type)
-    face_idx_arr = findall(x->x==1.0, view(discrete_data.ops.Vf_low,:,i))
-    for j in face_idx_arr
+    for j in (first(idx) for idx in pairs(view(discrete_data.ops.Vf_low,:,i)) if last(idx) == 1.0)      # TODO: precompute
         _,n_j_norm = get_Bx_with_n(j,k,discrete_data,Dim2())    # TODO: redundant
         λBarr[j,k] = get_lambda_B(prealloc,mapP,j,n_j_norm,k,discrete_data,equation)
         lambda_i += get_lambda_B_CFL(prealloc,j,n_j_norm,k,equation,surface_flux_type)
