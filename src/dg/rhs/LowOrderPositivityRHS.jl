@@ -79,7 +79,7 @@ end
 
 # TODO: refactor with high order flux calculation
 function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equation::EquationType{Dim2})
-    @unpack LGLind,Uq,Uf,wavespeed,flux_x,flux_y,n_i = prealloc
+    @unpack LGLind,Uq,Uf,wavespeed,flux_x,flux_y= prealloc
 
     Nq  = size(Uq,1)
     Nfp = size(Uf,1)
@@ -92,10 +92,9 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equa
     for i = 1:Nq
         u_i = Uq[i,k]
         for j = 1:Nq
-            (Sx0J_ij,Sy0J_ij),n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,Dim2())    # TODO: redundant calculation
+            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,Dim2())    # TODO: redundant calculation
             if n_ij_norm > param.global_constants.ZEROTOL
-                n_i[1] = Sx0J_ij/n_ij_norm
-                n_i[2] = Sy0J_ij/n_ij_norm
+                n_i = Sxy0J_ij./n_ij_norm
                 wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_i)
             end
         end
@@ -105,9 +104,8 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equa
     # Surface wavespeed and inviscid flux
     for i = 1:Nfp
         u_i = Uf[i,k]
-        (Bx_i,By_i),n_i_norm = get_Bx_with_n(i,k,discrete_data,Dim2())    # TODO: redundant calculation
-        n_i[1] = Bx_i/n_i_norm
-        n_i[2] = By_i/n_i_norm
+        Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,Dim2())    # TODO: redundant calculation
+        n_i = Bxy_i./n_i_norm
         wavespeed[i+Nq,i+Nq,k] = wavespeed_davis_estimate(equation,u_i,n_i)
         flux_x[i+Nq,k],flux_y[i+Nq,k] = euler_fluxes(equation,u_i)
     end
