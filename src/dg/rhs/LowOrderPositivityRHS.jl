@@ -73,7 +73,7 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data,equa
     for i = 1:size(u_tilde,1)
         ui = (i <= Nq) ? Uq[i,k] : Uf[i-Nq,k]
         wavespeed[i,k] = wavespeed_davis_estimate(equation,ui)
-        flux_x[i,k]    = euler_fluxes(equation,ui)
+        flux_x[i,k]    = euler_fluxes(equation,ui)[1]
     end
 end
 

@@ -151,7 +151,7 @@ end
     f1 = rhou
     f2 = rhou*u+p
     f3 = u*(E+p)
-    return SVector(f1,f2,f3);
+    return (SVector(f1,f2,f3),)
 end
 
 @inline function euler_fluxes(equation::CompressibleIdealGas{Dim2},U)
@@ -172,7 +172,7 @@ end
     fy3 = rhov*v+p
     fy4 = v*Ep
 
-    return SVector(fx1,fx2,fx3,fx4), SVector(fy1,fy2,fy3,fy4);
+    return SVector(fx1,fx2,fx3,fx4), SVector(fy1,fy2,fy3,fy4)
 end
 
 @inline function fS_prim_log(equation::CompressibleIdealGas{Dim1},UL,UR)
