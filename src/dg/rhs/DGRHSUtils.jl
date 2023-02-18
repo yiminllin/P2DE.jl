@@ -74,4 +74,11 @@ function get_Sx0_with_n(i,j,k,discrete_data,dim::Dim2)
     return (Sx0_ij,Sy0_ij),norm((Sx0_ij,Sy0_ij))
 end
 
+# TODO: not a clean solution
+function get_flux(prealloc,i,k,dim::Dim1)
+    return (prealloc.flux[1][i,k],)
+end
 
+function get_flux(prealloc,i,k,dim::Dim2)
+    return (prealloc.flux[1][i,k],prealloc.flux[2][i,k])
+end

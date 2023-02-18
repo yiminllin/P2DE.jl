@@ -25,7 +25,7 @@ function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
     clear_low_order_rhs!(prealloc,param)
     # TODO: write routine in K loop?
     accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation)
+    accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     # check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation)
 
@@ -284,55 +284,20 @@ function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,dis
     end
 end
 
-function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation::EquationType{Dim1})
+function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     @unpack equation = param
-    @unpack Uq,Uf,rhsL,flux_x,flux_L,wavespeed_f,LGLind,u_tilde = prealloc
-    @unpack mapP,mapI,mapO,inflowarr                     = bcdata
-
-    K  = get_num_elements(param)
-    Nq  = size(Uq,1)
-    Nh  = size(u_tilde,1)
-    Nfp = size(bcdata.mapP,1)
-    flux_f      = @view flux_x[Nq+1:Nh,:]
-    for k = 1:K
-        # Surface contributions
-        for i = 1:Nfp
-            idx = i+Nfp*(k-1)
-            Iidx = findfirst(x->(x==idx), mapI)
-            Oidx = findfirst(x->(x==idx), mapO)
-            fluxP   = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : flux_f[mapP[idx]]
-            uP      = !isnothing(Iidx) ? inflowarr[Iidx] : Uf[mapP[idx]]
-            lambdaD = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : .5*max(wavespeed_f[idx], wavespeed_f[mapP[idx]])
-            # TODO: hardcoded scale by normal
-            if i == 1
-                flux_L[i,k] = -.5*(flux_f[idx]+fluxP)-lambdaD*(uP-Uf[idx])
-                rhsL[1,k]  -= flux_L[i,k] 
-            elseif i == 2
-                flux_L[i,k]  = .5*(flux_f[idx]+fluxP)-lambdaD*(uP-Uf[idx])
-                rhsL[end,k] -= flux_L[i,k]
-            end
-        end
-    end
-end
-
-# TODO: refactor
-function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation::EquationType{Dim2})
-    @unpack equation = param
-    @unpack Uq,Uf,rhsL,flux_x,flux_y,flux_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
+    @unpack Uq,Uf,rhsL,flux,flux_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
     @unpack mapP,mapI,mapO,inflowarr = bcdata
 
     K  = get_num_elements(param)
+    dim = get_dim_type(equation)
+    Nd  = get_dim(equation)
     Nq  = size(Uq,1)
     Nh  = size(u_tilde,1)
     Nfp = size(bcdata.mapP,1)
-    flux_x_f      = @view flux_x[Nq+1:Nh,:]
-    flux_y_f      = @view flux_y[Nq+1:Nh,:]
     for k = 1:K
         # Surface contributions
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack rxJh,ryJh,sxJh,syJh = discrete_data.geom
-        @unpack Br,Bs = discrete_data.ops
-        rxJf,ryJf,sxJf,syJf = (x->view(x,Nq+1:Nh,k)).((rxJh,ryJh,sxJh,syJh))
         for i = 1:Nfp
             # TODO: refactor
             idx = i+Nfp*(k-1)
@@ -340,12 +305,16 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
             kP = div(mapP[i,k]-1,Nfp)+1
             Iidx = findfirst(x->(x==idx), mapI)
             Oidx = findfirst(x->(x==idx), mapO)
-            flux_x_P,flux_y_P = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : flux_x_f[iP,kP],flux_y_f[iP,kP]
+            flux_xy_P = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : get_flux(prealloc,iP+Nq,kP,dim)
             uP = !isnothing(Iidx) ? inflowarr[Iidx] : Uf[iP,kP]
             λB = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : λBarr[i,k]
 
-            (Bx_i,By_i),n_i_norm = get_Bx_with_n(i,k,discrete_data,Dim2())    # TODO: redundant calculation
-            flux_L[i,k] = .5*(Bx_i*(flux_x_f[idx]+flux_x_P)+By_i*(flux_y_f[idx]+flux_y_P))-λB*(uP-Uf[idx])
+            Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
+            flux_L[i,k] = zero(flux_L[i,k])
+            for (Bi,farr,fP) in zip(Bxy_i,flux,flux_xy_P)
+                flux_L[i,k] += Bi*.5*(farr[i+Nq,k]+fP)
+            end
+            flux_L[i,k] += -λB*(uP-Uf[i,k])
 
             iq = findfirst(x->x==1.0, view(discrete_data.ops.Vf_low,i,:))
             rhsL[iq,k] -= flux_L[i,k]
