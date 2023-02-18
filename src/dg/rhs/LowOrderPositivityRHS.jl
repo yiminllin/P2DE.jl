@@ -16,7 +16,6 @@ function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
 
     # Assemble RHS
     clear_low_order_rhs!(prealloc,param)
-    # TODO: write routine in K loop?
     accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
@@ -64,7 +63,6 @@ function update_face_values!(prealloc,k,discrete_data,surface_flux_type::LaxFrie
     end
 end
 
-# TODO: refactor with high order flux calculation
 function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
     @unpack equation = param
     @unpack LGLind,Uq,Uf,wavespeed,wavespeed_f,flux = prealloc
@@ -76,7 +74,7 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
     for i = 1:Nq
         u_i = Uq[i,k]
         for j = 1:Nq
-            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)    # TODO: redundant calculation
+            _,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
             if n_ij_norm > param.global_constants.ZEROTOL
                 n_ij = Sxy0J_ij./n_ij_norm
                 wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
@@ -88,7 +86,7 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
     # Surface wavespeed and inviscid flux
     for i = 1:Nfp
         u_i = Uf[i,k]
-        Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)    # TODO: redundant calculation
+        _,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
         n_i = Bxy_i./n_i_norm
         wavespeed_f[i,k] = wavespeed_davis_estimate(equation,u_i,n_i)
         map((f,fval)->f[i+Nq,k]=fval,flux,euler_fluxes(equation,u_i))  # TODO: looks bad...
@@ -120,8 +118,8 @@ function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,dis
         # Volume contributions
         for j = 1:Nq
             for i = j+1:Nq
-                Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)    # TODO: redundant calculation
-                Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)    # TODO: redundant calculation
+                Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
+                Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
                 if n_ij_norm > param.global_constants.ZEROTOL
                     Fxyij = map(f->.5*(f[i,k]+f[j,k]), flux)
                     wavespeed_ij = max(wavespeed[i,j,k],wavespeed[j,i,k])
