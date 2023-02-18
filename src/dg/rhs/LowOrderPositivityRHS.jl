@@ -74,7 +74,7 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
     for i = 1:Nq
         u_i = Uq[i,k]
         for j = 1:Nq
-            _,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
+            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
             if n_ij_norm > param.global_constants.ZEROTOL
                 n_ij = Sxy0J_ij./n_ij_norm
                 wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
@@ -86,7 +86,7 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
     # Surface wavespeed and inviscid flux
     for i = 1:Nfp
         u_i = Uf[i,k]
-        _,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
+        Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
         n_i = Bxy_i./n_i_norm
         wavespeed_f[i,k] = wavespeed_davis_estimate(equation,u_i,n_i)
         map((f,fval)->f[i+Nq,k]=fval,flux,euler_fluxes(equation,u_i))  # TODO: looks bad...
