@@ -150,25 +150,13 @@ function get_lambda_i(i,k,prealloc,param,discrete_data,bcdata)
     surface_flux_type = LGLind[k] ? LaxFriedrichsOnNodalVal() : get_low_order_surface_flux(param.rhs_type)
     for j in (first(idx) for idx in pairs(view(discrete_data.ops.Vf_low,:,i)) if last(idx) == 1.0)      # TODO: precompute
         _,n_j_norm = get_Bx_with_n(j,k,discrete_data,dim)    # TODO: redundant
-        lambda_i += get_lambda_B_CFL(prealloc,j,n_j_norm,k,equation,surface_flux_type)
+        lambda_i += get_lambda_B_CFL(prealloc,j,n_j_norm,k,surface_flux_type)
     end
 
     return lambda_i
 end
 
-# TODO: refactor
-function get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data,equation::EquationType{Dim1})
-    @unpack wavespeed_f = prealloc
-    
-    Nq  = size(prealloc.Uq,1)
-    Nh  = size(prealloc.u_tilde,1)
-    Nfp = size(mapP,1)
-
-    return .5*max(wavespeed_f[i,k],wavespeed_f[mapP[i+(k-1)*Nfp]])
-end
-
-# TODO: refactor
-function get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data,equation::EquationType{Dim2})
+function get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data)
     @unpack wavespeed_f = prealloc
 
     Nfp = size(wavespeed_f,1)
@@ -178,20 +166,11 @@ function get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data,equation::Equatio
     return .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
 end
 
-function get_lambda_B_CFL(prealloc,i,n_i_norm,k,equation,surface_flux_type::LaxFriedrichsOnNodalVal)
+function get_lambda_B_CFL(prealloc,i,n_i_norm,k,surface_flux_type::LaxFriedrichsOnNodalVal)
     return prealloc.λBarr[i,k]
 end
 
-function get_lambda_B_CFL(prealloc,i,n_i_norm,k,equation::EquationType{Dim1},surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack λBarr,αarr,wavespeed_f = prealloc
-    
-    Nq  = size(prealloc.Uq,1)
-    Nh  = size(prealloc.u_tilde,1)
-
-    return αarr[i,k]*λBarr[i,k] + .5*wavespeed_f[i,k]
-end
-
-function get_lambda_B_CFL(prealloc,i,n_i_norm,k,equation::EquationType{Dim2},surface_flux_type::LaxFriedrichsOnProjectedVal)
+function get_lambda_B_CFL(prealloc,i,n_i_norm,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
     @unpack λBarr,αarr,wavespeed_f = prealloc
 
     return αarr[i,k]*λBarr[i,k] + .5*n_i_norm*wavespeed_f[i,k]
@@ -269,7 +248,7 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
                 flux_L[i,k] += Bi*.5*(farr[i+Nq,k]+fP)
             end
 
-            λBarr[i,k] = get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data,equation)
+            λBarr[i,k] = get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data)
             λB = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : λBarr[i,k]
             flux_L[i,k] += -λB*(uP-Uf[i,k])
 
