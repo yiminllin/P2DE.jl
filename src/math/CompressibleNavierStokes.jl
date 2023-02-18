@@ -50,6 +50,10 @@ end
     return abs(U[2]/U[1]) + sqrt(γ*p/U[1])
 end
 
+@inline function wavespeed_davis_estimate(equation::CompressibleIdealGas{Dim1},U,n)
+    return wavespeed_davis_estimate(equation,U)
+end
+
 # n - normalized normal
 @inline function wavespeed_davis_estimate(equation::CompressibleIdealGas{Dim2},U,n)
     Un = SVector(U[1],n[1]*U[2]+n[2]*U[3],U[4])
@@ -147,7 +151,7 @@ end
     f1 = rhou
     f2 = rhou*u+p
     f3 = u*(E+p)
-    return SVector(f1,f2,f3);
+    return (SVector(f1,f2,f3),)
 end
 
 @inline function euler_fluxes(equation::CompressibleIdealGas{Dim2},U)
@@ -168,7 +172,7 @@ end
     fy3 = rhov*v+p
     fy4 = v*Ep
 
-    return SVector(fx1,fx2,fx3,fx4), SVector(fy1,fy2,fy3,fy4);
+    return SVector(fx1,fx2,fx3,fx4), SVector(fy1,fy2,fy3,fy4)
 end
 
 @inline function fS_prim_log(equation::CompressibleIdealGas{Dim1},UL,UR)
@@ -192,7 +196,7 @@ end
     FxS2 = FxS1*uavg + pa
     FxS3 = f4aux*uavg
 
-    return SVector(FxS1,FxS2,FxS3)
+    return (SVector(FxS1,FxS2,FxS3),)
 end
 
 @inline function fS_prim_log(equation::CompressibleIdealGas{Dim2},UL,UR)

@@ -95,6 +95,14 @@ function get_dim(equation::EquationType{Dim2})
     return 2
 end
 
+function get_dim_type(equation::EquationType{Dim1})
+    return Dim1()
+end
+
+function get_dim_type(equation::EquationType{Dim2})
+    return Dim2()
+end
+
 function get_num_components(equation::EquationType{Dim1})
     return 3
 end
@@ -217,7 +225,7 @@ mutable struct DiscretizationData{DIM,NGEO}
     ops  ::Operators{DIM}
 end
 
-mutable struct Preallocation{Nc,DIM,DIMP1}      # TODO: hardcoded DIMP1...
+mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     Uq     ::Array{SVector{Nc,Float64},2}
     vq     ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
     v_tilde::Array{SVector{Nc,Float64},2}       # projected entropy variables
@@ -239,7 +247,8 @@ mutable struct Preallocation{Nc,DIM,DIMP1}      # TODO: hardcoded DIMP1...
     flux     ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     flux_H   ::Array{SVector{Nc,Float64},2}
     flux_L   ::Array{SVector{Nc,Float64},2}
-    wavespeed::Array{Float64,DIMP1}             # TODO: inefficient storage for 2D
+    wavespeed  ::Array{Float64,3}             # TODO: inefficient storage
+    wavespeed_f::Array{Float64,2}
     alphaarr ::Array{Float64,2}
     rhsL     ::Array{SVector{Nc,Float64},2}
     Larr     ::Array{Float64,2}
@@ -277,7 +286,6 @@ mutable struct Preallocation{Nc,DIM,DIMP1}      # TODO: hardcoded DIMP1...
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
-    n_i      ::Array{Float64,1}
     λarr     ::Array{Float64,3}
     λBarr    ::Array{Float64,2}
 end
@@ -360,7 +368,7 @@ function Base.getproperty(geom::GeomData{NGEO}, s::Symbol) where {NGEO}
     end
 end
 
-function Base.getproperty(prealloc::Preallocation{Nc,DIM,DIMP1}, s::Symbol) where {Nc,DIM,DIMP1}
+function Base.getproperty(prealloc::Preallocation{Nc,DIM}, s::Symbol) where {Nc,DIM}
     if s == :flux_x
         return getfield(prealloc,:flux)[1]
     elseif s == :flux_y

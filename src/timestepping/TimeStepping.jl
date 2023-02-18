@@ -21,6 +21,7 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
 
     i = 1
     dt = CFL*dt0
+    # @btime rhs!($param,$discrete_data_gauss,$discrete_data_LGL,$transfer_ops,$bcdata,$prealloc,$t,$dt,1)
     @time while t < T
         dt = min(CFL*dt0,T-t)
         @. resW = Uq    # TODO: rename, resW is now the copy of previous time step Uq, and Uq is wi in paper
