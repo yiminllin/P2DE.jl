@@ -14,13 +14,6 @@ function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
     end
     calculate_wavespeed_and_inviscid_flux!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
 
-    # Determine positivity CFL
-    if (nstage == 1)
-        dt = calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
-    else
-        calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)   # TODO: refactor
-    end
-
     # Assemble RHS
     clear_low_order_rhs!(prealloc,param)
     # TODO: write routine in K loop?
@@ -28,6 +21,11 @@ function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
     accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     # check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation)
+
+    # Determine positivity CFL
+    if (nstage == 1)
+        dt = calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
+    end
 
     return dt
 end
@@ -102,8 +100,6 @@ function calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,
     @unpack Jq        = discrete_data_gauss.geom
     @unpack αarr,LGLind,Uq,u_tilde,λarr,λBarr = prealloc
 
-    λarr  .= 0.0
-    λBarr .= 0.0
     K  = get_num_elements(param)
     Nq  = size(prealloc.Uq,1)
     Nh  = size(prealloc.u_tilde,1)
@@ -113,7 +109,7 @@ function calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         accumulate_alpha!(prealloc,k,param,discrete_data)
         for i = 1:Nq
-            lambda_i = get_lambda_i(i,k,prealloc,param,discrete_data,bcdata,param.equation)
+            lambda_i = get_lambda_i(i,k,prealloc,param,discrete_data,bcdata)
             wq_i  = discrete_data.ops.wq[i]
             wJq_i = Jq[i,k]*wq_i
             dt = min(dt, CFL*.5*wJq_i/lambda_i)
@@ -136,68 +132,24 @@ function accumulate_alpha!(prealloc,k,param,discrete_data)
     end
 end
 
-function get_lambda_i(i,k,prealloc,param,discrete_data,bcdata,equation::EquationType{Dim1})
-    @unpack wavespeed,LGLind,λarr,λBarr = prealloc
-    @unpack Sr0,wq = discrete_data.ops
-    @unpack mapP   = bcdata
-    @unpack Jq     = discrete_data.geom
-
-    Nq = size(wq,1)
-    lambda_i = 0.0
-    wq_i  = wq[i]
-    wJq_i = Jq[i,k]*wq_i
-    for j = 1:Nq
-        Sr0_ij = Sr0[i,j]
-        if Sr0_ij != 0
-            λarr[i,j,k] = abs(Sr0_ij)*max(wavespeed[i,j,k], wavespeed[j,i,k])
-            lambda_i += λarr[i,j,k]
-        end
-    end
-    surface_flux_type = LGLind[k] ? LaxFriedrichsOnNodalVal() : get_low_order_surface_flux(param.rhs_type)  # TODO: hardcoding
-    # TODO: hardcoded
-    if i == 1
-        iface = 1
-        _,n_j_norm = get_Bx_with_n(iface,k,discrete_data,Dim1())    # TODO: redundant
-        λBarr[iface,k] = get_lambda_B(prealloc,mapP,iface,n_j_norm,k,discrete_data,equation)
-        lambda_i += λBarr[iface,k]
-    end
-    if i == Nq
-        iface = 2
-        _,n_j_norm = get_Bx_with_n(iface,k,discrete_data,Dim1())    # TODO: redundant
-        λBarr[iface,k] = get_lambda_B(prealloc,mapP,iface,n_j_norm,k,discrete_data,equation)
-        lambda_i += λBarr[iface,k]
-    end
-
-    return lambda_i
-end
-
-function get_lambda_i(i,k,prealloc,param,discrete_data,bcdata,equation::EquationType{Dim2})
+function get_lambda_i(i,k,prealloc,param,discrete_data,bcdata)
     @unpack equation = param
     @unpack λarr,λBarr,wavespeed,LGLind = prealloc
-    @unpack Sr0,Ss0,Br,Bs,wq = discrete_data.ops
-    @unpack mapP = bcdata
-    @unpack Jq,rxJh,ryJh,sxJh,syJh = discrete_data.geom
 
-    Nq = size(wq,1)
-    Nh = size(rxJh,1)
-    Nfp = size(mapP,1)
+    dim = get_dim_type(equation)
+    Nq = size(prealloc.Uq,1)
+    Nh = size(prealloc.u_tilde,1)
+    Nfp = size(bcdata.mapP,1)
+
     lambda_i = 0.0
-    wq_i  = wq[i]
-    wJq_i = Jq[i,k]*wq_i
-    
     # TODO: can only consider upper diagonal
     for j = 1:Nq
-        _,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,Dim2())   # TODO: redundant
-        if n_ij_norm > param.global_constants.ZEROTOL
-            λarr[i,j,k] = n_ij_norm*max(wavespeed[i,j,k],wavespeed[j,i,k]) 
-            lambda_i += λarr[i,j,k]
-        end
+        lambda_i += λarr[i,j,k]
     end
     
     surface_flux_type = LGLind[k] ? LaxFriedrichsOnNodalVal() : get_low_order_surface_flux(param.rhs_type)
     for j in (first(idx) for idx in pairs(view(discrete_data.ops.Vf_low,:,i)) if last(idx) == 1.0)      # TODO: precompute
-        _,n_j_norm = get_Bx_with_n(j,k,discrete_data,Dim2())    # TODO: redundant
-        λBarr[j,k] = get_lambda_B(prealloc,mapP,j,n_j_norm,k,discrete_data,equation)
+        _,n_j_norm = get_Bx_with_n(j,k,discrete_data,dim)    # TODO: redundant
         lambda_i += get_lambda_B_CFL(prealloc,j,n_j_norm,k,equation,surface_flux_type)
     end
 
@@ -249,12 +201,13 @@ function clear_low_order_rhs!(prealloc,param)
     K  = get_num_elements(param)
     Nc = get_num_components(param.equation)
     rhsL = prealloc.rhsL
-    # Assemble RHS
     for k = 1:K
         for i = 1:size(rhsL,1)
             rhsL[i,k] = zero(SVector{Nc,Float64})
         end
     end
+    prealloc.λarr  .= 0.0
+    prealloc.λBarr .= 0.0
 end
 
 function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
@@ -273,9 +226,11 @@ function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,dis
                 Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)    # TODO: redundant calculation
                 if n_ij_norm > param.global_constants.ZEROTOL
                     Fxyij = map(f->.5*(f[i,k]+f[j,k]), flux)
-                    lambdaij = λarr[i,j,k]
-                    LFij = 2.0*sum(Sxy0J_ij.*Fxyij) - lambdaij*(Uq[j,k]-Uq[i,k])
-                    LFji = 2.0*sum(Sxy0J_ji.*Fxyij) - lambdaij*(Uq[i,k]-Uq[j,k])
+                    wavespeed_ij = max(wavespeed[i,j,k],wavespeed[j,i,k])
+                    λarr[i,j,k] = n_ij_norm*wavespeed_ij
+                    λarr[j,i,k] = n_ji_norm*wavespeed_ij
+                    LFij = 2.0*sum(Sxy0J_ij.*Fxyij) - λarr[i,j,k]*(Uq[j,k]-Uq[i,k])
+                    LFji = 2.0*sum(Sxy0J_ji.*Fxyij) - λarr[j,i,k]*(Uq[i,k]-Uq[j,k])
                     rhsL[i,k] -= LFij
                     rhsL[j,k] -= LFji
                 end
@@ -307,13 +262,15 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
             Oidx = findfirst(x->(x==idx), mapO)
             flux_xy_P = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : get_flux(prealloc,iP+Nq,kP,dim)
             uP = !isnothing(Iidx) ? inflowarr[Iidx] : Uf[iP,kP]
-            λB = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : λBarr[i,k]
 
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             flux_L[i,k] = zero(flux_L[i,k])
             for (Bi,farr,fP) in zip(Bxy_i,flux,flux_xy_P)
                 flux_L[i,k] += Bi*.5*(farr[i+Nq,k]+fP)
             end
+
+            λBarr[i,k] = get_lambda_B(prealloc,mapP,i,n_i_norm,k,discrete_data,equation)
+            λB = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : λBarr[i,k]
             flux_L[i,k] += -λB*(uP-Uf[i,k])
 
             iq = findfirst(x->x==1.0, view(discrete_data.ops.Vf_low,i,:))
