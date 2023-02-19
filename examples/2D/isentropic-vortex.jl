@@ -46,8 +46,6 @@ function initial_condition(param,x,y)
     return primitive_to_conservative(param.equation,SVector(exact_sol(param.equation,x,y,t0)))
 end
 
-jld_path = "outputs/jld2/2D/sine-wave/sine-wave.jld2"
-
 γ = 1.4
 param = Param(N=3, K=(40,20), xL=(0.0,0.0), xR=(20.0,10.0),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
@@ -79,4 +77,4 @@ x = md_LGL.xq[:]
 y = md_LGL.yq[:]
 rho = [x[1] for x in prealloc.Uq][:]
 scatter(x,y,rho,zcolor=rho,camera=(0,90),aspect_ratio=.5)
-savefig("~/Desktop/test.png")
+savefig("./outputs/figures/2D/vortex/N=$N,K=$K.png")
