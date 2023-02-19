@@ -36,17 +36,16 @@ function get_limiting_param(param,UL,P,Lrho,Lrhoe,Urho,Urhoe)
     return l
 end
 
-function rhoe_quadratic_solve(param,U_low,P_ij,Lrhoe)
+function rhoe_quadratic_solve(param,UL,P,Lrhoe)
     @unpack ZEROTOL = param.global_constants
 
+    dim = get_dim_type(param.equation)
     if Lrhoe == Inf
         return 1.0
     end
 
     # limiting internal energy (via quadratic function) lower bound
-    a = P_ij[1]*P_ij[3]-1.0/2.0*P_ij[2]^2
-    b = U_low[3]*P_ij[1]+U_low[1]*P_ij[3]-U_low[2]*P_ij[2]-P_ij[1]*Lrhoe
-    c = U_low[3]*U_low[1]-1.0/2.0*U_low[2]^2-U_low[1]*Lrhoe
+    a,b,c = get_rhoe_quadratic_coefficients(UL,P,Lrhoe,dim)
 
     l_eps_ij = 1.0
     if b^2-4*a*c >= 0
@@ -64,19 +63,33 @@ function rhoe_quadratic_solve(param,U_low,P_ij,Lrhoe)
     return l_eps_ij
 end
 
-function get_limiting_param_bound_rho_rhoe(param,U_low,P_ij,Lrho,Lrhoe,Urho,Urhoe)
+function get_rhoe_quadratic_coefficients(U,P,Lrhoe,dim::Dim1)
+    a = P[1]*P[3]-1.0/2.0*P[2]^2
+    b = U[3]*P[1]+U[1]*P[3]-U[2]*P[2]-P[1]*Lrhoe
+    c = U[3]*U[1]-1.0/2.0*U[2]^2-U[1]*Lrhoe
+    return a,b,c
+end
+
+function get_rhoe_quadratic_coefficients(U,P,Lrhoe,dim::Dim2)
+    a = P[1]*P[4]-1.0/2.0*(P[2]^2+P[3]^2)
+    b = U[4]*P[1]+U[1]*P[4]-U[2]*P[2]-U[3]*P[3]-P[1]*Lrhoe
+    c = U[4]*U[1]-1.0/2.0*(U[2]^2+U[3]^2)-U[1]*Lrhoe
+    return a,b,c
+end
+
+function get_limiting_param_bound_rho_rhoe(param,U,P,Lrho,Lrhoe,Urho,Urhoe)
     l = 1.0
     # Limit density, lower bound
-    if U_low[1] + P_ij[1] < Lrho
-        l = max((Lrho-U_low[1])/P_ij[1],0.0)
+    if U[1] + P[1] < Lrho
+        l = max((Lrho-U[1])/P[1],0.0)
     end
     # Limit density, upper bound
-    if U_low[1] + P_ij[1] > Urho
-        l = min(l, max((Urho-U_low[1])/P_ij[1],0.0))
+    if U[1] + P[1] > Urho
+        l = min(l, max((Urho-U[1])/P[1],0.0))
     end
 
-    l = min(l,rhoe_quadratic_solve(param,U_low,P_ij,Lrhoe),
-              rhoe_quadratic_solve(param,U_low,P_ij,Urhoe))
+    l = min(l,rhoe_quadratic_solve(param,U,P,Lrhoe),
+              rhoe_quadratic_solve(param,U,P,Urhoe))
     return l
 end
 
