@@ -128,7 +128,7 @@ end
 
 function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_data_gauss)
     @unpack equation = param
-    @unpack QF1,u_tilde,beta,rholog,betalog,Ui,Uj,LGLind = prealloc
+    @unpack u_tilde,beta,rholog,betalog,Ui,Uj,LGLind = prealloc
 
     K  = get_num_elements(param)
     Nh = size(u_tilde,1)
@@ -165,8 +165,8 @@ function accumulate_QF1!(prealloc,i,Ui,j,Uj,k,discrete_data,equation)
     fxy = fS_prim_log(equation,Ui,Uj)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
     Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
-    QF1[i,k] += sum(Sxyh_db_ij .* fxy)    # TODO: StaticArray instead of NTuple
-    QF1[j,k] += sum(Sxyh_db_ji .* fxy)
+    QF1[i,k] += Sxyh_db_ij .* fxy
+    QF1[j,k] += Sxyh_db_ji .* fxy
 end
 
 function flux_differencing_surface!(prealloc,param,discrete_data_LGL,discrete_data_gauss)
@@ -291,10 +291,10 @@ function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nsta
         else
             project_flux_difference_to_quad!(prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage)
         end
-        for i = 1:size(spatial,1)
-            spatial[i,k] = -(spatial[i,k]+boundary[i,k])/J[i,k]
+        for i = 1:size(boundary,1)
+            boundary[i,k] = -(sum(spatial[i,k])+boundary[i,k])/J[i,k]
         end
-        @views mul!(rhsH[:,k],discrete_data_LGL.ops.Vq,spatial[:,k])
+        @views mul!(rhsH[:,k],discrete_data_LGL.ops.Vq,boundary[:,k])
     end
 end
 

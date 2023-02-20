@@ -238,7 +238,7 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     rhsH   ::Array{SVector{Nc,Float64},2}
     Ui     ::Array{Float64,1}
     Uj     ::Array{Float64,1}
-    QF1    ::Array{SVector{Nc,Float64},2}
+    QF1    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF1    ::Array{SVector{Nc,Float64},2}
     uP      ::Array{SVector{Nc,Float64},2}
     betaP   ::Array{Float64,2}
@@ -263,7 +263,7 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     U_modal  ::Array{SVector{Nc,Float64},2}
     U_k      ::Array{SVector{Nc,Float64},1}
     Uq_k     ::Array{SVector{Nc,Float64},1}
-    spatial  ::Array{SVector{Nc,Float64},2}
+    spatial  ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     boundary ::Array{SVector{Nc,Float64},2}
     resW     ::Array{SVector{Nc,Float64},2}
     resZ     ::Array{SVector{Nc,Float64},2}
