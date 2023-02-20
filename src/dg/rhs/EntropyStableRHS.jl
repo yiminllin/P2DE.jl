@@ -239,13 +239,13 @@ function apply_LF_dissipation!(prealloc,param,k)
 end
 
 function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data_gauss,k,nstage)
-    @unpack spatial,boundary,QF1,BF1 = prealloc
-    @views mul!(spatial[:,k],discrete_data_gauss.ops.MinvVhT,QF1[:,k])
-    @views mul!(boundary[:,k],discrete_data_gauss.ops.MinvVfT,BF1[:,k])
+    @unpack MinvVhTQF1,MinvVfTBF1,QF1,BF1 = prealloc
+    @views mul!(MinvVhTQF1[:,k],discrete_data_gauss.ops.MinvVhT,QF1[:,k])
+    @views mul!(MinvVfTBF1[:,k],discrete_data_gauss.ops.MinvVfT,BF1[:,k])
 end
 
 function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,k,nstage)
-    @unpack spatial,boundary,QF1,BF1,Vf_new,VhT_new,MinvVhT_new = prealloc
+    @unpack MinvVhTQF1,MinvVfTBF1,QF1,BF1,Vf_new,VhT_new,MinvVhT_new = prealloc
     @unpack Nq,Nh = discrete_data_gauss.sizes
 
     update_limited_extrapolation!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,k,nstage)
@@ -255,8 +255,8 @@ function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_typ
     VfT_new .= transpose(Vf_new)
     @. MinvVhT_new = (1/discrete_data_gauss.ops.wq)*VhT_new
     MinvVfT_new = @views MinvVhT_new[:,Nq+1:Nh]
-    @views mul!(spatial[:,k],MinvVhT_new,QF1[:,k])
-    @views mul!(boundary[:,k],MinvVfT_new,BF1[:,k])
+    @views mul!(MinvVhTQF1[:,k],MinvVhT_new,QF1[:,k])
+    @views mul!(MinvVfTBF1[:,k],MinvVfT_new,BF1[:,k])
 end
 
 function update_limited_extrapolation!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,k,nstage)
@@ -278,7 +278,7 @@ end
 
 # TODO: dispatch
 function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nstage,J)
-    @unpack spatial,boundary,QF1,BF1,LGLind,rhsH = prealloc
+    @unpack MinvVhTQF1,MinvVfTBF1,QF1,BF1,LGLind,rhsH = prealloc
 
     K  = get_num_elements(param)
     # Assemble RHS
@@ -286,15 +286,15 @@ function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nsta
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         @unpack MinvVhT,MinvVfT,Vq = discrete_data.ops
         if LGLind[k]
-            @views mul!(spatial[:,k],discrete_data.ops.MinvVhT,QF1[:,k])
-            @views mul!(boundary[:,k],discrete_data.ops.MinvVfT,BF1[:,k])
+            @views mul!(MinvVhTQF1[:,k],discrete_data.ops.MinvVhT,QF1[:,k])
+            @views mul!(MinvVfTBF1[:,k],discrete_data.ops.MinvVfT,BF1[:,k])
         else
             project_flux_difference_to_quad!(prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage)
         end
-        for i = 1:size(boundary,1)
-            boundary[i,k] = -(sum(spatial[i,k])+boundary[i,k])/J[i,k]
+        for i = 1:size(MinvVfTBF1,1)
+            MinvVfTBF1[i,k] = -(sum(MinvVhTQF1[i,k])+MinvVfTBF1[i,k])/J[i,k]
         end
-        @views mul!(rhsH[:,k],discrete_data_LGL.ops.Vq,boundary[:,k])
+        @views mul!(rhsH[:,k],discrete_data_LGL.ops.Vq,MinvVfTBF1[:,k])
     end
 end
 

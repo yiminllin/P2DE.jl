@@ -264,8 +264,8 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     U_modal  ::Array{SVector{Nc,Float64},2}
     U_k      ::Array{SVector{Nc,Float64},1}
     Uq_k     ::Array{SVector{Nc,Float64},1}
-    spatial  ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    boundary ::Array{SVector{Nc,Float64},2}
+    MinvVhTQF1::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    MinvVfTBF1::Array{SVector{Nc,Float64},2}
     resW     ::Array{SVector{Nc,Float64},2}
     resZ     ::Array{SVector{Nc,Float64},2}
     Farr     ::Array{Float64,2}

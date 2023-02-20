@@ -43,8 +43,8 @@ function initialize_preallocations(param,md,sizes)
     U_modal   = zeros(SVector{Nc,Float64},Np,K)
     U_k       = zeros(SVector{Nc,Float64},Np)
     Uq_k      = zeros(SVector{Nc,Float64},Nq)
-    spatial   = zeros(SVector{Nd,SVector{Nc,Float64}},Np,K)
-    boundary  = zeros(SVector{Nc,Float64},Np,K)
+    MinvVhTQF1 = zeros(SVector{Nd,SVector{Nc,Float64}},Np,K)
+    MinvVfTBF1 = zeros(SVector{Nc,Float64},Np,K)
     resW      = zeros(SVector{Nc,Float64},Nq,K)
     resZ      = zeros(SVector{Nc,Float64},Nq,K)
     Farr      = zeros(Float64,K,Ns)            # TODO: rename F, eta to theta
@@ -73,7 +73,7 @@ function initialize_preallocations(param,md,sizes)
     λarr      = zeros(Float64,Nq,Nq,K)
     λBarr     = zeros(Float64,Nfp,K)
 
-    prealloc = Preallocation{Nc,Nd}(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,Q0F1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,wavespeed_f,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,spatial,boundary,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,λarr,λBarr)
+    prealloc = Preallocation{Nc,Nd}(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,Ui,Uj,QF1,Q0F1,BF1,uP,betaP,rhologP,betalogP,flux,flux_H,flux_L,wavespeed,wavespeed_f,alphaarr,rhsL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,MinvVhTQF1,MinvVfTBF1,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,λarr,λBarr)
     return prealloc
 end
 
