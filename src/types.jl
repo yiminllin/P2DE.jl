@@ -280,9 +280,9 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     MinvVhT_new::Array{Float64,2}
     uL_k     ::Array{SVector{Nc,Float64},1}
     P_k      ::Array{SVector{Nc,Float64},1}
-    f_bar_H  ::Array{SVector{Nc,Float64},2}
-    f_bar_L  ::Array{SVector{Nc,Float64},2}
-    f_bar_lim::Array{SVector{Nc,Float64},2}
+    f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}

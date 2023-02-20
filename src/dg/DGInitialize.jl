@@ -62,9 +62,10 @@ function initialize_preallocations(param,md,sizes)
     MinvVhT_new = zeros(Float64,Np,Nh)
     uL_k      = zeros(SVector{Nc,Float64},Nq)
     P_k       = zeros(SVector{Nc,Float64},Nq)
-    f_bar_H   = zeros(SVector{Nc,Float64},Nq+1,K)
-    f_bar_L   = zeros(SVector{Nc,Float64},Nq+1,K)
-    f_bar_lim = zeros(SVector{Nc,Float64},Nq+1,K)  # TODO: unnecessary
+    N1D = Nd == 1 ? 1 : param.N+1
+    f_bar_H   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
+    f_bar_L   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
+    f_bar_lim = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)  # TODO: unnecessary
     Uf        = zeros(SVector{Nc,Float64},Nfp,K)
     VUf       = zeros(SVector{Nc,Float64},Nfp,K)
     rhoef     = zeros(Float64,Nfp,K)

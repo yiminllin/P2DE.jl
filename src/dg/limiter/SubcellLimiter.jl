@@ -10,11 +10,11 @@ function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     for k = 1:K
         wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
         Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
-        f_bar_H[1,k] = flux_H[1,k][1]
-        f_bar_L[1,k] = flux_L[1,k][1]
+        f_bar_H[1][1,k] = flux_H[1,k][1]
+        f_bar_L[1][1,k] = flux_L[1,k][1]
         for i = 2:Nq+1
-            f_bar_H[i,k] = f_bar_H[i-1,k]+Jq[i-1,k]*wq[i-1]*rhsH[i-1,k]
-            f_bar_L[i,k] = f_bar_L[i-1,k]+Jq[i-1,k]*wq[i-1]*rhsL[i-1,k]
+            f_bar_H[1][i,k] = f_bar_H[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsH[i-1,k]
+            f_bar_L[1][i,k] = f_bar_L[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsL[i-1,k]
         end
     end
 end
@@ -38,11 +38,11 @@ function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data
         # TODO: ugly...
         for i = 1:Nq
             wJq_i = (wq[i]*Jq[i,k])
-            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i],-2*dt*(f_bar_H[i,k]-f_bar_L[i,k])/wJq_i,Lrho(uL_k[i]),Lrhoe(uL_k[i]),Urho,Urhoe))
+            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i],-2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_i,Lrho(uL_k[i]),Lrhoe(uL_k[i]),Urho,Urhoe))
         end
         for i = 2:Nq+1
             wJq_im1 = (wq[i-1]*Jq[i-1,k])
-            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i-1],2*dt*(f_bar_H[i,k]-f_bar_L[i,k])/wJq_im1,Lrho(uL_k[i-1]),Lrhoe(uL_k[i-1]),Urho,Urhoe))
+            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i-1],2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_im1,Lrho(uL_k[i-1]),Lrhoe(uL_k[i-1]),Urho,Urhoe))
         end
     end
 
@@ -63,7 +63,7 @@ function accumulate_f_bar_limited!(prealloc,param,nstage)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache? df_bar?
     for k = 1:K
         for i = 1:Nq+1
-            f_bar_lim[i,k] = L_local_arr[i,k,nstage]*f_bar_H[i,k] + (1-L_local_arr[i,k,nstage])*f_bar_L[i,k]
+            f_bar_lim[1][i,k] = L_local_arr[i,k,nstage]*f_bar_H[1][i,k] + (1-L_local_arr[i,k,nstage])*f_bar_L[1][i,k]
         end
     end
 end
@@ -79,7 +79,7 @@ function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data
         Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
         for i = 1:Nq
             wJq_i     = (wq[i]*Jq[i,k])
-            rhsU[i,k] = (f_bar_lim[i+1,k]-f_bar_lim[i,k])/wJq_i
+            rhsU[i,k] = (f_bar_lim[1][i+1,k]-f_bar_lim[1][i,k])/wJq_i
         end
     end
 end
