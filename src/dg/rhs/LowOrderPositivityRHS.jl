@@ -94,21 +94,24 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
 end
 
 function clear_low_order_rhs!(prealloc,param)
+    @unpack rhsL,Q0F1,λarr,λBarr = prealloc
+
     K  = get_num_elements(param)
     Nc = get_num_components(param.equation)
-    rhsL = prealloc.rhsL
+    Nd = get_dim(param.equation)
     for k = 1:K
         for i = 1:size(rhsL,1)
             rhsL[i,k] = zero(SVector{Nc,Float64})
+            Q0F1[i,k] = zero(SVector{Nd,SVector{Nc,Float64}})
         end
     end
-    prealloc.λarr  .= 0.0
-    prealloc.λBarr .= 0.0
+    λarr  .= 0.0
+    λBarr .= 0.0
 end
 
 function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack equation = param
-    @unpack Uq,rhsL,flux,wavespeed,LGLind,λarr = prealloc
+    @unpack Uq,rhsL,flux,wavespeed,LGLind,λarr,Q0F1 = prealloc
     
     dim = get_dim_type(equation)
     K  = get_num_elements(param)
@@ -125,12 +128,17 @@ function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,dis
                     wavespeed_ij = max(wavespeed[i,j,k],wavespeed[j,i,k])
                     λarr[i,j,k] = n_ij_norm*wavespeed_ij
                     λarr[j,i,k] = n_ji_norm*wavespeed_ij
-                    LFij = 2.0*sum(Sxy0J_ij.*Fxyij) - λarr[i,j,k]*(Uq[j,k]-Uq[i,k])
-                    LFji = 2.0*sum(Sxy0J_ji.*Fxyij) - λarr[j,i,k]*(Uq[i,k]-Uq[j,k])
-                    rhsL[i,k] -= LFij
-                    rhsL[j,k] -= LFji
+                    ΛD_ij = get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim)
+                    Q0F1[i,k] += 2.0*Sxy0J_ij.*Fxyij - ΛD_ij
+                    Q0F1[j,k] += 2.0*Sxy0J_ji.*Fxyij + ΛD_ij
                 end
             end
+        end
+    end
+
+    for k = 1:K
+        for i = 1:Nq
+            rhsL[i,k] -= sum(Q0F1[i,k])
         end
     end
 end

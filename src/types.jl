@@ -239,6 +239,7 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     Ui     ::Array{Float64,1}
     Uj     ::Array{Float64,1}
     QF1    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    Q0F1   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF1    ::Array{SVector{Nc,Float64},2}
     uP      ::Array{SVector{Nc,Float64},2}
     betaP   ::Array{Float64,2}

@@ -87,3 +87,24 @@ function apply_LF_dissipation_to_flux(flux_f,param,i,k,lf,dim::Dim2)
         flux_f[i,k] = SVector(flux_f[i,k][1],flux_f[i,k][2]-lf)
     end
 end
+
+# TODO: hardcoded
+function get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim::Dim1)
+    @unpack Uq,λarr = prealloc
+
+    return SVector{1}(λarr[i,j,k]*(Uq[j,k]-Uq[i,k]))
+end
+
+function get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim::Dim2)
+    @unpack Uq,λarr = prealloc
+
+    Nc = 4   # TODO: hardcoding 
+    Sx0J_ij,Sy0J_ij = Sxy0J_ij
+    visc_term = λarr[i,j,k]*(Uq[j,k]-Uq[i,k])
+    # If it is the dissipation in x-direction
+    if abs(Sx0J_ij) > param.global_constants.POSTOL
+        return SVector(visc_term, zero(SVector{Nc,Float64}))
+    else
+        return SVector(zero(SVector{Nc,Float64}), visc_term)
+    end
+end
