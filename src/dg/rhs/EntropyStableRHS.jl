@@ -172,13 +172,13 @@ end
 function flux_differencing_surface!(prealloc,param,discrete_data_LGL,discrete_data_gauss)
     @unpack LGLind   = prealloc
     @unpack equation = param
-    @unpack BF1,u_tilde,uP,LFc,flux_H = prealloc
+    @unpack BF1,u_tilde,uP,LFc = prealloc
 
     K  = get_num_elements(param)
     for k  = 1:K
         discrete_data = (LGLind[k]) ? discrete_data_LGL : discrete_data_gauss
         accumulate_BF1!(prealloc,k,param,discrete_data,equation)
-        apply_LF_dissipation!(prealloc,k)
+        apply_LF_dissipation!(prealloc,param,k)
     end
 end
 
@@ -191,8 +191,8 @@ function accumulate_BF1!(prealloc,k,param,discrete_data,equation)
     for i = 1:Nfp
         fxy = evaluate_high_order_surface_flux(prealloc,param,i,k,get_high_order_surface_flux(param.rhs_type))
         Bxy_i = get_Bx(i,k,discrete_data,dim)     # TODO: redundant calculation
-        BF1[i,k] = sum(Bxy_i .* fxy)
-        flux_H[i,k] = BF1[i,k]
+        flux_H[i,k] = Bxy_i.*fxy
+        BF1[i,k] = sum(flux_H[i,k])
     end
 end
 
@@ -223,7 +223,7 @@ function evaluate_high_order_surface_flux(prealloc,param,i,k,surface_flux_type::
     return .5 .* (fxyf.+fxyP)
 end
 
-function apply_LF_dissipation!(prealloc,k)
+function apply_LF_dissipation!(prealloc,param,k)
     @unpack BF1,flux_H,LFc,uP,u_tilde = prealloc
 
     # LF dissipation
@@ -234,7 +234,7 @@ function apply_LF_dissipation!(prealloc,k)
     for i = 1:Nfp
         lf = LFc[i,k]*(uP[i,k]-uf[i,k])
         BF1[i,k] -= lf
-        flux_H[i,k] -= lf   # TODO: refactor
+        apply_LF_dissipation_to_flux(flux_H,param,i,k,lf,get_dim_type(param.equation))
     end
 end
 

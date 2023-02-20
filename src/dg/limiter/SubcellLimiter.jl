@@ -10,8 +10,8 @@ function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     for k = 1:K
         wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
         Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
-        f_bar_H[1,k] = flux_H[1,k]
-        f_bar_L[1,k] = flux_L[1,k]
+        f_bar_H[1,k] = flux_H[1,k][1]
+        f_bar_L[1,k] = flux_L[1,k][1]
         for i = 2:Nq+1
             f_bar_H[i,k] = f_bar_H[i-1,k]+Jq[i-1,k]*wq[i-1]*rhsH[i-1,k]
             f_bar_L[i,k] = f_bar_L[i-1,k]+Jq[i-1,k]*wq[i-1]*rhsL[i-1,k]

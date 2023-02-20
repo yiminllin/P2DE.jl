@@ -74,11 +74,16 @@ function get_Sx0_with_n(i,j,k,discrete_data,dim::Dim2)
     return (Sx0_ij,Sy0_ij),norm((Sx0_ij,Sy0_ij))
 end
 
-# TODO: not a clean solution
-function get_flux(prealloc,i,k,dim::Dim1)
-    return (prealloc.flux[1][i,k],)
+# TODO: hardcoded
+function apply_LF_dissipation_to_flux(flux_f,param,i,k,lf,dim::Dim1)
+    flux_f[i,k] = SVector{1}(flux_f[i,k][1]-lf)
 end
 
-function get_flux(prealloc,i,k,dim::Dim2)
-    return (prealloc.flux[1][i,k],prealloc.flux[2][i,k])
+function apply_LF_dissipation_to_flux(flux_f,param,i,k,lf,dim::Dim2)
+    N1D = param.N+1
+    if i <= 2*N1D
+        flux_f[i,k] = SVector(flux_f[i,k][1]-lf,flux_f[i,k][2])
+    else
+        flux_f[i,k] = SVector(flux_f[i,k][1],flux_f[i,k][2]-lf)
+    end
 end

@@ -244,9 +244,9 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     betaP   ::Array{Float64,2}
     rhologP ::Array{Float64,2}
     betalogP::Array{Float64,2}
-    flux     ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
-    flux_H   ::Array{SVector{Nc,Float64},2}
-    flux_L   ::Array{SVector{Nc,Float64},2}
+    flux     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    flux_H   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    flux_L   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     wavespeed  ::Array{Float64,3}             # TODO: inefficient storage
     wavespeed_f::Array{Float64,2}
     alphaarr ::Array{Float64,2}
@@ -365,15 +365,5 @@ function Base.getproperty(geom::GeomData{NGEO}, s::Symbol) where {NGEO}
         return getfield(geom,:GJh)[4]
     else
         return getfield(geom,s)
-    end
-end
-
-function Base.getproperty(prealloc::Preallocation{Nc,DIM}, s::Symbol) where {Nc,DIM}
-    if s == :flux_x
-        return getfield(prealloc,:flux)[1]
-    elseif s == :flux_y
-        return getfield(prealloc,:flux)[2]
-    else
-        return getfield(prealloc,s)
     end
 end
