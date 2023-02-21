@@ -236,11 +236,11 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     lam    ::Array{Float64,2}
     LFc    ::Array{Float64,2}
     rhsH   ::Array{SVector{Nc,Float64},2}
+    rhsxyH ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Ui     ::Array{Float64,1}
     Uj     ::Array{Float64,1}
     QF1    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Q0F1   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    BF1    ::Array{SVector{Nc,Float64},2}
     uP      ::Array{SVector{Nc,Float64},2}
     betaP   ::Array{Float64,2}
     rhologP ::Array{Float64,2}
@@ -252,6 +252,7 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     wavespeed_f::Array{Float64,2}
     alphaarr ::Array{Float64,2}
     rhsL     ::Array{SVector{Nc,Float64},2}
+    rhsxyL   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Larr     ::Array{Float64,2}
     L_local_arr::Array{Float64,3}
     rhsU     ::Array{SVector{Nc,Float64},2}
@@ -264,8 +265,8 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     U_modal  ::Array{SVector{Nc,Float64},2}
     U_k      ::Array{SVector{Nc,Float64},1}
     Uq_k     ::Array{SVector{Nc,Float64},1}
-    MinvVhTQF1::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    MinvVfTBF1::Array{SVector{Nc,Float64},2}
+    MinvVhTQF1::Array{SVector{DIM,SVector{Nc,Float64}},2}     # TODO: inconsistent with Q0F1
+    MinvVfTBF1::Array{SVector{DIM,SVector{Nc,Float64}},2}
     resW     ::Array{SVector{Nc,Float64},2}
     resZ     ::Array{SVector{Nc,Float64},2}
     Farr     ::Array{Float64,2}

@@ -121,9 +121,8 @@ function enforce_BC!(prealloc,param,bcdata)
 end
 
 function clear_flux_differencing_cache!(prealloc)
-    @unpack QF1,BF1 = prealloc
+    @unpack QF1 = prealloc
     @. QF1 = zero(QF1)
-    @. BF1 = zero(BF1)
 end
 
 function flux_differencing_volume!(prealloc,param,discrete_data_LGL,discrete_data_gauss)
@@ -172,27 +171,25 @@ end
 function flux_differencing_surface!(prealloc,param,discrete_data_LGL,discrete_data_gauss)
     @unpack LGLind   = prealloc
     @unpack equation = param
-    @unpack BF1,u_tilde,uP,LFc = prealloc
 
     K  = get_num_elements(param)
     for k  = 1:K
         discrete_data = (LGLind[k]) ? discrete_data_LGL : discrete_data_gauss
-        accumulate_BF1!(prealloc,k,param,discrete_data,equation)
+        accumulate_numerical_flux!(prealloc,k,param,discrete_data,equation)
         apply_LF_dissipation!(prealloc,param,k)
     end
 end
 
-function accumulate_BF1!(prealloc,k,param,discrete_data,equation)
-    @unpack BF1,flux_H = prealloc
+function accumulate_numerical_flux!(prealloc,k,param,discrete_data,equation)
+    @unpack flux_H = prealloc
     
     # Boundary contributions (B F)1
-    Nfp = size(BF1,1)
+    Nfp = size(flux_H,1)
     dim = get_dim_type(equation)
     for i = 1:Nfp
         fxy = evaluate_high_order_surface_flux(prealloc,param,i,k,get_high_order_surface_flux(param.rhs_type))
         Bxy_i = get_Bx(i,k,discrete_data,dim)     # TODO: redundant calculation
         flux_H[i,k] = Bxy_i.*fxy
-        BF1[i,k] = sum(flux_H[i,k])
     end
 end
 
@@ -224,28 +221,27 @@ function evaluate_high_order_surface_flux(prealloc,param,i,k,surface_flux_type::
 end
 
 function apply_LF_dissipation!(prealloc,param,k)
-    @unpack BF1,flux_H,LFc,uP,u_tilde = prealloc
+    @unpack flux_H,LFc,uP,u_tilde = prealloc
 
     # LF dissipation
     Nq = size(prealloc.Uq,1)
     Nh = size(u_tilde,1)
-    Nfp = size(BF1,1)
+    Nfp = size(flux_H,1)
     uf = @view u_tilde[Nq+1:Nh,:]
     for i = 1:Nfp
         lf = LFc[i,k]*(uP[i,k]-uf[i,k])
-        BF1[i,k] -= lf
         apply_LF_dissipation_to_flux(flux_H,param,i,k,lf,get_dim_type(param.equation))
     end
 end
 
 function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data_gauss,k,nstage)
-    @unpack MinvVhTQF1,MinvVfTBF1,QF1,BF1 = prealloc
+    @unpack MinvVhTQF1,MinvVfTBF1,QF1,flux_H = prealloc
     @views mul!(MinvVhTQF1[:,k],discrete_data_gauss.ops.MinvVhT,QF1[:,k])
-    @views mul!(MinvVfTBF1[:,k],discrete_data_gauss.ops.MinvVfT,BF1[:,k])
+    @views mul!(MinvVfTBF1[:,k],discrete_data_gauss.ops.MinvVfT,flux_H[:,k])
 end
 
 function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,k,nstage)
-    @unpack MinvVhTQF1,MinvVfTBF1,QF1,BF1,Vf_new,VhT_new,MinvVhT_new = prealloc
+    @unpack MinvVhTQF1,MinvVfTBF1,QF1,flux_H,Vf_new,VhT_new,MinvVhT_new = prealloc
     @unpack Nq,Nh = discrete_data_gauss.sizes
 
     update_limited_extrapolation!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,k,nstage)
@@ -256,7 +252,7 @@ function project_flux_difference_to_quad!(prealloc,param,entropyproj_limiter_typ
     @. MinvVhT_new = (1/discrete_data_gauss.ops.wq)*VhT_new
     MinvVfT_new = @views MinvVhT_new[:,Nq+1:Nh]
     @views mul!(MinvVhTQF1[:,k],MinvVhT_new,QF1[:,k])
-    @views mul!(MinvVfTBF1[:,k],MinvVfT_new,BF1[:,k])
+    @views mul!(MinvVfTBF1[:,k],MinvVfT_new,flux_H[:,k])
 end
 
 function update_limited_extrapolation!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,k,nstage)
@@ -278,8 +274,8 @@ end
 
 # TODO: dispatch
 function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nstage,J)
-    @unpack MinvVhTQF1,MinvVfTBF1,QF1,BF1,LGLind,rhsH = prealloc
-
+    @unpack MinvVhTQF1,MinvVfTBF1,flux_H,QF1,LGLind,rhsH,rhsxyH = prealloc
+ 
     K  = get_num_elements(param)
     # Assemble RHS
     for k = 1:K
@@ -287,14 +283,15 @@ function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nsta
         @unpack MinvVhT,MinvVfT,Vq = discrete_data.ops
         if LGLind[k]
             @views mul!(MinvVhTQF1[:,k],discrete_data.ops.MinvVhT,QF1[:,k])
-            @views mul!(MinvVfTBF1[:,k],discrete_data.ops.MinvVfT,BF1[:,k])
+            @views mul!(MinvVfTBF1[:,k],discrete_data.ops.MinvVfT,flux_H[:,k])
         else
             project_flux_difference_to_quad!(prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage)
         end
-        for i = 1:size(MinvVfTBF1,1)
-            MinvVfTBF1[i,k] = -(sum(MinvVhTQF1[i,k])+MinvVfTBF1[i,k])/J[i,k]
+        # TODO: assume collocation scheme, so Nq = Np
+        for i = 1:size(rhsH,1)
+            rhsxyH[i,k] = -(MinvVhTQF1[i,k]+MinvVfTBF1[i,k])/J[i,k]
         end
-        @views mul!(rhsH[:,k],discrete_data_LGL.ops.Vq,MinvVfTBF1[:,k])
+        @views mul!(rhsH[:,k],discrete_data.ops.Vq,sum.(rhsxyH[:,k]))
     end
 end
 
