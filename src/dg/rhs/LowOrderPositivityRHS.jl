@@ -19,7 +19,6 @@ function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
     accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    # check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation)
 
     # Determine positivity CFL
     if (nstage == 1)
@@ -94,15 +93,15 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
 end
 
 function clear_low_order_rhs!(prealloc,param)
-    @unpack rhsL,Q0F1,λarr,λBarr = prealloc
+    @unpack rhsxyL,Q0F1,λarr,λBarr = prealloc
 
     K  = get_num_elements(param)
     Nc = get_num_components(param.equation)
     Nd = get_dim(param.equation)
     for k = 1:K
-        for i = 1:size(rhsL,1)
-            rhsL[i,k] = zero(SVector{Nc,Float64})
-            Q0F1[i,k] = zero(SVector{Nd,SVector{Nc,Float64}})
+        for i = 1:size(rhsxyL,1)
+            rhsxyL[i,k] = zero(SVector{Nd,SVector{Nc,Float64}})
+            Q0F1[i,k]   = zero(SVector{Nd,SVector{Nc,Float64}})
         end
     end
     λarr  .= 0.0
@@ -111,7 +110,7 @@ end
 
 function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack equation = param
-    @unpack Uq,rhsL,flux,wavespeed,LGLind,λarr,Q0F1 = prealloc
+    @unpack Uq,rhsxyL,flux,wavespeed,LGLind,λarr,Q0F1 = prealloc
     
     dim = get_dim_type(equation)
     K  = get_num_elements(param)
@@ -138,14 +137,14 @@ function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,dis
 
     for k = 1:K
         for i = 1:Nq
-            rhsL[i,k] -= sum(Q0F1[i,k])
+            rhsxyL[i,k] -= Q0F1[i,k]
         end
     end
 end
 
 function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     @unpack equation = param
-    @unpack Uq,Uf,rhsL,flux,flux_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
+    @unpack Uq,Uf,rhsL,rhsxyL,flux,flux_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
     @unpack mapP,mapI,mapO,inflowarr = bcdata
 
     K  = get_num_elements(param)
@@ -177,25 +176,26 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
             apply_LF_dissipation_to_flux(flux_L,param,i,k,lf,get_dim_type(param.equation))
 
             iq = findfirst(x->x==1.0, view(discrete_data.ops.Vf_low,i,:))
-            rhsL[iq,k] -= sum(flux_L[i,k])
+            rhsxyL[iq,k] -= flux_L[i,k]
         end
     end
 end
 
 function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    @unpack rhsL,LGLind = prealloc
+    @unpack rhsL,rhsxyL,LGLind = prealloc
     @unpack Jq = discrete_data_gauss.geom
 
     K  = get_num_elements(param)
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         # Divide by mass
-        for i = 1:size(rhsL,1)
+        for i = 1:size(rhsxyL,1)
             wq_i = discrete_data.ops.wq[i]
             wJq_i    = Jq[i,k]*wq_i
-            rhsL[i,k] = rhsL[i,k]/wJq_i
+            rhsxyL[i,k] = rhsxyL[i,k]/wJq_i
         end
     end
+    @. rhsL = sum(rhsxyL)
 end
 
 function calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
