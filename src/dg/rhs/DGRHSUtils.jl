@@ -75,16 +75,29 @@ function get_Sx0_with_n(i,j,k,discrete_data,dim::Dim2)
 end
 
 # TODO: hardcoded
-function apply_LF_dissipation_to_flux(flux_f,param,i,k,lf,dim::Dim1)
-    flux_f[i,k] = SVector{1}(flux_f[i,k][1]-lf)
+function apply_LF_dissipation_to_BF(BF,param,i,k,lf,dim::Dim1)
+    BF[i,k] = SVector{1}(BF[i,k][1]-lf)
 end
 
-function apply_LF_dissipation_to_flux(flux_f,param,i,k,lf,dim::Dim2)
+function apply_LF_dissipation_to_BF(BF,param,i,k,lf,dim::Dim2)
     N1D = param.N+1
     if i <= 2*N1D
-        flux_f[i,k] = SVector(flux_f[i,k][1]-lf,flux_f[i,k][2])
+        BF[i,k] = SVector(BF[i,k][1]-lf,BF[i,k][2])
     else
-        flux_f[i,k] = SVector(flux_f[i,k][1],flux_f[i,k][2]-lf)
+        BF[i,k] = SVector(BF[i,k][1],BF[i,k][2]-lf)
+    end
+end
+
+function apply_LF_dissipation_to_flux(flux_f,Bxy_i,param,i,k,lf,dim::Dim1)
+    flux_f[i,k] = SVector{1}(flux_f[i,k][1]-lf/Bxy_i[1])
+end
+
+function apply_LF_dissipation_to_flux(flux_f,Bxy_i,param,i,k,lf,dim::Dim2)
+    N1D = param.N+1
+    if i <= 2*N1D
+        flux_f[i,k] = SVector(flux_f[i,k][1]-lf/Bxy_i[1],flux_f[i,k][2])
+    else
+        flux_f[i,k] = SVector(flux_f[i,k][1],flux_f[i,k][2]-lf/Bxy_i[2])
     end
 end
 

@@ -144,7 +144,7 @@ end
 
 function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     @unpack equation = param
-    @unpack Uq,Uf,rhsL,rhsxyL,flux,flux_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
+    @unpack Uq,Uf,rhsL,rhsxyL,flux,flux_L,BF_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
     @unpack mapP,mapI,mapO,inflowarr = bcdata
 
     K  = get_num_elements(param)
@@ -170,13 +170,15 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
             λBarr[i,k] = .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
             λB = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : λBarr[i,k]
 
-            flux_L[i,k] = Bxy_i.*(.5 .*(flux[i+Nq,k].+flux_xy_P))
+            flux_L[i,k] = .5 .*(flux[i+Nq,k].+flux_xy_P)
+            BF_L[i,k] = Bxy_i.*flux_L[i,k]
             
             lf = λB*(uP-Uf[i,k])
-            apply_LF_dissipation_to_flux(flux_L,param,i,k,lf,get_dim_type(param.equation))
+            apply_LF_dissipation_to_flux(flux_L,Bxy_i,param,i,k,lf,get_dim_type(param.equation))
+            apply_LF_dissipation_to_BF(BF_L,param,i,k,lf,get_dim_type(param.equation))
 
             iq = findfirst(x->x==1.0, view(discrete_data.ops.Vf_low,i,:))
-            rhsxyL[iq,k] -= flux_L[i,k]
+            rhsxyL[iq,k] -= BF_L[i,k]
         end
     end
 end
