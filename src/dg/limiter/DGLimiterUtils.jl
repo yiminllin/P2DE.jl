@@ -61,3 +61,66 @@ function get_rhoe_quadratic_coefficients(U,P,Lrhoe,dim::Dim2)
     c = U[4]*U[1]-1.0/2.0*(U[2]^2+U[3]^2)-U[1]*Lrhoe
     return a,b,c
 end
+
+
+#############################
+### Subcell limiter Utils ###
+#############################
+# TODO: refactor
+function get_subcell_index_P_x(si,sj,k,N1Dp1,bcdata)
+    @unpack mapP = bcdata
+    
+    N1D = N1Dp1-1
+    Nfp = 4*N1D
+    
+    # map subcell index to face quad index
+    iface = 0
+    if (si == 1)
+        iface = sj
+    elseif (si == N1Dp1)
+        iface = sj+N1D
+    end
+
+    ifaceP = mapP[iface,k]
+    iP = mod1(ifaceP,Nfp)
+    kP = div(ifaceP-1,Nfp)+1
+
+    # map face quad index to subcell index
+    sjP = mod1(iP,N1D)
+    if div(iP-1,N1D) == 0
+        siP = 1
+    else
+        siP = N1Dp1
+    end
+
+    return siP,sjP,kP
+end
+
+# TODO: refactor
+function get_subcell_index_P_y(si,sj,k,N1Dp1,bcdata)
+    @unpack mapP = bcdata
+
+    N1D = N1Dp1-1
+    Nfp = 4*N1D
+
+    iface = 0
+    if (sj == 1)
+        iface = si+2*N1D
+    elseif (sj == N1Dp1)
+        iface = si+3*N1D
+    end
+
+    ifaceP = mapP[iface,k]
+    iP = mod1(ifaceP,Nfp)
+    kP = div(ifaceP-1,Nfp)+1
+
+    # map face quad index to subcell index
+    siP = mod1(iP,N1D)
+    if div(iP-1,N1D) == 2
+        sjP = 1
+    else
+        sjP = N1Dp1
+    end
+
+    return siP,sjP,kP
+end

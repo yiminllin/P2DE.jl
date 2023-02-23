@@ -5,6 +5,7 @@ function initialize_preallocations(param,md,sizes)
 
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
+    N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
     Uq      = zeros(SVector{Nc,Float64},Nq,K)
     vq      = zeros(SVector{Nc,Float64},Nq,K)
     v_tilde = zeros(SVector{Nc,Float64},Nh,K)
@@ -35,8 +36,9 @@ function initialize_preallocations(param,md,sizes)
     rhsL    = zeros(SVector{Nc,Float64},Nq,K)
     rhsxyL  = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
     Larr    = zeros(Float64,K,Ns)
-    L_local_arr = zeros(Float64,Nq+1,K,Ns)
+    L_local_arr = zeros(Float64,Nq+N1D,Nd,K,Ns)
     rhsU    = zeros(SVector{Nc,Float64},Nq,K)
+    rhsxyU  = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
     v3tilde   = zeros(Float64,Nh)
     rhotilde  = zeros(Float64,Nh)
     rhoetilde = zeros(Float64,Nh)
@@ -66,7 +68,6 @@ function initialize_preallocations(param,md,sizes)
     MinvVhT_new = zeros(Float64,Np,Nh)
     uL_k      = zeros(SVector{Nc,Float64},Nq)
     P_k       = zeros(SVector{Nc,Float64},Nq)
-    N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
     f_bar_H   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
     f_bar_L   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
     f_bar_lim = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)  # TODO: unnecessary
@@ -76,7 +77,7 @@ function initialize_preallocations(param,md,sizes)
     λarr      = zeros(Float64,Nq,Nq,K)
     λBarr     = zeros(Float64,Nfp,K)
 
-    prealloc = Preallocation{Nc,Nd}(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,rhsxyH,Ui,Uj,QF1,Q0F1,uP,betaP,rhologP,betalogP,flux,flux_H,BF_H,flux_L,BF_L,wavespeed,wavespeed_f,alphaarr,rhsL,rhsxyL,Larr,L_local_arr,rhsU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,MinvVhTQF1,MinvVfTBF1,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,λarr,λBarr)
+    prealloc = Preallocation{Nc,Nd}(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,rhsxyH,Ui,Uj,QF1,Q0F1,uP,betaP,rhologP,betalogP,flux,flux_H,BF_H,flux_L,BF_L,wavespeed,wavespeed_f,alphaarr,rhsL,rhsxyL,Larr,L_local_arr,rhsU,rhsxyU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,MinvVhTQF1,MinvVfTBF1,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,λarr,λBarr)
     return prealloc
 end
 

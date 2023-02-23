@@ -1,17 +1,19 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    @unpack rhsL,rhsH,f_bar_H,f_bar_L,flux_H,flux_L = prealloc
+# TODO: documentation... from the ipad note
+function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
+    @unpack LGLind,rhsL,rhsH,f_bar_H,f_bar_L,BF_H,BF_L = prealloc
     
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache?
     for k = 1:K
-        wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
-        Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
-        f_bar_H[1][1,k] = -flux_H[1,k][1]
-        f_bar_L[1][1,k] = -flux_L[1,k][1]
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack wq = discrete_data.ops
+        @unpack Jq = discrete_data.geom
+        f_bar_H[1][1,k] = BF_H[1,k][1]
+        f_bar_L[1][1,k] = BF_L[1,k][1]
         for i = 2:Nq+1
             f_bar_H[1][i,k] = f_bar_H[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsH[i-1,k]
             f_bar_L[1][i,k] = f_bar_L[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsL[i-1,k]
@@ -19,17 +21,68 @@ function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     end
 end
 
-function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage)
-    @unpack Uq,uL_k,L_local_arr,f_bar_H,f_bar_L,rhsL = prealloc
+# TODO: use views instead of index flattening
+function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
+    @unpack rhsL,rhsH,rhsxyH,rhsxyL,f_bar_H,f_bar_L,BF_H,BF_L,flux_H,flux_L,LGLind,MinvVhTQF1,Q0F1 = prealloc
+    
+    K   = get_num_elements(param)
+    Nq  = size(prealloc.Uq,1)
+    N1D = param.N+1    # TODO: hardcoded
+    N1Dp1 = N1D+1
+    for k = 1:K
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack wq = discrete_data.ops
+        @unpack Jq = discrete_data.geom
+
+        # TODO: hardcoding views
+        fx_bar_H_k = reshape(view(f_bar_H[1],:,k),N1Dp1,N1D)
+        fx_bar_L_k = reshape(view(f_bar_L[1],:,k),N1Dp1,N1D)
+        fy_bar_H_k = reshape(view(f_bar_H[2],:,k),N1D,N1Dp1)
+        fy_bar_L_k = reshape(view(f_bar_L[2],:,k),N1D,N1Dp1)
+
+        rhsxyH_k = reshape(view(rhsxyH,:,k),N1D,N1D)
+        rhsxyL_k = reshape(view(rhsxyL,:,k),N1D,N1D)
+
+        wq   = reshape(view(wq,:),N1D,N1D)
+        Jq_k = reshape(view(Jq,:,k),N1D,N1D)
+
+        # For each stride along x direction
+        for sj = 1:N1D
+            iface = sj
+            fx_bar_H_k[1,sj] = BF_H[iface,k][1]
+            fx_bar_L_k[1,sj] = BF_L[iface,k][1]
+            for si = 2:N1Dp1
+                fx_bar_H_k[si,sj] = fx_bar_H_k[si-1,sj] + wq[si-1,sj]*Jq_k[si-1,sj]*rhsxyH_k[si-1,sj][1]
+                fx_bar_L_k[si,sj] = fx_bar_L_k[si-1,sj] + wq[si-1,sj]*Jq_k[si-1,sj]*rhsxyL_k[si-1,sj][1]
+            end
+        end
+
+        # For each stride along y direction
+        for si = 1:N1D
+            iface = si+2*N1D
+            fy_bar_H_k[si,1] = BF_H[iface,k][2]
+            fy_bar_L_k[si,1] = BF_L[iface,k][2]
+            for sj = 2:N1Dp1
+                fy_bar_H_k[si,sj] = fy_bar_H_k[si,sj-1] + wq[si,sj-1]*Jq_k[si,sj-1]*rhsxyH_k[si,sj-1][2]
+                fy_bar_L_k[si,sj] = fy_bar_L_k[si,sj-1] + wq[si,sj-1]*Jq_k[si,sj-1]*rhsxyL_k[si,sj-1][2]
+            end
+        end
+    end
+end
+
+function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim1)
+    @unpack Uq,LGLind,uL_k,L_local_arr,f_bar_H,f_bar_L,rhsL = prealloc
     
     K  = get_num_elements(param)
     Nq = size(Uq,1)
     ζ = param.limiting_param.ζ
-    @views @. L_local_arr[:,:,nstage] = 1.0
+    @views @. L_local_arr[:,:,:,nstage] = 1.0
     # Calculate limiting parameter
     for k = 1:K
-        wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
-        Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack wq = discrete_data.ops
+        @unpack Jq = discrete_data.geom
+
         @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
         Lrho(uL_i)  = ζ*uL_i[1]
         Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
@@ -38,24 +91,134 @@ function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data
         # TODO: ugly...
         for i = 1:Nq
             wJq_i = (wq[i]*Jq[i,k])
-            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i],-2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_i,Lrho(uL_k[i]),Lrhoe(uL_k[i]),Urho,Urhoe))
+            L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(param,uL_k[i],-2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_i,Lrho(uL_k[i]),Lrhoe(uL_k[i]),Urho,Urhoe))
         end
         for i = 2:Nq+1
             wJq_im1 = (wq[i-1]*Jq[i-1,k])
-            L_local_arr[i,k,nstage] = min(L_local_arr[i,k,nstage], get_limiting_param(param,uL_k[i-1],2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_im1,Lrho(uL_k[i-1]),Lrhoe(uL_k[i-1]),Urho,Urhoe))
+            L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(param,uL_k[i-1],2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_im1,Lrho(uL_k[i-1]),Lrhoe(uL_k[i-1]),Urho,Urhoe))
         end
     end
 
     # Symmetrize limiting parameter TODO: hardcoded, should use mapP
     for k = 1:K
-        l = min(L_local_arr[1,k,nstage], L_local_arr[end,mod1(k-1,K),nstage])
-        L_local_arr[1,k,nstage] = l
-        L_local_arr[end,mod1(k-1,K),nstage] = l
+        l = min(L_local_arr[1,1,k,nstage], L_local_arr[end,1,mod1(k-1,K),nstage])
+        L_local_arr[1,1,k,nstage] = l
+        L_local_arr[end,1,mod1(k-1,K),nstage] = l
+    end
+end
+
+function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim2)
+    @unpack Uq,uL_k,rhsL,L_local_arr,LGLind,f_bar_H,f_bar_L = prealloc
+    @unpack mapP = bcdata
+
+    K  = get_num_elements(param)
+    Nq = size(Uq,1)
+    N1D = param.N+1
+    N1Dp1 = N1D+1
+    ζ = param.limiting_param.ζ
+    Lx_local = reshape(view(L_local_arr,:,1,:,nstage),N1Dp1,N1D,K)
+    Ly_local = reshape(view(L_local_arr,:,2,:,nstage),N1D,N1Dp1,K)
+
+    @views @. L_local_arr[:,:,:,nstage] = 1.0
+
+    for k = 1:K
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack wq = discrete_data.ops
+        @unpack Jq = discrete_data.geom
+
+        @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
+        Lrho(uL_i)  = ζ*uL_i[1]
+        Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
+        Urho  = Inf
+        Urhoe = Inf
+
+        # TODO: hardcoding views
+        fx_bar_H_k = reshape(view(f_bar_H[1],:,k),N1Dp1,N1D)
+        fx_bar_L_k = reshape(view(f_bar_L[1],:,k),N1Dp1,N1D)
+        fy_bar_H_k = reshape(view(f_bar_H[2],:,k),N1D,N1Dp1)
+        fy_bar_L_k = reshape(view(f_bar_L[2],:,k),N1D,N1Dp1)
+
+        Lx_local_k = reshape(view(L_local_arr,:,1,k,nstage),N1Dp1,N1D)
+        Ly_local_k = reshape(view(L_local_arr,:,2,k,nstage),N1D,N1Dp1)
+
+        u_L_k = reshape(view(uL_k,:),N1D,N1D)
+
+        wq   = reshape(view(wq,:),N1D,N1D)
+        Jq_k = reshape(view(Jq,:,k),N1D,N1D)
+
+        # For each stride along x direction
+        for sj = 1:N1D
+            # For each left subcell face
+            for si = 1:N1D
+                # index of quad node right to subcell face
+                iq = si
+                jq = sj
+                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                uL_k_i = u_L_k[iq,jq]
+                Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(param,uL_k_i,-4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
+            end
+            # For each right subcell face
+            for si = 2:N1Dp1
+                # index of quad node left to subcell face
+                iq = si-1
+                jq = sj
+                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                uL_k_i = u_L_k[iq,jq]
+                Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(param,uL_k_i,4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
+            end
+        end
+
+        # For each stride along y direction
+        for si = 1:N1D
+            # For each bottom subcell face
+            for sj = 1:N1D
+                # index of quad node top to subcell face
+                iq = si
+                jq = sj
+                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                uL_k_i = u_L_k[iq,jq]
+                Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(param,uL_k_i,-4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
+            end
+            # For each top subcell face
+            for sj = 2:N1Dp1
+                # index of quad node beneath the subcell face
+                iq = si
+                jq = sj-1
+                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                uL_k_i = u_L_k[iq,jq]
+                Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(param,uL_k_i,4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
+            end
+        end
+    end
+
+    for k = 1:K
+        # Symmetrize limiting parameters
+        # For each stride in x direction
+        for sj = 1:N1D
+            # For each subcell index on boundary
+            for si = 1:N1D:N1Dp1
+                siP,sjP,kP = get_subcell_index_P_x(si,sj,k,N1Dp1,bcdata)
+                l = min(Lx_local[si,sj,k],Lx_local[siP,sjP,kP])
+                Lx_local[si,sj,k]    = l
+                Lx_local[siP,sjP,kP] = l
+            end
+        end
+
+        # For each stride in y direction
+        for si = 1:N1D
+            # For each subcell index on boundary
+            for sj = 1:N1D:N1Dp1
+                siP,sjP,kP = get_subcell_index_P_y(si,sj,k,N1Dp1,bcdata)
+                l = min(Ly_local[si,sj,k],Ly_local[siP,sjP,kP])
+                Ly_local[si,sj,k]    = l
+                Ly_local[siP,sjP,kP] = l
+            end
+        end
     end
 end
 
 # TODO: not necessary
-function accumulate_f_bar_limited!(prealloc,param,nstage)
+function accumulate_f_bar_limited!(prealloc,param,nstage,dim::Dim1)
     @unpack L_local_arr,f_bar_H,f_bar_L,f_bar_lim = prealloc
     
     K  = get_num_elements(param)
@@ -63,24 +226,99 @@ function accumulate_f_bar_limited!(prealloc,param,nstage)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache? df_bar?
     for k = 1:K
         for i = 1:Nq+1
-            f_bar_lim[1][i,k] = L_local_arr[i,k,nstage]*f_bar_H[1][i,k] + (1-L_local_arr[i,k,nstage])*f_bar_L[1][i,k]
+            f_bar_lim[1][i,k] = L_local_arr[i,1,k,nstage]*f_bar_H[1][i,k] + (1-L_local_arr[i,1,k,nstage])*f_bar_L[1][i,k]
         end
     end
 end
 
-function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    @unpack rhsU,f_bar_lim = prealloc
+# TODO: not necessary
+function accumulate_f_bar_limited!(prealloc,param,nstage,dim::Dim2)
+    @unpack L_local_arr,f_bar_H,f_bar_L,f_bar_lim = prealloc
+    
+    K  = get_num_elements(param)
+    Nq = size(prealloc.Uq,1)
+    N1D = param.N+1    # TODO: hardcoded
+    N1Dp1 = N1D+1
+    for k = 1:K
+        # TODO: hardcoding views
+        fx_bar_H_k = reshape(view(f_bar_H[1],:,k),N1Dp1,N1D)
+        fx_bar_L_k = reshape(view(f_bar_L[1],:,k),N1Dp1,N1D)
+        fy_bar_H_k = reshape(view(f_bar_H[2],:,k),N1D,N1Dp1)
+        fy_bar_L_k = reshape(view(f_bar_L[2],:,k),N1D,N1Dp1)
+        fx_bar_lim_k = reshape(view(f_bar_lim[1],:,k),N1Dp1,N1D)
+        fy_bar_lim_k = reshape(view(f_bar_lim[2],:,k),N1D,N1Dp1)
+
+        Lx_local_k = reshape(view(L_local_arr,:,1,k,nstage),N1Dp1,N1D)
+        Ly_local_k = reshape(view(L_local_arr,:,2,k,nstage),N1D,N1Dp1)
+
+         # For each stride along x direction
+        for j = 1:N1D
+            for i = 1:N1Dp1
+                l = Lx_local_k[i,j]
+                fx_bar_lim_k[i,j] = l*fx_bar_H_k[i,j] + (1-l)*fx_bar_L_k[i,j]
+            end
+        end
+
+        # For each stride along y direction
+        for i = 1:N1D
+            for j = 1:N1Dp1
+                l = Ly_local_k[i,j]
+                fy_bar_lim_k[i,j] = l*fy_bar_H_k[i,j] + (1-l)*fy_bar_L_k[i,j]
+            end
+        end       
+    end
+end
+
+function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
+    @unpack LGLind,rhsU,f_bar_lim = prealloc
     
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     # Update step
     for k = 1:K
-        wq = prealloc.LGLind[k] ? discrete_data_LGL.ops.wq : discrete_data_gauss.ops.wq
-        Jq = prealloc.LGLind[k] ? discrete_data_LGL.geom.Jq : discrete_data_gauss.geom.Jq
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack wq = discrete_data.ops
+        @unpack Jq = discrete_data.geom
         for i = 1:Nq
             wJq_i     = (wq[i]*Jq[i,k])
             rhsU[i,k] = (f_bar_lim[1][i+1,k]-f_bar_lim[1][i,k])/wJq_i
         end
+    end
+end
+
+function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
+    @unpack rhsU,rhsxyU,f_bar_lim,LGLind = prealloc
+    
+    K  = get_num_elements(param)
+    N1D = param.N+1    # TODO: hardcoded
+    N1Dp1 = N1D+1
+    Nq = size(prealloc.Uq,1)
+
+    # Update step
+    for k = 1:K
+        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack wq = discrete_data.ops
+        @unpack Jq = discrete_data.geom
+
+        # TODO: hardcoding views
+        fx_bar_lim_k = reshape(view(f_bar_lim[1],:,k),N1Dp1,N1D)
+        fy_bar_lim_k = reshape(view(f_bar_lim[2],:,k),N1D,N1Dp1)
+        
+        rhsxyU_k = reshape(view(rhsxyU,:,k),N1D,N1D)
+
+        wq   = reshape(view(wq,:),N1D,N1D)
+        Jq_k = reshape(view(Jq,:,k),N1D,N1D)
+
+
+        for j = 1:N1D
+            for i = 1:N1D
+                wJq_ij = wq[i,j]*Jq_k[i,j]
+                rhsxyU_k[i,j] = SVector(fx_bar_lim_k[i+1,j]-fx_bar_lim_k[i,j],
+                                        fy_bar_lim_k[i,j+1]-fy_bar_lim_k[i,j])/wJq_ij
+            end
+        end
+
+        @. rhsU = sum(rhsxyU)
     end
 end
 
