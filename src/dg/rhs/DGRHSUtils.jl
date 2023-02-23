@@ -88,19 +88,6 @@ function apply_LF_dissipation_to_BF(BF,param,i,k,lf,dim::Dim2)
     end
 end
 
-function apply_LF_dissipation_to_flux(flux_f,Bxy_i,param,i,k,lf,dim::Dim1)
-    flux_f[i,k] = SVector{1}(flux_f[i,k][1]-lf/Bxy_i[1])
-end
-
-function apply_LF_dissipation_to_flux(flux_f,Bxy_i,param,i,k,lf,dim::Dim2)
-    N1D = param.N+1
-    if i <= 2*N1D
-        flux_f[i,k] = SVector(flux_f[i,k][1]-lf/Bxy_i[1],flux_f[i,k][2])
-    else
-        flux_f[i,k] = SVector(flux_f[i,k][1],flux_f[i,k][2]-lf/Bxy_i[2])
-    end
-end
-
 # TODO: hardcoded
 function get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim::Dim1)
     @unpack Uq,λarr = prealloc

@@ -246,9 +246,7 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     rhologP ::Array{Float64,2}
     betalogP::Array{Float64,2}
     flux     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    flux_H   ::Array{SVector{DIM,SVector{Nc,Float64}},2}    # TODO: not necessary
-    BF_H     ::Array{SVector{DIM,SVector{Nc,Float64}},2}    # TODO: not necessary
-    flux_L   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BF_H     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF_L     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     wavespeed  ::Array{Float64,3}             # TODO: inefficient storage
     wavespeed_f::Array{Float64,2}

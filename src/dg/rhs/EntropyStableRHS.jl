@@ -181,15 +181,15 @@ function flux_differencing_surface!(prealloc,param,discrete_data_LGL,discrete_da
 end
 
 function accumulate_numerical_flux!(prealloc,k,param,discrete_data,equation)
-    @unpack BF_H,flux_H = prealloc
+    @unpack BF_H = prealloc
     
     # Boundary contributions (B F)1
-    Nfp = size(flux_H,1)
+    Nfp = size(BF_H,1)
     dim = get_dim_type(equation)
     for i = 1:Nfp
-        flux_H[i,k] = evaluate_high_order_surface_flux(prealloc,param,i,k,get_high_order_surface_flux(param.rhs_type))
+        fxy = evaluate_high_order_surface_flux(prealloc,param,i,k,get_high_order_surface_flux(param.rhs_type))
         Bxy_i = get_Bx(i,k,discrete_data,dim)     # TODO: redundant calculation
-        BF_H[i,k] = Bxy_i.*flux_H[i,k]
+        BF_H[i,k] = Bxy_i.*fxy
     end
 end
 
@@ -221,7 +221,7 @@ function evaluate_high_order_surface_flux(prealloc,param,i,k,surface_flux_type::
 end
 
 function apply_LF_dissipation!(prealloc,param,discrete_data,k)
-    @unpack BF_H,flux_H,LFc,uP,u_tilde = prealloc
+    @unpack BF_H,LFc,uP,u_tilde = prealloc
 
     # LF dissipation
     dim = get_dim_type(param.equation)
@@ -232,7 +232,6 @@ function apply_LF_dissipation!(prealloc,param,discrete_data,k)
     for i = 1:Nfp
         lf = LFc[i,k]*(uP[i,k]-uf[i,k])
         Bxy_i = get_Bx(i,k,discrete_data,dim)     # TODO: redundant calculation
-        apply_LF_dissipation_to_flux(flux_H,Bxy_i,param,i,k,lf,dim)
         apply_LF_dissipation_to_BF(BF_H,param,i,k,lf,dim)
     end
 end
