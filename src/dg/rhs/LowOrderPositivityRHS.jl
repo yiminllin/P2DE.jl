@@ -19,7 +19,6 @@ function rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcd
     accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    # check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation)
 
     # Determine positivity CFL
     if (nstage == 1)
@@ -80,7 +79,7 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
                 wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
             end
         end
-        map((f,fval)->f[i,k]=fval,flux,euler_fluxes(equation,u_i))  # TODO: looks bad...
+        flux[i,k] = euler_fluxes(equation,u_i)
     end
 
     # Surface wavespeed and inviscid flux
@@ -89,26 +88,29 @@ function update_wavespeed_and_inviscid_flux!(prealloc,k,param,discrete_data)
         Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
         n_i = Bxy_i./n_i_norm
         wavespeed_f[i,k] = wavespeed_davis_estimate(equation,u_i,n_i)
-        map((f,fval)->f[i+Nq,k]=fval,flux,euler_fluxes(equation,u_i))  # TODO: looks bad...
+        flux[i+Nq,k] = euler_fluxes(equation,u_i)
     end
 end
 
 function clear_low_order_rhs!(prealloc,param)
+    @unpack rhsxyL,Q0F1,λarr,λBarr = prealloc
+
     K  = get_num_elements(param)
     Nc = get_num_components(param.equation)
-    rhsL = prealloc.rhsL
+    Nd = get_dim(param.equation)
     for k = 1:K
-        for i = 1:size(rhsL,1)
-            rhsL[i,k] = zero(SVector{Nc,Float64})
+        for i = 1:size(rhsxyL,1)
+            rhsxyL[i,k] = zero(SVector{Nd,SVector{Nc,Float64}})
+            Q0F1[i,k]   = zero(SVector{Nd,SVector{Nc,Float64}})
         end
     end
-    prealloc.λarr  .= 0.0
-    prealloc.λBarr .= 0.0
+    λarr  .= 0.0
+    λBarr .= 0.0
 end
 
 function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
     @unpack equation = param
-    @unpack Uq,rhsL,flux,wavespeed,LGLind,λarr = prealloc
+    @unpack Uq,rhsxyL,flux,wavespeed,LGLind,λarr,Q0F1 = prealloc
     
     dim = get_dim_type(equation)
     K  = get_num_elements(param)
@@ -121,23 +123,28 @@ function accumulate_low_order_rhs_volume!(prealloc,param,discrete_data_gauss,dis
                 Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
                 Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
                 if n_ij_norm > param.global_constants.ZEROTOL
-                    Fxyij = map(f->.5*(f[i,k]+f[j,k]), flux)
+                    Fxyij = @. .5*(flux[i,k]+flux[j,k])
                     wavespeed_ij = max(wavespeed[i,j,k],wavespeed[j,i,k])
                     λarr[i,j,k] = n_ij_norm*wavespeed_ij
                     λarr[j,i,k] = n_ji_norm*wavespeed_ij
-                    LFij = 2.0*sum(Sxy0J_ij.*Fxyij) - λarr[i,j,k]*(Uq[j,k]-Uq[i,k])
-                    LFji = 2.0*sum(Sxy0J_ji.*Fxyij) - λarr[j,i,k]*(Uq[i,k]-Uq[j,k])
-                    rhsL[i,k] -= LFij
-                    rhsL[j,k] -= LFji
+                    ΛD_ij = get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim)
+                    Q0F1[i,k] += 2.0*Sxy0J_ij.*Fxyij - ΛD_ij
+                    Q0F1[j,k] += 2.0*Sxy0J_ji.*Fxyij + ΛD_ij
                 end
             end
+        end
+    end
+
+    for k = 1:K
+        for i = 1:Nq
+            rhsxyL[i,k] -= Q0F1[i,k]
         end
     end
 end
 
 function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
     @unpack equation = param
-    @unpack Uq,Uf,rhsL,flux,flux_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
+    @unpack Uq,Uf,rhsL,rhsxyL,flux,BF_L,wavespeed_f,LGLind,u_tilde,λBarr = prealloc
     @unpack mapP,mapI,mapO,inflowarr = bcdata
 
     K  = get_num_elements(param)
@@ -156,39 +163,40 @@ function accumulate_low_order_rhs_surface!(prealloc,param,discrete_data_gauss,di
             kP = div(mapP[i,k]-1,Nfp)+1
             Iidx = findfirst(x->(x==idx), mapI)
             Oidx = findfirst(x->(x==idx), mapO)
-            flux_xy_P = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : get_flux(prealloc,iP+Nq,kP,dim)
+            flux_xy_P = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : flux[iP+Nq,kP]
             uP = !isnothing(Iidx) ? inflowarr[Iidx] : Uf[iP,kP]
 
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
-            flux_L[i,k] = zero(flux_L[i,k])
-            for (Bi,farr,fP) in zip(Bxy_i,flux,flux_xy_P)
-                flux_L[i,k] += Bi*.5*(farr[i+Nq,k]+fP)
-            end
-
             λBarr[i,k] = .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
             λB = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : λBarr[i,k]
-            flux_L[i,k] += -λB*(uP-Uf[i,k])
+
+            fxy = .5 .*(flux[i+Nq,k].+flux_xy_P)
+            BF_L[i,k] = Bxy_i.*fxy
+            
+            lf = λB*(uP-Uf[i,k])
+            apply_LF_dissipation_to_BF(BF_L,param,i,k,lf,get_dim_type(param.equation))
 
             iq = findfirst(x->x==1.0, view(discrete_data.ops.Vf_low,i,:))
-            rhsL[iq,k] -= flux_L[i,k]
+            rhsxyL[iq,k] -= BF_L[i,k]
         end
     end
 end
 
 function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    @unpack rhsL,LGLind = prealloc
+    @unpack rhsL,rhsxyL,LGLind = prealloc
     @unpack Jq = discrete_data_gauss.geom
 
     K  = get_num_elements(param)
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         # Divide by mass
-        for i = 1:size(rhsL,1)
+        for i = 1:size(rhsxyL,1)
             wq_i = discrete_data.ops.wq[i]
             wJq_i    = Jq[i,k]*wq_i
-            rhsL[i,k] = rhsL[i,k]/wJq_i
+            rhsxyL[i,k] = rhsxyL[i,k]/wJq_i
         end
     end
+    @. rhsL = sum(rhsxyL)
 end
 
 function calculate_lambda_and_low_order_CFL!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
@@ -297,94 +305,4 @@ function find_alpha(param,ui,uitilde)
     end
 
     return alphaR
-end
-
-# TODO: only works in 1D, only for testing
-function check_bar_states!(dt,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,equation::EquationType{Dim1})
-    @unpack Uq,rhsL,flux_x,flux_L,wavespeed,wavespeed_f,LGLind,u_tilde = prealloc
-    @unpack Jq = discrete_data_gauss.geom
-    @unpack mapP = bcdata
-
-    K  = get_num_elements(param)
-    Nq  = size(Uq,1)
-    Nh  = size(u_tilde,1)
-    Nfp = size(bcdata.mapP,1)
-    flux_f      = @view flux_x[Nq+1:Nh,:]
-    for k = 1:K
-        for i = 1:Nq
-            rhsL_i = zero(Uq[i,k])
-            rhsL_bar_i = zero(Uq[i,k])
-            lambda_i = 0.0
-            wq_i  = LGLind[k] ? discrete_data_LGL.ops.wq[i] : discrete_data_gauss.ops.wq[i]
-            wJq_i = Jq[i,k]*wq_i
-
-            # Volume
-            for j = 1:Nq
-                Sr0_ij = LGLind[k] ? discrete_data_LGL.ops.Sr0[i,j] : discrete_data_gauss.ops.Sr0[i,j]
-                if (Sr0_ij != 0)
-                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,j,k], wavespeed[j,i,k])
-                    lambda_i += lambda_ij
-                    rhsL_i -= (Sr0_ij*(flux_x[j,k]+flux_x[i,k])-lambda_ij*(Uq[j,k]-Uq[i,k]))/wJq_i
-                end
-            end
-            # boundary 
-            if i == 1
-                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,K)])
-                lambda_i += lambda_ij
-                rhsL_i -= (-.5*(flux_x[1,k]+flux_x[Nq,mod1(k-1,K)])-lambda_ij*(Uq[Nq,mod1(k-1,K)]-Uq[1,k]))/wJq_i
-            end
-            if i == Nq
-                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,K)])
-                lambda_i += lambda_ij
-                rhsL_i -= (.5*(flux_x[Nq,k]+flux_x[1,mod1(k+1,K)])-lambda_ij*(Uq[1,mod1(k+1,K)]-Uq[Nq,k]))/wJq_i
-            end
-
-            # Using bar states
-            for j = 1:Nq
-                Sr0_ij = discrete_data_gauss.ops.Sr0[i,j]
-                if (Sr0_ij != 0)
-                    lambda_ij = abs(Sr0_ij)*max(wavespeed[i,j,k], wavespeed[j,i,k])
-                    ubar_ij = .5*(Uq[i,k]+Uq[j,k])-.5*Sr0_ij/lambda_ij*(flux_x[j,k]-flux_x[i,k])
-                    is_positive,_,_ = check_positivity_node(ubar_ij,param)
-                    if !is_positive
-                        @show k,i,j
-                    end
-                    rhsL_bar_i += 2*lambda_ij*ubar_ij/wJq_i
-                    rhsL_bar_i -= 2*lambda_ij*Uq[i,k]/wJq_i
-                end
-            end
-            if i == 1
-                Br0_i = -.5
-                lambda_ij = .5*max(wavespeed[1,k],wavespeed[Nq,mod1(k-1,K)])
-                ubar_ij = .5*(Uq[1,k]+Uq[Nq,mod1(k-1,K)])-.5*Br0_i/lambda_ij*(flux_x[Nq,mod1(k-1,K)]-flux_x[1,k])
-                is_positive,_,_ = check_positivity_node(ubar_ij,param)
-                if !is_positive
-                    @show k,i,lambda_ij
-                end
-                rhsL_bar_i += 2*lambda_ij*ubar_ij/wJq_i
-                rhsL_bar_i -= 2*lambda_ij*Uq[1,k]/wJq_i
-            end
-            if i == Nq
-                Br0_i = .5
-                lambda_ij = .5*max(wavespeed[Nq,k],wavespeed[1,mod1(k+1,K)])
-                ubar_ij = .5*(Uq[Nq,k]+Uq[1,mod1(k+1,K)])-.5*Br0_i/lambda_ij*(flux_x[1,mod1(k+1,K)]-flux_x[Nq,k])
-                ubar_ij_L = .5*Uq[Nq,k]+.5*Br0_i/lambda_ij*flux_x[Nq,k]
-                ubar_L    = 2*lambda_ij*Uq[Nq,k] + flux_x[Nq,k]
-                ubar_ij_R = .5*Uq[1,mod1(k+1,K)]-.5*Br0_i/lambda_ij*flux_x[1,mod1(k+1,K)]
-                check_positivity_node(ubar_ij,param)
-                check_positivity_node(ubar_ij_L,param)
-                check_positivity_node(ubar_ij_R,param)
-                rhsL_bar_i += 2*lambda_ij*ubar_ij/wJq_i
-                rhsL_bar_i -= 2*lambda_ij*Uq[end,k]/wJq_i
-            end
-
-            if (norm(rhsL_i-rhsL_bar_i, Inf) > 1e-6)
-                @show k,i,rhsL_i-rhsL_bar_i
-            end
-
-            if (norm(rhsL_i-rhsL[i,k]) > 1e-10)
-                @show k,i,rhsL_i-rhsL[i,k]
-            end
-        end
-    end
 end

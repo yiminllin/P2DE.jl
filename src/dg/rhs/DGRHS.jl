@@ -49,7 +49,7 @@ function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discr
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
     dt = rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,false)
     rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,false)
-    apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,param.positivity_limiter_type)
+    apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,param.positivity_limiter_type)
     return dt
 end
 

@@ -1,13 +1,13 @@
 function reference_to_physical(U,GJ,dim::Dim1)
     Ur  = U[1]
     rxJ = GJ[1]
-    return (rxJ*Ur, )
+    return SVector(rxJ*Ur, )
 end
 
 function reference_to_physical(U,GJ,dim::Dim2)
     Ur,Us           = U
     rxJ,sxJ,ryJ,syJ = GJ
-    return (rxJ*Ur+sxJ*Us, ryJ*Ur+syJ*Us)
+    return SVector(rxJ*Ur+sxJ*Us, ryJ*Ur+syJ*Us)
 end
 
 function get_Bx(i,k,discrete_data,dim::Dim1)
@@ -33,7 +33,7 @@ end
 
 function get_Bx_with_n(i,k,discrete_data,dim::Dim2)
     Bx_i,By_i = get_Bx(i,k,discrete_data,dim)
-    return (Bx_i,By_i),norm((Bx_i,By_i))
+    return SVector(Bx_i,By_i),norm((Bx_i,By_i))
 end
 
 function get_Sx(i,j,k,discrete_data,dim::Dim1)
@@ -71,14 +71,40 @@ end
 
 function get_Sx0_with_n(i,j,k,discrete_data,dim::Dim2)
     Sx0_ij,Sy0_ij = get_Sx0(i,j,k,discrete_data,dim)
-    return (Sx0_ij,Sy0_ij),norm((Sx0_ij,Sy0_ij))
+    return SVector(Sx0_ij,Sy0_ij),norm((Sx0_ij,Sy0_ij))
 end
 
-# TODO: not a clean solution
-function get_flux(prealloc,i,k,dim::Dim1)
-    return (prealloc.flux[1][i,k],)
+# TODO: hardcoded
+function apply_LF_dissipation_to_BF(BF,param,i,k,lf,dim::Dim1)
+    BF[i,k] = SVector{1}(BF[i,k][1]-lf)
 end
 
-function get_flux(prealloc,i,k,dim::Dim2)
-    return (prealloc.flux[1][i,k],prealloc.flux[2][i,k])
+function apply_LF_dissipation_to_BF(BF,param,i,k,lf,dim::Dim2)
+    N1D = param.N+1
+    if i <= 2*N1D
+        BF[i,k] = SVector(BF[i,k][1]-lf,BF[i,k][2])
+    else
+        BF[i,k] = SVector(BF[i,k][1],BF[i,k][2]-lf)
+    end
+end
+
+# TODO: hardcoded
+function get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim::Dim1)
+    @unpack Uq,λarr = prealloc
+
+    return SVector{1}(λarr[i,j,k]*(Uq[j,k]-Uq[i,k]))
+end
+
+function get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim::Dim2)
+    @unpack Uq,λarr = prealloc
+
+    Nc = 4   # TODO: hardcoding 
+    Sx0J_ij,Sy0J_ij = Sxy0J_ij
+    visc_term = λarr[i,j,k]*(Uq[j,k]-Uq[i,k])
+    # If it is the dissipation in x-direction
+    if abs(Sx0J_ij) > param.global_constants.POSTOL
+        return SVector(visc_term, zero(SVector{Nc,Float64}))
+    else
+        return SVector(zero(SVector{Nc,Float64}), visc_term)
+    end
 end

@@ -236,24 +236,27 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     lam    ::Array{Float64,2}
     LFc    ::Array{Float64,2}
     rhsH   ::Array{SVector{Nc,Float64},2}
+    rhsxyH ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Ui     ::Array{Float64,1}
     Uj     ::Array{Float64,1}
-    QF1    ::Array{SVector{Nc,Float64},2}
-    BF1    ::Array{SVector{Nc,Float64},2}
+    QF1    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    Q0F1   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     uP      ::Array{SVector{Nc,Float64},2}
     betaP   ::Array{Float64,2}
     rhologP ::Array{Float64,2}
     betalogP::Array{Float64,2}
-    flux     ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
-    flux_H   ::Array{SVector{Nc,Float64},2}
-    flux_L   ::Array{SVector{Nc,Float64},2}
+    flux     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BF_H     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BF_L     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     wavespeed  ::Array{Float64,3}             # TODO: inefficient storage
     wavespeed_f::Array{Float64,2}
     alphaarr ::Array{Float64,2}
     rhsL     ::Array{SVector{Nc,Float64},2}
+    rhsxyL   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Larr     ::Array{Float64,2}
-    L_local_arr::Array{Float64,3}
+    L_local_arr::Array{Float64,4}
     rhsU     ::Array{SVector{Nc,Float64},2}
+    rhsxyU   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     v3tilde  ::Array{Float64,1}
     rhotilde ::Array{Float64,1}
     rhoetilde::Array{Float64,1}
@@ -263,8 +266,8 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     U_modal  ::Array{SVector{Nc,Float64},2}
     U_k      ::Array{SVector{Nc,Float64},1}
     Uq_k     ::Array{SVector{Nc,Float64},1}
-    spatial  ::Array{SVector{Nc,Float64},2}
-    boundary ::Array{SVector{Nc,Float64},2}
+    MinvVhTQF1::Array{SVector{DIM,SVector{Nc,Float64}},2}     # TODO: inconsistent with Q0F1
+    MinvVfTBF1::Array{SVector{DIM,SVector{Nc,Float64}},2}
     resW     ::Array{SVector{Nc,Float64},2}
     resZ     ::Array{SVector{Nc,Float64},2}
     Farr     ::Array{Float64,2}
@@ -280,9 +283,9 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     MinvVhT_new::Array{Float64,2}
     uL_k     ::Array{SVector{Nc,Float64},1}
     P_k      ::Array{SVector{Nc,Float64},1}
-    f_bar_H  ::Array{SVector{Nc,Float64},2}
-    f_bar_L  ::Array{SVector{Nc,Float64},2}
-    f_bar_lim::Array{SVector{Nc,Float64},2}
+    f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
@@ -365,15 +368,5 @@ function Base.getproperty(geom::GeomData{NGEO}, s::Symbol) where {NGEO}
         return getfield(geom,:GJh)[4]
     else
         return getfield(geom,s)
-    end
-end
-
-function Base.getproperty(prealloc::Preallocation{Nc,DIM}, s::Symbol) where {Nc,DIM}
-    if s == :flux_x
-        return getfield(prealloc,:flux)[1]
-    elseif s == :flux_y
-        return getfield(prealloc,:flux)[2]
-    else
-        return getfield(prealloc,s)
     end
 end

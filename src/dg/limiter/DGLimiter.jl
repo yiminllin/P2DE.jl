@@ -5,7 +5,7 @@ include("./SubcellLimiter.jl")
 ############################################
 ### Appy positivity limiter to limit RHS ###
 ############################################
-function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,positivity_limiter_type::ZhangShuLimiter)
+function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,positivity_limiter_type::ZhangShuLimiter)
     @unpack rhsL,rhsH,rhsU = prealloc
     @unpack Uq,uL_k,P_k    = prealloc
     
@@ -24,15 +24,16 @@ function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_d
     end
 end
 
-function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage,positivity_limiter_type::SubcellLimiter)
+function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,positivity_limiter_type::SubcellLimiter)
     @unpack rhsL,rhsH,rhsU    = prealloc
     @unpack Uq,uL_k,f_bar_lim = prealloc
     @unpack L_local_arr       = prealloc
 
-    accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dt,nstage)
-    accumulate_f_bar_limited!(prealloc,param,nstage)
-    apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
+    dim = get_dim_type(param.equation)
+    accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim)
+    subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim)
+    accumulate_f_bar_limited!(prealloc,param,nstage,dim)
+    apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim)
 end
 
 ####################################################
