@@ -40,18 +40,19 @@ end
 # TODO: refactor, only work for gauss
 function calc_face_values!(prealloc,param,discrete_data_gauss)
     @unpack Uq,vq,Uf,VUf,rhoef = prealloc
+    @unpack Vf = discrete_data_gauss.ops
     
     K  = get_num_elements(param)
-    mul!(Uf,discrete_data_gauss.ops.Vf,Uq)
     for k = 1:K
+        @views mul!(Uf[:,k],Vf,Uq[:,k])
         for i = 1:size(vq,1)
             vq[i,k] = v_ufun(param.equation,Uq[i,k])
         end
         for i = 1:size(VUf,1)
             rhoef[i,k] = rhoe_ufun(param.equation,Uf[i,k])
         end
+        @views mul!(VUf[:,k],Vf,vq[:,k])
     end
-    mul!(VUf,discrete_data_gauss.ops.Vf,vq)
 end
 
 function solve_theta!(prealloc,k,nstage,entropyproj_limiter_type::ExponentialFilter,param,discrete_data_gauss)

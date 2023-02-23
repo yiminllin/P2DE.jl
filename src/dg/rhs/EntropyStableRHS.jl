@@ -270,7 +270,7 @@ function update_limited_extrapolation!(prealloc,param,entropyproj_limiter_type::
     l_k = prealloc.Farr[k,nstage]
     for i = 1:discrete_data_gauss.sizes.Nfp
         l_k_i = prealloc.θ_local_arr[i,k,nstage]
-        @views Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]
+        @views @. Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]
     end
 end
 
@@ -292,8 +292,10 @@ function assemble_rhs!(prealloc,param,discrete_data_gauss,discrete_data_LGL,nsta
         # TODO: assume collocation scheme, so Nq = Np
         for i = 1:size(rhsH,1)
             rhsxyH[i,k] = -(MinvVhTQF1[i,k]+MinvVfTBF1[i,k])/J[i,k]
+            rhsH[i,k] = sum(rhsxyH[i,k])
         end
-        @views mul!(rhsH[:,k],discrete_data.ops.Vq,sum.(rhsxyH[:,k]))
+        # TODO: Assume Vq = I for both LGL and Gauss
+        # @views mul!(rhsH[:,k],Vq,sum.(rhsxyH[:,k]))
     end
 end
 
