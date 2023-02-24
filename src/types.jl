@@ -170,7 +170,7 @@ function get_num_elements(param,equation::EquationType{Dim2})
 end
 
 # TODO: tuple
-mutable struct BCData{Nc}
+struct BCData{Nc}
     mapP::Array{Int64,2}
     mapI::Array{Int64,1}
     mapO::Array{Int64,1}  # List of global indices with inflow and outflow 
@@ -179,14 +179,14 @@ mutable struct BCData{Nc}
 end
 
 # TODO: tuple
-mutable struct GeomData{NGEO}
+struct GeomData{NGEO}
     J   ::Array{Float64,2}
     Jq  ::Array{Float64,2}
     GJh::NTuple{NGEO,Array{Float64,2}}   # rxJh in 1D
                                          # rxJh, sxJh, ryJh, syJh in 2D
 end
 
-mutable struct Operators{DIM}
+struct Operators{DIM}
     Srsh_db    ::NTuple{DIM,Array{Float64,2}}
     Srs0       ::NTuple{DIM,SparseMatrixCSC{Float64,Int64}}
     Brs        ::NTuple{DIM,Array{Float64,2}}    # TODO: to sparse matrix
@@ -204,13 +204,13 @@ mutable struct Operators{DIM}
     wq         ::Array{Float64,1}
 end
 
-mutable struct TransferOperators
+struct TransferOperators
     T_g2l::Array{Float64,2}
     T_l2g::Array{Float64,2}
 end
 
 # TODO: define iterator to loop instead of size
-mutable struct SizeData
+struct SizeData
     Nc ::Int64
     Np ::Int64
     Nq ::Int64
@@ -219,13 +219,13 @@ mutable struct SizeData
     Ns ::Int64    # number of stages in time integrator
 end
 
-mutable struct DiscretizationData{DIM,NGEO}
+struct DiscretizationData{DIM,NGEO}
     sizes::SizeData
     geom ::GeomData{NGEO}
     ops  ::Operators{DIM}
 end
 
-mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
+struct Preallocation{Nc,DIM}
     Uq     ::Array{SVector{Nc,Float64},2}
     vq     ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
     v_tilde::Array{SVector{Nc,Float64},2}       # projected entropy variables
@@ -293,7 +293,7 @@ mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
     λBarr    ::Array{Float64,2}
 end
 
-mutable struct DataHistory{Nc}
+struct DataHistory{Nc}
     Uhist     ::Vector{Array{SVector{Nc,Float64},2}}
     Lhist     ::Vector{Array{Float64,2}}
     Fhist     ::Vector{Array{Float64,2}}
@@ -306,7 +306,7 @@ mutable struct DataHistory{Nc}
     L_Vf_hist ::Vector{Array{Float64,2}}
 end
 
-mutable struct ErrorData
+struct ErrorData
     L1err  ::Float64
     L2err  ::Float64
     Linferr::Float64
