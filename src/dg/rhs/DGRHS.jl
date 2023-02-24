@@ -87,7 +87,7 @@ function entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k_i,param,di
     @unpack Vf,Vf_low = discrete_data.ops
     @unpack Vf_new    = prealloc
     if (l_k_i != 1.0)   # TODO: require l_k ∈ [0,1]
-        @views Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]   # TODO: Vf_new only allocate 1D vector instead of 2D matrix?
+        @views @. Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]   # TODO: Vf_new only allocate 1D vector instead of 2D matrix?
         # TODO: v_tilde_k[i+Nq] = @views sum(Vf_new[i,:].*vq_k)
         #       requires allocation... why?
         v_tilde_k[i+Nq] = zero(v_tilde_k[i+Nq])
