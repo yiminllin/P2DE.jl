@@ -2,9 +2,9 @@ include("./DGRHSUtils.jl")
 include("./EntropyStableRHS.jl")
 include("./LowOrderPositivityRHS.jl")
 
-function rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+function rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,t,dt,nstage)
     init_get_rhs!(param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
-    dt = get_rhs!(param.rhs_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+    dt = get_rhs!(param.rhs_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,t,dt,nstage)
     return dt
 end
 
@@ -30,25 +30,24 @@ function init_get_rhs!(param,entropyproj_limiter_type::ScaledExtrapolation,discr
     end
 end
 
-function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,t,dt,nstage)
     @unpack rhsL,rhsU = prealloc
-    dt = rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,true)
+    dt = rhs_pos_Gauss!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,true)
     copyto!(rhsU,rhsL)
     return dt
 end
 
-function get_rhs!(rhs_type::EntropyStable,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
+function get_rhs!(rhs_type::EntropyStable,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,t,dt,nstage)
     @unpack rhsH,rhsU = prealloc
-    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,true)
+    rhs_modalESDG!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,true)
     copyto!(rhsU,rhsH)
     return dt
 end
 
-function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,t,dt,nstage)
-    @unpack rhsH,rhsL,rhsU = prealloc
+function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,t,dt,nstage)
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
-    dt = rhs_pos_Gauss!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,false)
-    rhs_modalESDG!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,false)
+    dt = rhs_pos_Gauss!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,false)
+    rhs_modalESDG!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,false)
     apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,param.positivity_limiter_type)
     return dt
 end
@@ -56,7 +55,7 @@ end
 # TODO: dispatch on element type instead of the passed in discrete data
 # TODO: refactor with NodewiseScaledExtrapolation
 function entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data,prealloc)
-    @unpack VhPq_new,Vf_new   = prealloc
+    @unpack Vf_new            = prealloc
     @unpack Nh,Nq,Nfp         = discrete_data.sizes
     @unpack Vf,Vf_low,Pq,VhPq = discrete_data.ops
 
@@ -108,8 +107,8 @@ end
 
 # TODO: ugly dispatch
 function entropy_projection!(prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data_gauss,discrete_data_LGL,nstage)
-    @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
-    @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
+    @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new = prealloc
+    @unpack Nh,Nq,Nfp                                    = discrete_data_gauss.sizes
     K = get_num_elements(param)
     
     for k = 1:K
@@ -126,8 +125,8 @@ end
 
 # TODO: ugly dispatch
 function entropy_projection!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,nstage)
-    @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
-    @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
+    @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new = prealloc
+    @unpack Nh,Nq,Nfp                                    = discrete_data_gauss.sizes
     K = get_num_elements(param)
     
     for k = 1:K
@@ -144,8 +143,8 @@ end
 
 # TODO: ugly dispatch
 function entropy_projection!(prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,nstage)
-    @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new,VhPq_new = prealloc
-    @unpack Nh,Nq,Nfp                                             = discrete_data_gauss.sizes
+    @unpack Uq,vq,v_tilde,u_tilde,LGLind,L_Vf_arr,Vf_new = prealloc
+    @unpack Nh,Nq,Nfp                                    = discrete_data_gauss.sizes
     K = get_num_elements(param)
     
     for k = 1:K

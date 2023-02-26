@@ -65,16 +65,17 @@ end
 jld_path = "outputs/jld2/leblanc/leblanc.jld2"
 
 γ = 5/3
+CFL = 0.8
 param = Param(N=2, K=200, xL=0.0, xR=1.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
-              timestepping_param=TimesteppingParameter(T=2/3, CFL=0.25, dt0=1e-3, t0=0.01),
+              timestepping_param=TimesteppingParameter(T=2/3, CFL=CFL, dt0=1e-3, t0=0.01),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
               postprocessing_param=PostprocessingParameter(output_interval=1000),
               equation=CompressibleEulerIdealGas{Dim1}(γ),
               rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
-              entropyproj_limiter_type=ExponentialFilter(),
+              entropyproj_limiter_type=NodewiseScaledExtrapolation(),
               positivity_limiter_type=SubcellLimiter())
 
 T = param.timestepping_param.T
@@ -82,9 +83,9 @@ N = param.N
 K = param.K
 equation = param.equation
 
-rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc = initialize_DG(param,initial_condition,initial_boundary_conditions)
+rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data = initialize_DG(param,initial_condition,initial_boundary_conditions)
 
-data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc)
+data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
 

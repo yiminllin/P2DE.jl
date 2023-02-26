@@ -23,7 +23,7 @@ end
 
 # TODO: use views instead of index flattening
 function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
-    @unpack rhsL,rhsH,rhsxyH,rhsxyL,f_bar_H,f_bar_L,BF_H,BF_L,LGLind,MinvVhTQF1,Q0F1 = prealloc
+    @unpack rhsL,rhsH,rhsxyH,rhsxyL,f_bar_H,f_bar_L,BF_H,BF_L,LGLind = prealloc
     
     K   = get_num_elements(param)
     Nq  = size(prealloc.Uq,1)

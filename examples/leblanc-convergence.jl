@@ -77,7 +77,7 @@ for K in [50;100;200]
 entropyproj_type,low_order_flux_type,pos_lim_type,discretization_type = limiter_type
 γ = 5/3
 CFL = 0.5
-param = Param(N=N, K=K, XL=0.0, XR=1.0,
+param = Param(N=N, K=K, xL=0.0, xR=1.0,
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=2/3, CFL=CFL, dt0=1e-3, t0=0.01),
               limiting_param=LimitingParameter(ζ=0.1, η=0.1),
@@ -94,9 +94,9 @@ N = param.N
 K = param.K
 equation = param.equation
 
-rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc = initialize_DG(param,initial_condition,initial_boundary_conditions)
+rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data = initialize_DG(param,initial_condition,initial_boundary_conditions)
 
-data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc)
+data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
 

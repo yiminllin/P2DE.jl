@@ -53,28 +53,28 @@ param = Param(N=3, K=(40,20), xL=(0.0,0.0), xR=(20.0,10.0),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
               postprocessing_param=PostprocessingParameter(output_interval=100),
               equation=CompressibleEulerIdealGas{Dim2}(γ),
-              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
+              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-              positivity_limiter_type=ZhangShuLimiter())
+              positivity_limiter_type=SubcellLimiter())
 
 T = param.timestepping_param.T
 N = param.N
 K = param.K
 equation = param.equation
 
-rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc = initialize_DG(param,initial_condition,initial_boundary_conditions)
+rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data = initialize_DG(param,initial_condition,initial_boundary_conditions)
 
-data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc)
+data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
 
 using Plots
 gr(size=(1200,600),legend=false,
    markerstrokewidth=0,markersize=2)
-x = md_LGL.xq[:]
-y = md_LGL.yq[:]
+x = md_gauss.xq[:]
+y = md_gauss.yq[:]
 rho = [x[1] for x in prealloc.Uq][:]
 scatter(x,y,rho,zcolor=rho,camera=(0,90),aspect_ratio=.5)
 savefig("./outputs/figures/2D/vortex/N=$N,K=$K.png")

@@ -89,14 +89,16 @@ function apply_LF_dissipation_to_BF(BF,param,i,k,lf,dim::Dim2)
 end
 
 # TODO: hardcoded
-function get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim::Dim1)
-    @unpack Uq,λarr = prealloc
+function get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim::Dim1)
+    @unpack λarr = cache
+    @unpack Uq   = prealloc
 
     return SVector{1}(λarr[i,j,k]*(Uq[j,k]-Uq[i,k]))
 end
 
-function get_graph_viscosity(prealloc,param,i,j,k,Sxy0J_ij,dim::Dim2)
-    @unpack Uq,λarr = prealloc
+function get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim::Dim2)
+    @unpack λarr = cache
+    @unpack Uq   = prealloc
 
     Nc = 4   # TODO: hardcoding 
     Sx0J_ij,Sy0J_ij = Sxy0J_ij
