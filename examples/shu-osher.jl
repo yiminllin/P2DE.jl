@@ -58,9 +58,9 @@ N = param.N
 K = param.K
 equation = param.equation
 
-rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc = initialize_DG(param,initial_condition,initial_boundary_conditions)
+rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches = initialize_DG(param,initial_condition,initial_boundary_conditions)
 
-data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc)
+data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
 
@@ -73,7 +73,7 @@ plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
                plot_path,
                true,weno_sol["x"],weno_sol["rho"],1,size(weno_sol["x"],2))
 
-plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,6,
+plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.θhist,0,6,
                    "outputs/figures/shu-osher/N=$N,K=$K,rhstype=$(param.rhs_type),entropyproj_limiter_type=$(param.entropyproj_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif")
 
 df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])

@@ -1,82 +1,51 @@
 # TODO: change file names
-# TODO: preallocation to cache
 function initialize_preallocations(param,md,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
 
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
-    Uq      = zeros(SVector{Nc,Float64},Nq,K)
-    vq      = zeros(SVector{Nc,Float64},Nq,K)
-    v_tilde = zeros(SVector{Nc,Float64},Nh,K)
-    u_tilde = zeros(SVector{Nc,Float64},Nh,K)
-    beta    = zeros(Float64,Nh,K)
-    rholog  = zeros(Float64,Nh,K)
-    betalog = zeros(Float64,Nh,K)
-    lam     = zeros(Float64,Nfp,K)
-    LFc     = zeros(Float64,Nfp,K)
-    rhsH    = zeros(SVector{Nc,Float64},Nq,K)
-    rhsxyH  = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
-    Ui      = zeros(Float64,Nc+2)
-    Uj      = zeros(Float64,Nc+2)
-    QF1     = zeros(SVector{Nd,SVector{Nc,Float64}},Nh,K)
-    Q0F1    = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
-    uP       = zeros(SVector{Nc,Float64},Nfp,K)
-    betaP    = zeros(Float64,Nfp,K)
-    rhologP  = zeros(Float64,Nfp,K)
-    betalogP = zeros(Float64,Nfp,K)
-    flux       = zeros(SVector{Nd,SVector{Nc,Float64}},Nh,K)
-    BF_H       = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
-    BF_L       = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
-    wavespeed   = zeros(Float64,Nq,Nq,K)
-    wavespeed_f = zeros(Float64,Nfp,K)
-    alphaarr   = zeros(Float64,Nfp,K)
-    rhsL    = zeros(SVector{Nc,Float64},Nq,K)
-    rhsxyL  = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
-    Larr    = zeros(Float64,K,Ns)
-    L_local_arr = zeros(Float64,Nq+N1D,Nd,K,Ns)
-    rhsU    = zeros(SVector{Nc,Float64},Nq,K)
-    rhsxyU  = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
-    v3tilde   = zeros(Float64,Nh)
-    rhotilde  = zeros(Float64,Nh)
-    rhoetilde = zeros(Float64,Nh)
-    vq_k      = zeros(SVector{Nc,Float64},Nq)
-    v_tilde_k = zeros(SVector{Nc,Float64},Nh)      # TODO: refactor with v_tilde, u_tilde
-    u_tilde_k = zeros(SVector{Nc,Float64},Nh)
-    U_modal   = zeros(SVector{Nc,Float64},Np,K)
-    U_k       = zeros(SVector{Nc,Float64},Np)
-    Uq_k      = zeros(SVector{Nc,Float64},Nq)
-    MinvVhTQF1 = zeros(SVector{Nd,SVector{Nc,Float64}},Np,K)
-    MinvVfTBF1 = zeros(SVector{Nd,SVector{Nc,Float64}},Np,K)
-    resW      = zeros(SVector{Nc,Float64},Nq,K)
-    resZ      = zeros(SVector{Nc,Float64},Nq,K)
-    Farr      = zeros(Float64,K,Ns)            # TODO: rename F, eta to theta
-    θ_local_arr = zeros(Float64,Nfp,K,Ns)
-    αarr      = zeros(Float64,Nfp,K)
-    resW      = zeros(SVector{Nc,Float64},Nq,K)
-    resZ      = zeros(SVector{Nc,Float64},Nq,K)
-    LGLind    = falses(K)                       # TODO: array of BasisType, singleton type
-    L_G2L_arr = ones(Float64,K,Ns)
-    L_L2G_arr = ones(Float64,K,Ns)
-    L_Vf_arr  = ones(Float64,K,Ns)              # TODO: Refactor with Farr
-    VhPq_new  = zeros(Float64,Nh,Nq)            # TODO: unnecessary?
-    VhPq_new[1:Nq,1:Nq] = diagm(ones(Nq))
-    Vf_new      = zeros(Float64,Nfp,Nq)
-    VhT_new     = zeros(Float64,Np,Nh)
-    MinvVhT_new = zeros(Float64,Np,Nh)
-    uL_k      = zeros(SVector{Nc,Float64},Nq)
-    P_k       = zeros(SVector{Nc,Float64},Nq)
-    f_bar_H   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
-    f_bar_L   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
-    f_bar_lim = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)  # TODO: unnecessary
-    Uf        = zeros(SVector{Nc,Float64},Nfp,K)
-    VUf       = zeros(SVector{Nc,Float64},Nfp,K)
-    rhoef     = zeros(Float64,Nfp,K)
-    λarr      = zeros(Float64,Nq,Nq,K)
-    λBarr     = zeros(Float64,Nfp,K)
 
-    prealloc = Preallocation{Nc,Nd}(Uq,vq,v_tilde,u_tilde,beta,rholog,betalog,lam,LFc,rhsH,rhsxyH,Ui,Uj,QF1,Q0F1,uP,betaP,rhologP,betalogP,flux,BF_H,BF_L,wavespeed,wavespeed_f,alphaarr,rhsL,rhsxyL,Larr,L_local_arr,rhsU,rhsxyU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,MinvVhTQF1,MinvVfTBF1,resW,resZ,Farr,θ_local_arr,αarr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,VhPq_new,Vf_new,VhT_new,MinvVhT_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef,λarr,λBarr)
+    Uq          = zeros(SVector{Nc,Float64},Nq,K)
+    vq          = zeros(SVector{Nc,Float64},Nq,K)
+    u_tilde     = zeros(SVector{Nc,Float64},Nh,K)
+    v_tilde     = zeros(SVector{Nc,Float64},Nh,K)
+    rhsH        = zeros(SVector{Nc,Float64},Nq,K)
+    rhsL        = zeros(SVector{Nc,Float64},Nq,K)
+    rhsU        = zeros(SVector{Nc,Float64},Nq,K)
+    rhsxyH      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    rhsxyL      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    rhsxyU      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    BF_H        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
+    BF_L        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
+    Larr        = zeros(Float64,K,Ns)
+    L_local_arr = zeros(Float64,Nq+N1D,Nd,K,Ns)
+    θ_arr       = zeros(Float64,K,Ns)                # TODO: rename F, eta to theta
+    θ_local_arr = zeros(Float64,Nfp,K,Ns)
+    LGLind      = falses(K)                          # TODO: array of BasisType, singleton type
+    L_G2L_arr   = ones(Float64,K,Ns)
+    L_L2G_arr   = ones(Float64,K,Ns)
+    resW        = zeros(SVector{Nc,Float64},Nq,K)
+    resZ        = zeros(SVector{Nc,Float64},Nq,K)
+
+    prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,
+                                    rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,
+                                    Larr,L_local_arr,θ_arr,θ_local_arr,LGLind,L_G2L_arr,L_L2G_arr,
+                                    resW,resZ)
     return prealloc
+end
+
+function initialize_cache(param,sizes)
+    @unpack rhs_type,positivity_limiter_type,entropyproj_limiter_type = param
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    rhs_cache                 = get_rhs_cache(rhs_type,param,sizes)
+    limiter_cache             = get_limiter_cache(positivity_limiter_type,param,sizes)
+    entropyproj_limiter_cache = get_entropyproj_limiter_cache(entropyproj_limiter_type,param,sizes)
+
+    return Caches(rhs_cache,limiter_cache,entropyproj_limiter_cache)
 end
 
 function initialize_DG(param,initial_condition,initial_boundary_conditions)
@@ -85,10 +54,11 @@ function initialize_DG(param,initial_condition,initial_boundary_conditions)
     @unpack sizes = discrete_data_gauss 
     bcdata = initial_boundary_conditions(param,md_gauss)
     prealloc = initialize_preallocations(param,md_gauss,sizes)
+    caches = initialize_cache(param,sizes)
 
     init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
 
-    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc
+    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches
 end
 
 function initialize_data(param)

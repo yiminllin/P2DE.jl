@@ -32,6 +32,117 @@ struct ChandrashekarOnProjectedVal <: SurfaceFluxType end
 struct LaxFriedrichsOnNodalVal     <: SurfaceFluxType end
 struct LaxFriedrichsOnProjectedVal <: SurfaceFluxType end
 
+abstract type Cache{DIM,Nc} end
+struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
+    flux       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    Q0F1       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    wavespeed  ::Array{Float64,3}
+    wavespeed_f::Array{Float64,2}
+    alphaarr   ::Array{Float64,2}
+    Uf         ::Array{SVector{Nc,Float64},2}   # TODO: Redundant with limiters cache
+    λarr       ::Array{Float64,3}
+    λBarr      ::Array{Float64,2}
+    αarr       ::Array{Float64,2}
+end
+
+LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
+    LowOrderPositivityCache(zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
+                            zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
+                            zeros(Float64,Nq,Nq,K),
+                            zeros(Float64,Nfp,K),
+                            zeros(Float64,Nfp,K),
+                            zeros(SVector{Nc,Float64},Nfp,K),
+                            zeros(Float64,Nq,Nq,K),
+                            zeros(Float64,Nfp,K),
+                            zeros(Float64,Nfp,K))
+
+struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
+    beta       ::Array{Float64,2}
+    rholog     ::Array{Float64,2}
+    betalog    ::Array{Float64,2}
+    uP         ::Array{SVector{Nc,Float64},2}
+    betaP      ::Array{Float64,2}
+    rhologP    ::Array{Float64,2}
+    betalogP   ::Array{Float64,2}
+    lam        ::Array{Float64,2}
+    LFc        ::Array{Float64,2}
+    Ui         ::Array{Float64,1}
+    Uj         ::Array{Float64,1}
+    Vf_new     ::Array{Float64,2}
+    VhT_new    ::Array{Float64,2}
+    MinvVhT_new::Array{Float64,2}
+    QF1        ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    MinvVhTQF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    MinvVfTBF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+end
+
+EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
+    EntropyStableCache(zeros(Float64,Nh,K),
+                       zeros(Float64,Nh,K),
+                       zeros(Float64,Nh,K),
+                       zeros(SVector{Nc,Float64},Nfp,K),
+                       zeros(Float64,Nfp,K),
+                       zeros(Float64,Nfp,K),
+                       zeros(Float64,Nfp,K),
+                       zeros(Float64,Nfp,K),
+                       zeros(Float64,Nfp,K),
+                       zeros(Float64,Nc+2),
+                       zeros(Float64,Nc+2),
+                       zeros(Float64,Nfp,Nq),
+                       zeros(Float64,Np,Nh),
+                       zeros(Float64,Np,Nh),
+                       zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
+                       zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
+                       zeros(SVector{DIM,SVector{Nc,Float64}},Np,K))
+
+Base.@kwdef struct ESLimitedLowOrderPosCache{CACHEHTYPE,CACHELTYPE}
+    cacheH  ::CACHEHTYPE
+    cacheL  ::CACHELTYPE
+end
+
+# TODO: pass in SizeData
+function get_rhs_cache(rhs_type::LowOrderPositivity,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    return LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+end
+
+function get_rhs_cache(rhs_type::EntropyStable,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    return EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+end
+
+function get_rhs_cache(rhs_type::ESLimitedLowOrderPos,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    cacheH = EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    cacheL = LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    return ESLimitedLowOrderPosCache(cacheH = cacheH, cacheL = cacheL)
+end
+
+function get_low_order_cache(rhs_cache::LowOrderPositivityCache)
+    return rhs_cache
+end
+
+function get_low_order_cache(rhs_cache::ESLimitedLowOrderPosCache)
+    return rhs_cache.cacheL
+end
+
+function get_high_order_cache(rhs_cache::EntropyStableCache)
+    return rhs_cache
+end
+
+function get_high_order_cache(rhs_cache::ESLimitedLowOrderPosCache)
+    return rhs_cache.cacheH
+end
+
 abstract type EntropyProjectionLimiterType end
 abstract type AdaptiveFilter          <: EntropyProjectionLimiterType end
 abstract type ScaledExtrapolation     <: EntropyProjectionLimiterType end
@@ -165,12 +276,12 @@ function get_num_elements(param,equation::EquationType{Dim1})
     return param.K
 end
 
+# TODO: hardcoded for uniform mesh
 function get_num_elements(param,equation::EquationType{Dim2})
     return param.K[1]*param.K[2]
 end
 
-# TODO: tuple
-mutable struct BCData{Nc}
+struct BCData{Nc}
     mapP::Array{Int64,2}
     mapI::Array{Int64,1}
     mapO::Array{Int64,1}  # List of global indices with inflow and outflow 
@@ -178,15 +289,14 @@ mutable struct BCData{Nc}
     inflowarr::Array{SVector{Nc,Float64},1}
 end
 
-# TODO: tuple
-mutable struct GeomData{NGEO}
+struct GeomData{NGEO}
     J   ::Array{Float64,2}
     Jq  ::Array{Float64,2}
     GJh::NTuple{NGEO,Array{Float64,2}}   # rxJh in 1D
                                          # rxJh, sxJh, ryJh, syJh in 2D
 end
 
-mutable struct Operators{DIM}
+struct Operators{DIM}
     Srsh_db    ::NTuple{DIM,Array{Float64,2}}
     Srs0       ::NTuple{DIM,SparseMatrixCSC{Float64,Int64}}
     Brs        ::NTuple{DIM,Array{Float64,2}}    # TODO: to sparse matrix
@@ -204,13 +314,13 @@ mutable struct Operators{DIM}
     wq         ::Array{Float64,1}
 end
 
-mutable struct TransferOperators
+struct TransferOperators
     T_g2l::Array{Float64,2}
     T_l2g::Array{Float64,2}
 end
 
 # TODO: define iterator to loop instead of size
-mutable struct SizeData
+struct SizeData
     Nc ::Int64
     Np ::Int64
     Nq ::Int64
@@ -219,85 +329,145 @@ mutable struct SizeData
     Ns ::Int64    # number of stages in time integrator
 end
 
-mutable struct DiscretizationData{DIM,NGEO}
+struct DiscretizationData{DIM,NGEO}
     sizes::SizeData
     geom ::GeomData{NGEO}
     ops  ::Operators{DIM}
 end
 
-mutable struct Preallocation{Nc,DIM}      # TODO: hardcoded DIMP1...
-    Uq     ::Array{SVector{Nc,Float64},2}
-    vq     ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
-    v_tilde::Array{SVector{Nc,Float64},2}       # projected entropy variables
-    u_tilde::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
-    beta   ::Array{Float64,2}
-    rholog ::Array{Float64,2}
-    betalog::Array{Float64,2}
-    lam    ::Array{Float64,2}
-    LFc    ::Array{Float64,2}
-    rhsH   ::Array{SVector{Nc,Float64},2}
-    rhsxyH ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    Ui     ::Array{Float64,1}
-    Uj     ::Array{Float64,1}
-    QF1    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    Q0F1   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    uP      ::Array{SVector{Nc,Float64},2}
-    betaP   ::Array{Float64,2}
-    rhologP ::Array{Float64,2}
-    betalogP::Array{Float64,2}
-    flux     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    BF_H     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    BF_L     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    wavespeed  ::Array{Float64,3}             # TODO: inefficient storage
-    wavespeed_f::Array{Float64,2}
-    alphaarr ::Array{Float64,2}
-    rhsL     ::Array{SVector{Nc,Float64},2}
-    rhsxyL   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    Larr     ::Array{Float64,2}
+struct Preallocation{Nc,DIM}
+    Uq         ::Array{SVector{Nc,Float64},2}
+    vq         ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
+    u_tilde    ::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
+    v_tilde    ::Array{SVector{Nc,Float64},2}       # projected entropy variables
+    rhsH       ::Array{SVector{Nc,Float64},2}
+    rhsL       ::Array{SVector{Nc,Float64},2}
+    rhsU       ::Array{SVector{Nc,Float64},2}
+    rhsxyH     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    rhsxyL     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    rhsxyU     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BF_H       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BF_L       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    Larr       ::Array{Float64,2}
     L_local_arr::Array{Float64,4}
-    rhsU     ::Array{SVector{Nc,Float64},2}
-    rhsxyU   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    v3tilde  ::Array{Float64,1}
-    rhotilde ::Array{Float64,1}
-    rhoetilde::Array{Float64,1}
-    vq_k     ::Array{SVector{Nc,Float64},1}
-    v_tilde_k::Array{SVector{Nc,Float64},1}
-    u_tilde_k::Array{SVector{Nc,Float64},1}
-    U_modal  ::Array{SVector{Nc,Float64},2}
-    U_k      ::Array{SVector{Nc,Float64},1}
-    Uq_k     ::Array{SVector{Nc,Float64},1}
-    MinvVhTQF1::Array{SVector{DIM,SVector{Nc,Float64}},2}     # TODO: inconsistent with Q0F1
-    MinvVfTBF1::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    resW     ::Array{SVector{Nc,Float64},2}
-    resZ     ::Array{SVector{Nc,Float64},2}
-    Farr     ::Array{Float64,2}
+    θ_arr      ::Array{Float64,2}
     θ_local_arr::Array{Float64,3}
-    αarr     ::Array{Float64,2}
-    LGLind   ::BitArray
-    L_G2L_arr::Array{Float64,2}
-    L_L2G_arr::Array{Float64,2}
-    L_Vf_arr ::Array{Float64,2}
-    VhPq_new ::Array{Float64,2}
-    Vf_new   ::Array{Float64,2}
-    VhT_new    ::Array{Float64,2}
-    MinvVhT_new::Array{Float64,2}
+    LGLind     ::BitArray
+    L_G2L_arr  ::Array{Float64,2}
+    L_L2G_arr  ::Array{Float64,2}
+    resW       ::Array{SVector{Nc,Float64},2}
+    resZ       ::Array{SVector{Nc,Float64},2}
+end
+
+abstract type LimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
+struct NoPositivityLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
+struct ZhangShuLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
+    uL_k     ::Array{SVector{Nc,Float64},1}
+    P_k      ::Array{SVector{Nc,Float64},1}
+end
+
+ZhangShuLimiterCache{DIM,Nc}(; Nq=0) where {DIM,Nc} =
+    ZhangShuLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq),
+                                 zeros(SVector{Nc,Float64},Nq))
+
+struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     uL_k     ::Array{SVector{Nc,Float64},1}
     P_k      ::Array{SVector{Nc,Float64},1}
     f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
-    f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # TODO: unnecessary
+end
+
+SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0) where {DIM,Nc} =
+    SubcellLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq),
+                                zeros(SVector{Nc,Float64},Nq),
+                                tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...))
+
+abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
+struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
+struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
+    Vf_new   ::Array{Float64,2}
+    U_modal  ::Array{SVector{Nc,Float64},2}
+    U_k      ::Array{SVector{Nc,Float64},1}
+    Uq_k     ::Array{SVector{Nc,Float64},1}
+    vq_k     ::Array{SVector{Nc,Float64},1}
+    v_tilde_k::Array{SVector{Nc,Float64},1}   # TODO: refactor with v_tilde, u_tilde
+    u_tilde_k::Array{SVector{Nc,Float64},1}
+    v3tilde  ::Array{Float64,1}
+    rhotilde ::Array{Float64,1}
+    rhoetilde::Array{Float64,1}
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
-    λarr     ::Array{Float64,3}
-    λBarr    ::Array{Float64,2}
 end
 
-mutable struct DataHistory{Nc}
+EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
+    EntropyProjectionLimiterCache{DIM,Nc}(zeros(Float64,Nfp,Nq),
+                                          zeros(SVector{Nc,Float64},Np,K),
+                                          zeros(SVector{Nc,Float64},Np),
+                                          zeros(SVector{Nc,Float64},Nq),
+                                          zeros(SVector{Nc,Float64},Nq),
+                                          zeros(SVector{Nc,Float64},Nh),
+                                          zeros(SVector{Nc,Float64},Nh),
+                                          zeros(Float64,Nh),
+                                          zeros(Float64,Nh),
+                                          zeros(Float64,Nh),
+                                          zeros(SVector{Nc,Float64},Nfp,K),
+                                          zeros(SVector{Nc,Float64},Nfp,K),
+                                          zeros(Float64,Nfp,K))
+
+function get_limiter_cache(limiter_type::NoPositivityLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    Nd = get_dim(param.equation)
+
+    return NoPositivityLimiterCache{Nd,Nc}()
+end
+
+function get_limiter_cache(limiter_type::ZhangShuLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq)
+end
+
+function get_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+    N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
+
+    return SubcellLimiterCache{Nd,Nc}(K=K,Nq=Nq,N1D=N1D)
+end
+
+function get_entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    Nd = get_dim(param.equation)
+
+    return NoEntropyProjectionLimiterCache{Nd,Nc}()
+end
+
+function get_entropyproj_limiter_cache(entropyproj_limiter_type::Union{AdaptiveFilter,ScaledExtrapolation},param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    return EntropyProjectionLimiterCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+end
+
+
+struct Caches{RHSCACHE,LIMITERCACHE,ENTROPYPROJCACHE}
+    rhs_cache                ::RHSCACHE
+    limiter_cache            ::LIMITERCACHE
+    entropyproj_limiter_cache::ENTROPYPROJCACHE
+end
+
+struct DataHistory{Nc}
     Uhist     ::Vector{Array{SVector{Nc,Float64},2}}
     Lhist     ::Vector{Array{Float64,2}}
-    Fhist     ::Vector{Array{Float64,2}}
-    alphahist ::Vector{Array{Float64,2}}
+    θhist     ::Vector{Array{Float64,2}}
     thist     ::Vector{Float64}
     dthist    ::Vector{Float64}
     LGLindhist::Vector{BitArray}
@@ -306,7 +476,7 @@ mutable struct DataHistory{Nc}
     L_Vf_hist ::Vector{Array{Float64,2}}
 end
 
-mutable struct ErrorData
+struct ErrorData
     L1err  ::Float64
     L2err  ::Float64
     Linferr::Float64
