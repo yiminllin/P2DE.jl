@@ -118,7 +118,7 @@ function construct_gauss_reference_data(rd)
 
     return RefElemData(rd.element_type, Polynomial, rd.N, rd.fv, V1,
                        rst, VDM, rd.Fmask,
-                       rd.Nplot, rd.rstp, Vp,
+                       rd.rstp, Vp,
                        rd.rstq, rd.wq, Vq,
                        rd.rstf, rd.wf, Vf, rd.nrstJ,
                        M, Pq, Drst, LIFT)
