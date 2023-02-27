@@ -17,6 +17,7 @@ using NodesAndModes
 
 # Packages for benchmark
 using BenchmarkTools
+using TimerOutputs
 
 # Packages for post-processing
 using Plots

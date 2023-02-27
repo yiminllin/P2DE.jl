@@ -1,25 +1,41 @@
 #########################
 ### RHS of modal ESDG ###
 #########################
-function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,need_proj=true)
+function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,timer,need_proj=true)
     @unpack entropyproj_limiter_type = param
 
     cache = get_high_order_cache(rhs_cache)
+    @timeit timer "entropy projection" begin
     if (need_proj)
-        entropy_projection!(prealloc,param,entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
+        entropy_projection!(prealloc,param,entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage,timer)
+    end
     end
 
+    @timeit timer "calculate primitive variables" begin
     calculate_primitive_variables!(cache,prealloc,param,bcdata)
+    end
+    @timeit timer "calculate interface dissipation coefficients" begin
     calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL)
+    end
+    @timeit timer "enforce boundary conditions" begin
     enforce_BC!(cache,prealloc,param,bcdata)
+    end
 
     # Flux differencing
+    @timeit timer "clear cache" begin
     clear_flux_differencing_cache!(cache)
+    end
+    @timeit timer "flux differencing volume kernel" begin
     flux_differencing_volume!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
+    end
+    @timeit timer "flux differencing surface kernel" begin
     flux_differencing_surface!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
+    end
 
     # Assemble RHS
+    @timeit timer "assemble rhs" begin
     assemble_rhs!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,nstage)
+    end
 end
 
 function calculate_primitive_variables!(cache,prealloc,param,bcdata)

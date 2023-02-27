@@ -15,6 +15,8 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
     L_G2L_hist = []
     L_Vf_hist  = []
 
+    timer = TimerOutput()
+
     # Time integration
     t = t0 
 
@@ -22,16 +24,18 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
     dt = CFL*dt0
     # @btime rhs!($param,$discrete_data_gauss,$discrete_data_LGL,$transfer_ops,$bcdata,$prealloc,$caches,$t,$dt,1)
     @time while t < T
+        @timeit timer "rhs calculation" begin
         dt = min(CFL*dt0,T-t)
         @. resW = Uq    # TODO: rename, resW is now the copy of previous time step Uq, and Uq is wi in paper
-        dt = rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,1)
+        dt = rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,1,timer)
         @. Uq = resW + dt*rhsU
-        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,2)
+        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,2,timer)
         @. resZ = Uq+dt*rhsU
         @. Uq = 3/4*resW+1/4*resZ
-        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,3)
+        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,3,timer)
         @. resZ = Uq+dt*rhsU
         @. Uq = 1/3*resW+2/3*resZ
+        end
 
         t = t+dt
         i = i+1
@@ -51,6 +55,8 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
             @show total_conservation
         end
     end
+
+    println(timer)
     
     data_hist = DataHistory{Nc}(Uhist,Lhist,θhist,thist,dthist,LGLindhist,L_L2G_hist,L_G2L_hist,L_Vf_hist)
     return data_hist
