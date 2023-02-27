@@ -1,5 +1,4 @@
 # TODO: change file names
-# TODO: preallocation to cache
 function initialize_preallocations(param,md,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
 

@@ -72,7 +72,7 @@ struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     VhT_new    ::Array{Float64,2}
     MinvVhT_new::Array{Float64,2}
     QF1        ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    MinvVhTQF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}     # TODO: inconsistent with Q0F1
+    MinvVhTQF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     MinvVfTBF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
 end
 
@@ -276,11 +276,11 @@ function get_num_elements(param,equation::EquationType{Dim1})
     return param.K
 end
 
+# TODO: hardcoded for uniform mesh
 function get_num_elements(param,equation::EquationType{Dim2})
     return param.K[1]*param.K[2]
 end
 
-# TODO: tuple
 struct BCData{Nc}
     mapP::Array{Int64,2}
     mapI::Array{Int64,1}
@@ -289,7 +289,6 @@ struct BCData{Nc}
     inflowarr::Array{SVector{Nc,Float64},1}
 end
 
-# TODO: tuple
 struct GeomData{NGEO}
     J   ::Array{Float64,2}
     Jq  ::Array{Float64,2}
@@ -388,7 +387,6 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0) where {DIM,Nc} =
 
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
-# TODO: Define cache for different entropy projection limiter types
 struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
     Vf_new   ::Array{Float64,2}
     U_modal  ::Array{SVector{Nc,Float64},2}
