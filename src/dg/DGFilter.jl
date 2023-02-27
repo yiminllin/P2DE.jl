@@ -15,17 +15,17 @@ end
 
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ExponentialFilter,nstage)
-    view(prealloc.Farr,:,nstage) .= 0.0
+    view(prealloc.θ_arr,:,nstage) .= 0.0
 end
 
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ZhangShuFilter,nstage)
-    view(prealloc.Farr,:,nstage) .= 1.0
+    view(prealloc.θ_arr,:,nstage) .= 1.0
 end
 
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ElementwiseScaledExtrapolation,nstage)
-    view(prealloc.Farr,:,nstage) .= 1.0
+    view(prealloc.θ_arr,:,nstage) .= 1.0
 end
 
 # TODO: unnecessary?
@@ -58,17 +58,17 @@ end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ExponentialFilter,param,discrete_data_gauss)
     f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data_gauss)
-    prealloc.Farr[k,nstage] = bisection(f,-log(param.global_constants.ZEROTOL),0.0)
+    prealloc.θ_arr[k,nstage] = bisection(f,-log(param.global_constants.ZEROTOL),0.0)
 end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ZhangShuFilter,param,discrete_data_gauss)
     f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data_gauss)
-    prealloc.Farr[k,nstage] = bisection(f,0.0,1.0)
+    prealloc.θ_arr[k,nstage] = bisection(f,0.0,1.0)
 end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation,param,discrete_data_gauss)
     f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data_gauss)
-    prealloc.Farr[k,nstage] = bisection(f,0.0,1.0)
+    prealloc.θ_arr[k,nstage] = bisection(f,0.0,1.0)
 end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation,param,discrete_data_gauss)
@@ -80,7 +80,7 @@ function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::Nodewise
         prealloc.θ_local_arr[i,k,nstage] = bisection(f,0.0,1.0)
     end
     # TODO: hardcode for post postprocessing
-    prealloc.Farr[k,nstage] = sum(view(prealloc.θ_local_arr,:,k,nstage))/discrete_data_gauss.sizes.Nfp
+    prealloc.θ_arr[k,nstage] = sum(view(prealloc.θ_local_arr,:,k,nstage))/discrete_data_gauss.sizes.Nfp
 end
 
 function solve_theta!(prealloc,cache,k,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data_gauss)
@@ -211,14 +211,14 @@ function compute_modal_coefficients!(prealloc,param,discrete_data_gauss,cache)
 end
 
 function apply_entropyproj_filtering!(prealloc,param,entropyproj_limiter_type::AdaptiveFilter,discrete_data_gauss,nstage)
-    @unpack Uq,Farr,U_modal,LGLind = prealloc
-    @unpack VqVDM                  = discrete_data_gauss.ops
+    @unpack Uq,θ_arr,U_modal,LGLind = prealloc
+    @unpack VqVDM                   = discrete_data_gauss.ops
     
     K  = get_num_elements(param)
     for k = 1:K
         if (!LGLind[k])
             U_modal_k = @views U_modal[:,k]
-            apply_filter!(U_modal_k,param.entropyproj_limiter_type,param.equation,Farr[k,nstage])
+            apply_filter!(U_modal_k,param.entropyproj_limiter_type,param.equation,θ_arr[k,nstage])
         end
     end
     for k = 1:K

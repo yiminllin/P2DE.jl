@@ -141,7 +141,7 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::Elementwis
         v_tilde_k = view(v_tilde,:,k)
         u_tilde_k = view(u_tilde,:,k)
         Uq_k      = view(Uq,:,k)
-        l_k       = prealloc.Farr[k,nstage]
+        l_k       = prealloc.θ_arr[k,nstage]
         # TODO: we can skip LGL instead of applying identity
         discrete_data = (LGLind[k]) ? discrete_data_LGL : discrete_data_gauss
         entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data,prealloc)

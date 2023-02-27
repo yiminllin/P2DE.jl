@@ -350,7 +350,7 @@ struct Preallocation{Nc,DIM}
     BF_L       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Larr       ::Array{Float64,2}
     L_local_arr::Array{Float64,4}
-    Farr       ::Array{Float64,2}
+    θ_arr      ::Array{Float64,2}
     θ_local_arr::Array{Float64,3}
     LGLind     ::BitArray
     L_G2L_arr  ::Array{Float64,2}
@@ -467,7 +467,7 @@ end
 struct DataHistory{Nc}
     Uhist     ::Vector{Array{SVector{Nc,Float64},2}}
     Lhist     ::Vector{Array{Float64,2}}
-    Fhist     ::Vector{Array{Float64,2}}
+    θhist     ::Vector{Array{Float64,2}}
     thist     ::Vector{Float64}
     dthist    ::Vector{Float64}
     LGLindhist::Vector{BitArray}

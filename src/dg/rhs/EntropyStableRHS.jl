@@ -271,7 +271,7 @@ function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_
     @unpack Vf_new    = cache
     @unpack Vf,Vf_low = discrete_data_gauss.ops
 
-    l_k = prealloc.Farr[k,nstage]
+    l_k = prealloc.θ_arr[k,nstage]
     @. Vf_new = l_k*Vf+(1.0-l_k)*Vf_low
 end
 
@@ -279,7 +279,7 @@ function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_
     @unpack Vf_new    = cache
     @unpack Vf,Vf_low = discrete_data_gauss.ops
 
-    l_k = prealloc.Farr[k,nstage]
+    l_k = prealloc.θ_arr[k,nstage]
     for i = 1:discrete_data_gauss.sizes.Nfp
         l_k_i = prealloc.θ_local_arr[i,k,nstage]
         @views @. Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]

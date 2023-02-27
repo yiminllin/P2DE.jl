@@ -20,7 +20,7 @@ function initialize_preallocations(param,md,sizes)
     BF_L        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     Larr        = zeros(Float64,K,Ns)
     L_local_arr = zeros(Float64,Nq+N1D,Nd,K,Ns)
-    Farr        = zeros(Float64,K,Ns)                # TODO: rename F, eta to theta
+    θ_arr       = zeros(Float64,K,Ns)                # TODO: rename F, eta to theta
     θ_local_arr = zeros(Float64,Nfp,K,Ns)
     LGLind      = falses(K)                          # TODO: array of BasisType, singleton type
     L_G2L_arr   = ones(Float64,K,Ns)
@@ -30,7 +30,7 @@ function initialize_preallocations(param,md,sizes)
 
     prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,
                                     rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,
-                                    Larr,L_local_arr,Farr,θ_local_arr,LGLind,L_G2L_arr,L_L2G_arr,
+                                    Larr,L_local_arr,θ_arr,θ_local_arr,LGLind,L_G2L_arr,L_L2G_arr,
                                     resW,resZ)
     return prealloc
 end

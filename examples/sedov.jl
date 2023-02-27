@@ -81,7 +81,7 @@ plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
 plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
                [u[3] for u in prealloc.Uq],1,K,0,3,plot_E_path,
                true,md_gauss.xq,[exact_sol(equation,xi,T)[3] for xi in md_gauss.xq],1,K)
-plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.Fhist,0,8,
+plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.θhist,0,8,
                    gif_path)
 
 # df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
