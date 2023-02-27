@@ -145,46 +145,55 @@ function clear_flux_differencing_cache!(cache)
 end
 
 function flux_differencing_volume!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
-    @unpack equation  = param
-    @unpack Ui,Uj,QF1 = cache
-    @unpack LGLind    = prealloc
+    @unpack equation = param
+    @unpack QF1      = cache
+    @unpack LGLind   = prealloc
 
+    dim = get_dim_type(equation)
     K  = get_num_elements(param)
+    Nq = discrete_data_gauss.sizes.Nq
     Nh = size(QF1,1)
+    Ui = zero(SVector{5,Float64})
+    Uj = zero(SVector{5,Float64})
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         for j = 1:Nh
-            accumulate_U_beta!(Uj,j,k,cache,prealloc,param.equation)
+            Ui = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
             for i = j+1:Nh
-                accumulate_U_beta!(Ui,i,k,cache,prealloc,param.equation)
-                accumulate_QF1!(QF1,i,Ui,j,Uj,k,discrete_data,equation)
+                if i <= Nq || j <= Nq   # Skip lower diagonal
+                    Uj = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
+                    accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
+                end
             end
         end
     end
 end
 
-# Accumulate U with (utilde, beta, log(rho), log(beta)) at index i,element k
-function accumulate_U_beta!(U,idx,k,cache,prealloc,equation)
+# Get (utilde, beta, log(rho), log(beta)) at index i,element k
+function get_U_beta!(idx,k,cache,prealloc,equation,dim::Dim1)
     @unpack u_tilde             = prealloc
     @unpack beta,rholog,betalog = cache
 
-    Nd = get_dim(equation)
-    U[1]     = u_tilde[idx,k][1]
-    for c = 2:2+Nd-1
-        U[c] = u_tilde[idx,k][c]/U[1]
-    end
-    U[end-2] = beta[idx,k]
-    U[end-1] = rholog[idx,k]
-    U[end]   = betalog[idx,k]
+    return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k])
 end
 
-function accumulate_QF1!(QF1,i,Ui,j,Uj,k,discrete_data,equation)
+function get_U_beta!(idx,k,cache,prealloc,equation,dim::Dim2)
+    @unpack u_tilde             = prealloc
+    @unpack beta,rholog,betalog = cache
+
+    return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],u_tilde[idx,k][3]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k])
+end
+
+function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
+    ϵ = param.global_constants.ZEROTOL
     dim = get_dim_type(equation)
-    fxy = fS_prim_log(equation,Ui,Uj)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
     Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
-    QF1[i,k] += Sxyh_db_ij .* fxy
-    QF1[j,k] += Sxyh_db_ji .* fxy
+    if sum(Sxyh_db_ij) > ϵ || sum(Sxyh_db_ji) > ϵ
+        fxy = fS_prim_log(equation,Ui,Uj)
+        QF1[i,k] += Sxyh_db_ij .* fxy
+        QF1[j,k] += Sxyh_db_ji .* fxy
+    end
 end
 
 function flux_differencing_surface!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)

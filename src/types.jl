@@ -66,8 +66,6 @@ struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     betalogP   ::Array{Float64,2}
     lam        ::Array{Float64,2}
     LFc        ::Array{Float64,2}
-    Ui         ::Array{Float64,1}
-    Uj         ::Array{Float64,1}
     Vf_new     ::Array{Float64,2}
     VhT_new    ::Array{Float64,2}
     MinvVhT_new::Array{Float64,2}
@@ -86,8 +84,6 @@ EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
-                       zeros(Float64,Nc+2),
-                       zeros(Float64,Nc+2),
                        zeros(Float64,Nfp,Nq),
                        zeros(Float64,Np,Nh),
                        zeros(Float64,Np,Nh),
