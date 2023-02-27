@@ -191,7 +191,7 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::NodewiseSc
         Uq_k      = view(Uq,:,k)
         # TODO: we can skip LGL instead of applying identity
         if (LGLind[k])
-            entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data_LGL,prealloc)
+            entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,1.0,param,discrete_data_LGL,prealloc)
         else
             # TODO: refactor
             @timeit timer "calculate entropy variables" begin
