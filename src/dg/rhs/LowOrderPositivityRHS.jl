@@ -1,24 +1,38 @@
 ##########################################
 ### RHS of positivity preserving Gauss ###
 ##########################################
-function rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,need_proj=true)
+function rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,timer,need_proj=true)
     @unpack entropyproj_limiter_type,equation    = param
 
     cache = get_low_order_cache(rhs_cache)
+    @timeit timer "entropy projection" begin
     if (need_proj)
-        entropy_projection!(prealloc,param,entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
+        entropy_projection!(prealloc,param,entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage,timer)
     end
+    end
+    @timeit timer "calculate wavespeed and inviscid flux" begin
     calculate_wavespeed_and_inviscid_flux!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL)
+    end
 
     # Assemble RHS
+    @timeit timer "clear cache" begin
     clear_low_order_rhs!(cache,prealloc,param)
+    end
+    @timeit timer "Low order volume kernel" begin
     accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL)
+    end
+    @timeit timer "Low order surface kernel" begin
     accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata)
+    end
+    @timeit timer "Scale low order solution by mass" begin
     scale_low_order_rhs_by_mass!(prealloc,param,discrete_data_gauss,discrete_data_LGL)
+    end
 
+    @timeit timer "Calculate low order positivity CFL" begin
     # Determine positivity CFL
     if (nstage == 1)
         dt = calculate_lambda_and_low_order_CFL!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,t)
+    end
     end
 
     return dt
