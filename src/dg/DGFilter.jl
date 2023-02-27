@@ -1,14 +1,14 @@
 # TODO: put into entropy projection to avoid an extra projection step
-function compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,entropyproj_limiter_cache,nstage)
+function compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,cache,nstage)
     @unpack LGLind = prealloc
 
     K  = get_num_elements(param)
     clear_entropyproj_limiting_parameter_cache!(prealloc,param.entropyproj_limiter_type,nstage)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
-    calc_face_values!(prealloc,entropyproj_limiter_cache,param,discrete_data_gauss)
+    calc_face_values!(prealloc,cache,param,discrete_data_gauss)
     for k = 1:K
         if (!LGLind[k])
-            solve_theta!(prealloc,entropyproj_limiter_cache,k,nstage,param.entropyproj_limiter_type,param,discrete_data_gauss)
+            solve_theta!(prealloc,cache,k,nstage,param.entropyproj_limiter_type,param,discrete_data_gauss)
         end
     end
 end
@@ -38,9 +38,9 @@ function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limite
 end
 
 # TODO: refactor, only work for gauss
-function calc_face_values!(prealloc,entropyproj_limiter_cache,param,discrete_data_gauss)
+function calc_face_values!(prealloc,cache,param,discrete_data_gauss)
     @unpack Uq,vq        = prealloc
-    @unpack Uf,VUf,rhoef = entropyproj_limiter_cache
+    @unpack Uf,VUf,rhoef = cache
     @unpack Vf           = discrete_data_gauss.ops
     
     K  = get_num_elements(param)
@@ -72,7 +72,9 @@ function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::Elementw
 end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation,param,discrete_data_gauss)
-    calculate_entropy_var!(cache.vq_k,view(prealloc.Uq,:,k),param,discrete_data_gauss)    # TODO: calculation of vq seems duplicate with entropy projection step
+    @unpack vq_k = cache
+
+    calculate_entropy_var!(vq_k,view(prealloc.Uq,:,k),param,discrete_data_gauss)    # TODO: calculation of vq seems duplicate with entropy projection step
     for i = 1:discrete_data_gauss.sizes.Nfp
         f(θ_i) = update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,cache,θ_i,i,k,param,discrete_data_gauss)
         prealloc.θ_local_arr[i,k,nstage] = bisection(f,0.0,1.0)
@@ -85,10 +87,10 @@ function solve_theta!(prealloc,cache,k,entropyproj_limiter_type::NoEntropyProjec
     return 0.0
 end
 
-function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,entropyproj_limiter_cache,θ,k,param,discrete_data_gauss)
+function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data_gauss)
     try
-        update_limited_entropyproj_vars_on_element!(prealloc,entropyproj_limiter_cache,θ,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
-        return check_bound_on_element(k,entropyproj_limiter_cache,param,discrete_data_gauss.sizes)
+        update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
+        return check_bound_on_element(k,cache,param,discrete_data_gauss.sizes)
     catch err
         if isa(err, DomainError)
             return false
@@ -99,9 +101,9 @@ function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,ent
     return false
 end
 
-function update_limited_entropyproj_vars_on_element!(prealloc,entropyproj_limiter_cache,θ,k,entropyproj_limiter_type::AdaptiveFilter,param,discrete_data_gauss)
+function update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,entropyproj_limiter_type::AdaptiveFilter,param,discrete_data_gauss)
     @unpack VqVDM                                     = discrete_data_gauss.ops
-    @unpack U_modal,U_k,Uq_k,vq_k,v_tilde_k,u_tilde_k = entropyproj_limiter_cache
+    @unpack U_modal,U_k,Uq_k,vq_k,v_tilde_k,u_tilde_k = cache
     
     U_k .= @views U_modal[:,k]
     apply_filter!(U_k,param.entropyproj_limiter_type,param.equation,θ)
@@ -109,32 +111,32 @@ function update_limited_entropyproj_vars_on_element!(prealloc,entropyproj_limite
     
     # TODO: only project to Gauss element
     entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,1.0,param,discrete_data_gauss,prealloc)
-    calculate_limited_entropyproj_vars_on_element!(entropyproj_limiter_cache,param)
+    calculate_limited_entropyproj_vars_on_element!(cache,param)
 end
 
-function update_limited_entropyproj_vars_on_element!(prealloc,entropyproj_limiter_cache,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data_gauss)
+function update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data_gauss)
     @unpack VqVDM = discrete_data_gauss.ops
     @unpack Uq    = prealloc
-    @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k,vq_k,U_k,Uq_k = entropyproj_limiter_cache
+    @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k,vq_k,U_k,Uq_k = cache
     
     entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,view(Uq,:,k),θ,param,discrete_data_gauss,prealloc)
-    calculate_limited_entropyproj_vars_on_element!(entropyproj_limiter_cache,param)
+    calculate_limited_entropyproj_vars_on_element!(cache,param)
 end
 
-function update_limited_entropyproj_vars!(prealloc,entropyproj_limiter_cache,θ,k,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data_gauss)
+function update_limited_entropyproj_vars!(prealloc,cache,θ,k,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data_gauss)
     # Do nothing
 end
 
 # TODO: hardcoded for 1D
-function calculate_limited_entropyproj_vars_on_element!(entropyproj_limiter_cache,param)
-    for i = 1:size(entropyproj_limiter_cache.v3tilde,1)
-        calculate_limited_entropyproj_vars_on_node!(entropyproj_limiter_cache,i,param)
+function calculate_limited_entropyproj_vars_on_element!(cache,param)
+    for i = 1:size(cache.v3tilde,1)
+        calculate_limited_entropyproj_vars_on_node!(cache,i,param)
     end
 end
 
 # TODO: better to define custom index type for hybridized, quad, and surface nodes...
-function calculate_limited_entropyproj_vars_on_node!(entropyproj_limiter_cache,i,param)
-    @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k = entropyproj_limiter_cache
+function calculate_limited_entropyproj_vars_on_node!(cache,i,param)
+    @unpack v3tilde,rhotilde,rhoetilde,v_tilde_k,u_tilde_k = cache
     v3tilde[i]   = v_tilde_k[i][end]
     rhotilde[i]  = u_tilde_k[i][1]
     rhoetilde[i] = rhoe_ufun(param.equation,u_tilde_k[i])
@@ -145,12 +147,12 @@ function calculate_limited_entropyproj_vars_on_face_node!(cache,i,param)
     calculate_limited_entropyproj_vars_on_node!(cache,i+Nq,param)
 end
 
-function check_bound_on_element(k,entropyproj_limiter_cache,param,sizes) 
-    @unpack v3tilde,rhotilde,rhoetilde = entropyproj_limiter_cache
+function check_bound_on_element(k,cache,param,sizes) 
+    @unpack v3tilde,rhotilde,rhoetilde = cache
 
     # TODO: only works for Gauss now
     for i = 1:sizes.Nfp
-        if !check_bound_on_face_node(i,k,entropyproj_limiter_cache,param,sizes)
+        if !check_bound_on_face_node(i,k,cache,param,sizes)
             return false
         end
     end
@@ -158,8 +160,8 @@ function check_bound_on_element(k,entropyproj_limiter_cache,param,sizes)
 end
 
 # TODO: skip volume quadrature points
-function check_bound_on_face_node(i,k,entropyproj_limiter_cache,param,sizes) 
-    @unpack v3tilde,rhotilde,rhoetilde,VUf,rhoef,Uf = entropyproj_limiter_cache
+function check_bound_on_face_node(i,k,cache,param,sizes) 
+    @unpack v3tilde,rhotilde,rhoetilde,VUf,rhoef,Uf = cache
     ϵ = param.global_constants.POSTOL
     ζ = param.limiting_param.ζ
     η = param.limiting_param.η
@@ -172,10 +174,10 @@ function check_bound_on_face_node(i,k,entropyproj_limiter_cache,param,sizes)
 end
 
 # TODO: Refactor. element versus. node - use multiple dispatch
-function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,entropyproj_limiter_cache,θ_i,i,k,param,discrete_data_gauss)
+function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,cache,θ_i,i,k,param,discrete_data_gauss)
     try
-        update_limited_entropyproj_vars_on_face_node!(prealloc,entropyproj_limiter_cache,θ_i,i,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
-        return check_bound_on_face_node(i,k,entropyproj_limiter_cache,param,discrete_data_gauss.sizes)
+        update_limited_entropyproj_vars_on_face_node!(prealloc,cache,θ_i,i,k,param.entropyproj_limiter_type,param,discrete_data_gauss)
+        return check_bound_on_face_node(i,k,cache,param,discrete_data_gauss.sizes)
     catch err
         if isa(err, DomainError)
             return false
@@ -197,9 +199,9 @@ end
 #########################
 ### Filtering methods ###
 #########################
-function compute_modal_coefficients!(prealloc,param,discrete_data_gauss,entropyproj_limiter_cache)
+function compute_modal_coefficients!(prealloc,param,discrete_data_gauss,cache)
     @unpack Uq       = prealloc
-    @unpack U_modal  = entropyproj_limiter_cache
+    @unpack U_modal  = cache
     @unpack VDMinvPq = discrete_data_gauss.ops
     
     K  = get_num_elements(param)

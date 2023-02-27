@@ -2,19 +2,21 @@ include("./DGRHSUtils.jl")
 include("./EntropyStableRHS.jl")
 include("./LowOrderPositivityRHS.jl")
 
-function rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,entropyproj_limiter_cache,t,dt,nstage)
-    init_get_rhs!(param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,entropyproj_limiter_cache,t,dt,nstage)
-    dt = get_rhs!(param.rhs_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,t,dt,nstage)
+function rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
+    init_get_rhs!(param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
+    dt = get_rhs!(param.rhs_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
     return dt
 end
 
-function init_get_rhs!(param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,entropyproj_limiter_cache,t,dt,nstage)
+function init_get_rhs!(param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
     if (nstage == 1)
         update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops)
     end
 end
 
-function init_get_rhs!(param,entropyproj_limiter_type::AdaptiveFilter,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,entropyproj_limiter_cache,t,dt,nstage)
+function init_get_rhs!(param,entropyproj_limiter_type::AdaptiveFilter,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
+    @unpack entropyproj_limiter_cache = caches
+
     compute_modal_coefficients!(prealloc,param,discrete_data_gauss,entropyproj_limiter_cache)
     compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,entropyproj_limiter_cache,nstage)
     apply_entropyproj_filtering!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,nstage)
@@ -23,31 +25,39 @@ function init_get_rhs!(param,entropyproj_limiter_type::AdaptiveFilter,discrete_d
     end
 end
 
-function init_get_rhs!(param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,entropyproj_limiter_cache,t,dt,nstage)
+function init_get_rhs!(param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
+    @unpack entropyproj_limiter_cache = caches
+
     compute_entropyproj_limiting_param!(param,discrete_data_gauss,prealloc,entropyproj_limiter_cache,nstage)
     if (nstage == 1)
         update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops)
     end
 end
 
-function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,t,dt,nstage)
+function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
     @unpack rhsL,rhsU = prealloc
-    dt = rhs_pos_Gauss!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,true)
+    @unpack rhs_cache = caches
+
+    dt = rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,true)
     copyto!(rhsU,rhsL)
     return dt
 end
 
-function get_rhs!(rhs_type::EntropyStable,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,t,dt,nstage)
+function get_rhs!(rhs_type::EntropyStable,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
     @unpack rhsH,rhsU = prealloc
-    rhs_modalESDG!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,true)
+    @unpack rhs_cache = caches
+
+    rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,true)
     copyto!(rhsU,rhsH)
     return dt
 end
 
-function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,t,dt,nstage)
+function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,nstage)
+    @unpack rhs_cache,limiter_cache = caches
+
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
-    dt = rhs_pos_Gauss!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,false)
-    rhs_modalESDG!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,false)
+    dt = rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,false)
+    rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,false)
     apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,limiter_cache,dt,nstage,param.positivity_limiter_type)
     return dt
 end

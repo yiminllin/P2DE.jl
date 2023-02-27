@@ -1,4 +1,4 @@
-function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,entropyproj_limiter_cache)
+function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches)
     @unpack CFL,dt0,t0,T    = param.timestepping_param
     @unpack output_interval = param.postprocessing_param
     @unpack Farr,Larr,LGLind,L_L2G_arr,L_G2L_arr,rhsU,resW,resZ = prealloc
@@ -20,16 +20,16 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
 
     i = 1
     dt = CFL*dt0
-    # @btime rhs!($param,$discrete_data_gauss,$discrete_data_LGL,$transfer_ops,$bcdata,$prealloc,$t,$dt,1)
+    # @btime rhs!($param,$discrete_data_gauss,$discrete_data_LGL,$transfer_ops,$bcdata,$prealloc,$caches,$t,$dt,1)
     @time while t < T
         dt = min(CFL*dt0,T-t)
         @. resW = Uq    # TODO: rename, resW is now the copy of previous time step Uq, and Uq is wi in paper
-        dt = rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,entropyproj_limiter_cache,t,dt,1)
+        dt = rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,1)
         @. Uq = resW + dt*rhsU
-        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,entropyproj_limiter_cache,t,dt,2)
+        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,2)
         @. resZ = Uq+dt*rhsU
         @. Uq = 3/4*resW+1/4*resZ
-        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,entropyproj_limiter_cache,t,dt,3)
+        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,3)
         @. resZ = Uq+dt*rhsU
         @. Uq = 1/3*resW+2/3*resZ
 

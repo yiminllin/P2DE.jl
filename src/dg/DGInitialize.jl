@@ -36,80 +36,17 @@ function initialize_preallocations(param,md,sizes)
     return prealloc
 end
 
-function initialize_rhs_data(param,sizes)
+function initialize_cache(param,sizes)
+    @unpack rhs_type,positivity_limiter_type,entropyproj_limiter_type = param
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
-
-    K  = get_num_elements(param)
-    Nd = get_dim(param.equation)
-    rhs_data = get_rhs_data(param.rhs_type,Nd,Nc,K,Np,Nq,Nh,Nfp)
-end
-
-function initialize_limiter_cache(limiter_type::NoPositivityLimiter,param,sizes)
-    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
-    Nd = get_dim(param.equation)
-
-    return NoPositivityLimiterCache{Nd,Nc}()
-end
-
-function initialize_limiter_cache(limiter_type::ZhangShuLimiter,param,sizes)
-    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
-
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    uL_k        = zeros(SVector{Nc,Float64},Nq)
-    P_k         = zeros(SVector{Nc,Float64},Nq)
+    rhs_cache                 = get_rhs_cache(rhs_type,param,sizes)
+    limiter_cache             = get_limiter_cache(positivity_limiter_type,param,sizes)
+    entropyproj_limiter_cache = get_entropyproj_limiter_cache(entropyproj_limiter_type,param,sizes)
 
-    return ZhangShuLimiterCache{Nd,Nc}(uL_k,P_k)
-end
-
-function initialize_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
-    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
-
-    K  = get_num_elements(param)
-    Nd = get_dim(param.equation)
-    N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
-
-    uL_k        = zeros(SVector{Nc,Float64},Nq)
-    P_k         = zeros(SVector{Nc,Float64},Nq)
-    f_bar_H     = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
-    f_bar_L     = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
-    f_bar_lim   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
-
-    return SubcellLimiterCache{Nd,Nc}(uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim)
-end
-
-function initialize_entropy_proj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter,param,sizes)
-    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
-    Nd = get_dim(param.equation)
-
-    return NoEntropyProjectionLimiterCache{Nd,Nc}()
-end
-
-function initialize_entropy_proj_limiter_cache(entropyproj_limiter_type::Union{AdaptiveFilter,ScaledExtrapolation},param,sizes)
-    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
-
-    K  = get_num_elements(param)
-    Nd = get_dim(param.equation)
-
-    Vf_new      = zeros(Float64,Nfp,Nq)
-    U_modal     = zeros(SVector{Nc,Float64},Np,K)
-    U_k         = zeros(SVector{Nc,Float64},Np)
-    Uq_k        = zeros(SVector{Nc,Float64},Nq)
-    vq_k        = zeros(SVector{Nc,Float64},Nq)
-    v_tilde_k   = zeros(SVector{Nc,Float64},Nh)      # TODO: refactor with v_tilde, u_tilde
-    u_tilde_k   = zeros(SVector{Nc,Float64},Nh)
-    v3tilde     = zeros(Float64,Nh)
-    rhotilde    = zeros(Float64,Nh)
-    rhoetilde   = zeros(Float64,Nh)
-    Uf          = zeros(SVector{Nc,Float64},Nfp,K)
-    VUf         = zeros(SVector{Nc,Float64},Nfp,K)
-    rhoef       = zeros(Float64,Nfp,K)
-
-    return EntropyProjectionLimiterCache{Nd,Nc}(Vf_new,U_modal,
-                                                U_k,Uq_k,vq_k,v_tilde_k,u_tilde_k,
-                                                v3tilde,rhotilde,rhoetilde,
-                                                Uf,VUf,rhoef)
+    return Caches(rhs_cache,limiter_cache,entropyproj_limiter_cache)
 end
 
 function initialize_DG(param,initial_condition,initial_boundary_conditions)
@@ -118,13 +55,11 @@ function initialize_DG(param,initial_condition,initial_boundary_conditions)
     @unpack sizes = discrete_data_gauss 
     bcdata = initial_boundary_conditions(param,md_gauss)
     prealloc = initialize_preallocations(param,md_gauss,sizes)
-    rhs_data = initialize_rhs_data(param,sizes)
-    limiter_cache = initialize_limiter_cache(param.positivity_limiter_type,param,sizes)
-    entropyproj_limiter_cache = initialize_entropy_proj_limiter_cache(param.entropyproj_limiter_type,param,sizes)
+    caches = initialize_cache(param,sizes)
 
     init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
 
-    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,entropyproj_limiter_cache
+    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches
 end
 
 function initialize_data(param)

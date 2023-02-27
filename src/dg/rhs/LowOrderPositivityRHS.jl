@@ -1,10 +1,10 @@
 ##########################################
 ### RHS of positivity preserving Gauss ###
 ##########################################
-function rhs_pos_Gauss!(prealloc,rhs_data,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,need_proj=true)
+function rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,t,dt,nstage,need_proj=true)
     @unpack entropyproj_limiter_type,equation    = param
 
-    cache = get_low_order_cache(rhs_data)
+    cache = get_low_order_cache(rhs_cache)
     if (need_proj)
         entropy_projection!(prealloc,param,entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage)
     end
