@@ -68,6 +68,7 @@ struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     LFc        ::Array{Float64,2}
     Ui         ::Array{Float64,1}
     Uj         ::Array{Float64,1}
+    Vf_new     ::Array{Float64,2}
     VhT_new    ::Array{Float64,2}
     MinvVhT_new::Array{Float64,2}
     QF1        ::Array{SVector{DIM,SVector{Nc,Float64}},2}
@@ -87,6 +88,7 @@ EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nc+2),
                        zeros(Float64,Nc+2),
+                       zeros(Float64,Nfp,Nq),
                        zeros(Float64,Np,Nh),
                        zeros(Float64,Np,Nh),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
@@ -332,43 +334,58 @@ struct DiscretizationData{DIM,NGEO}
 end
 
 struct Preallocation{Nc,DIM}
-    Uq     ::Array{SVector{Nc,Float64},2}
-    vq     ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
-    v_tilde::Array{SVector{Nc,Float64},2}       # projected entropy variables
-    u_tilde::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
-    rhsH   ::Array{SVector{Nc,Float64},2}
-    rhsxyH ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    BF_H     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    BF_L     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    rhsL     ::Array{SVector{Nc,Float64},2}
-    rhsxyL   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    Larr     ::Array{Float64,2}
+    Uq         ::Array{SVector{Nc,Float64},2}
+    vq         ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
+    u_tilde    ::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
+    v_tilde    ::Array{SVector{Nc,Float64},2}       # projected entropy variables
+    rhsH       ::Array{SVector{Nc,Float64},2}
+    rhsL       ::Array{SVector{Nc,Float64},2}
+    rhsU       ::Array{SVector{Nc,Float64},2}
+    rhsxyH     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    rhsxyL     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    rhsxyU     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BF_H       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BF_L       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    Larr       ::Array{Float64,2}
     L_local_arr::Array{Float64,4}
-    rhsU     ::Array{SVector{Nc,Float64},2}
-    rhsxyU   ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    v3tilde  ::Array{Float64,1}
-    rhotilde ::Array{Float64,1}
-    rhoetilde::Array{Float64,1}
-    vq_k     ::Array{SVector{Nc,Float64},1}
-    v_tilde_k::Array{SVector{Nc,Float64},1}
-    u_tilde_k::Array{SVector{Nc,Float64},1}
-    U_modal  ::Array{SVector{Nc,Float64},2}
-    U_k      ::Array{SVector{Nc,Float64},1}
-    Uq_k     ::Array{SVector{Nc,Float64},1}
-    resW     ::Array{SVector{Nc,Float64},2}
-    resZ     ::Array{SVector{Nc,Float64},2}
-    Farr     ::Array{Float64,2}
+    Farr       ::Array{Float64,2}
     θ_local_arr::Array{Float64,3}
-    LGLind   ::BitArray
-    L_G2L_arr::Array{Float64,2}
-    L_L2G_arr::Array{Float64,2}
-    L_Vf_arr ::Array{Float64,2}
-    Vf_new   ::Array{Float64,2}
+    LGLind     ::BitArray
+    L_G2L_arr  ::Array{Float64,2}
+    L_L2G_arr  ::Array{Float64,2}
+    resW       ::Array{SVector{Nc,Float64},2}
+    resZ       ::Array{SVector{Nc,Float64},2}
+end
+
+abstract type LimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
+struct NoPositivityLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
+struct ZhangShuLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
+    uL_k     ::Array{SVector{Nc,Float64},1}
+    P_k      ::Array{SVector{Nc,Float64},1}
+end
+
+struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     uL_k     ::Array{SVector{Nc,Float64},1}
     P_k      ::Array{SVector{Nc,Float64},1}
     f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
-    f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # TODO: unnecessary
+end
+
+abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
+struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
+# TODO: Define cache for different entropy projection limiter types
+struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
+    Vf_new   ::Array{Float64,2}
+    U_modal  ::Array{SVector{Nc,Float64},2}
+    U_k      ::Array{SVector{Nc,Float64},1}
+    Uq_k     ::Array{SVector{Nc,Float64},1}
+    vq_k     ::Array{SVector{Nc,Float64},1}
+    v_tilde_k::Array{SVector{Nc,Float64},1}
+    u_tilde_k::Array{SVector{Nc,Float64},1}
+    v3tilde  ::Array{Float64,1}
+    rhotilde ::Array{Float64,1}
+    rhoetilde::Array{Float64,1}
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}

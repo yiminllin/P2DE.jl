@@ -2,8 +2,9 @@
 ### Subcell limiter methods ###
 ###############################
 # TODO: documentation... from the ipad note
-function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
-    @unpack LGLind,rhsL,rhsH,f_bar_H,f_bar_L,BF_H,BF_L = prealloc
+function accumulate_f_bar!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
+    @unpack f_bar_H,f_bar_L            = cache
+    @unpack LGLind,rhsL,rhsH,BF_H,BF_L = prealloc
     
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
@@ -22,8 +23,9 @@ function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,
 end
 
 # TODO: use views instead of index flattening
-function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
-    @unpack rhsL,rhsH,rhsxyH,rhsxyL,f_bar_H,f_bar_L,BF_H,BF_L,LGLind = prealloc
+function accumulate_f_bar!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
+    @unpack f_bar_H,f_bar_L                          = cache
+    @unpack rhsL,rhsH,rhsxyH,rhsxyL,BF_H,BF_L,LGLind = prealloc
     
     K   = get_num_elements(param)
     Nq  = size(prealloc.Uq,1)
@@ -70,8 +72,9 @@ function accumulate_f_bar!(prealloc,param,discrete_data_gauss,discrete_data_LGL,
     end
 end
 
-function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim1)
-    @unpack Uq,LGLind,uL_k,L_local_arr,f_bar_H,f_bar_L,rhsL = prealloc
+function subcell_bound_limiter!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim1)
+    @unpack uL_k,f_bar_H,f_bar_L       = cache
+    @unpack Uq,LGLind,L_local_arr,rhsL = prealloc
     
     K  = get_num_elements(param)
     Nq = size(Uq,1)
@@ -107,8 +110,9 @@ function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data
     end
 end
 
-function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim2)
-    @unpack Uq,uL_k,rhsL,L_local_arr,LGLind,f_bar_H,f_bar_L = prealloc
+function subcell_bound_limiter!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim2)
+    @unpack uL_k,f_bar_H,f_bar_L       = cache
+    @unpack Uq,rhsL,L_local_arr,LGLind = prealloc
     @unpack mapP = bcdata
 
     K  = get_num_elements(param)
@@ -218,8 +222,9 @@ function subcell_bound_limiter!(prealloc,param,discrete_data_gauss,discrete_data
 end
 
 # TODO: not necessary
-function accumulate_f_bar_limited!(prealloc,param,nstage,dim::Dim1)
-    @unpack L_local_arr,f_bar_H,f_bar_L,f_bar_lim = prealloc
+function accumulate_f_bar_limited!(cache,prealloc,param,nstage,dim::Dim1)
+    @unpack f_bar_H,f_bar_L,f_bar_lim = cache
+    @unpack L_local_arr               = prealloc
     
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
@@ -232,9 +237,10 @@ function accumulate_f_bar_limited!(prealloc,param,nstage,dim::Dim1)
 end
 
 # TODO: not necessary
-function accumulate_f_bar_limited!(prealloc,param,nstage,dim::Dim2)
-    @unpack L_local_arr,f_bar_H,f_bar_L,f_bar_lim = prealloc
-    
+function accumulate_f_bar_limited!(cache,prealloc,param,nstage,dim::Dim2)
+    @unpack f_bar_H,f_bar_L,f_bar_lim = cache
+    @unpack L_local_arr               = prealloc
+
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     N1D = param.N+1    # TODO: hardcoded
@@ -269,8 +275,9 @@ function accumulate_f_bar_limited!(prealloc,param,nstage,dim::Dim2)
     end
 end
 
-function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
-    @unpack LGLind,rhsU,f_bar_lim = prealloc
+function apply_subcell_limiter!(prealloc,cache,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
+    @unpack LGLind,rhsU = prealloc
+    @unpack f_bar_lim   = cache
     
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
@@ -286,8 +293,9 @@ function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data
     end
 end
 
-function apply_subcell_limiter!(prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
-    @unpack rhsU,rhsxyU,f_bar_lim,LGLind = prealloc
+function apply_subcell_limiter!(prealloc,cache,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
+    @unpack f_bar_lim          = cache
+    @unpack LGLind,rhsU,rhsxyU = prealloc
     
     K  = get_num_elements(param)
     N1D = param.N+1    # TODO: hardcoded

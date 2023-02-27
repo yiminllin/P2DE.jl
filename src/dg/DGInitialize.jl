@@ -9,46 +9,30 @@ function initialize_preallocations(param,md,sizes)
 
     Uq          = zeros(SVector{Nc,Float64},Nq,K)
     vq          = zeros(SVector{Nc,Float64},Nq,K)
-    v_tilde     = zeros(SVector{Nc,Float64},Nh,K)
     u_tilde     = zeros(SVector{Nc,Float64},Nh,K)
+    v_tilde     = zeros(SVector{Nc,Float64},Nh,K)
     rhsH        = zeros(SVector{Nc,Float64},Nq,K)
+    rhsL        = zeros(SVector{Nc,Float64},Nq,K)
+    rhsU        = zeros(SVector{Nc,Float64},Nq,K)
     rhsxyH      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    rhsxyL      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    rhsxyU      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
     BF_H        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     BF_L        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
-    rhsL        = zeros(SVector{Nc,Float64},Nq,K)
-    rhsxyL      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
     Larr        = zeros(Float64,K,Ns)
     L_local_arr = zeros(Float64,Nq+N1D,Nd,K,Ns)
-    rhsU        = zeros(SVector{Nc,Float64},Nq,K)
-    rhsxyU      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
-    v3tilde     = zeros(Float64,Nh)
-    rhotilde    = zeros(Float64,Nh)
-    rhoetilde   = zeros(Float64,Nh)
-    vq_k        = zeros(SVector{Nc,Float64},Nq)
-    v_tilde_k   = zeros(SVector{Nc,Float64},Nh)      # TODO: refactor with v_tilde, u_tilde
-    u_tilde_k   = zeros(SVector{Nc,Float64},Nh)
-    U_modal     = zeros(SVector{Nc,Float64},Np,K)
-    U_k         = zeros(SVector{Nc,Float64},Np)
-    Uq_k        = zeros(SVector{Nc,Float64},Nq)
-    resW        = zeros(SVector{Nc,Float64},Nq,K)
-    resZ        = zeros(SVector{Nc,Float64},Nq,K)
     Farr        = zeros(Float64,K,Ns)                # TODO: rename F, eta to theta
     θ_local_arr = zeros(Float64,Nfp,K,Ns)
     LGLind      = falses(K)                          # TODO: array of BasisType, singleton type
     L_G2L_arr   = ones(Float64,K,Ns)
     L_L2G_arr   = ones(Float64,K,Ns)
-    L_Vf_arr    = ones(Float64,K,Ns)                 # TODO: Refactor with Farr
-    Vf_new      = zeros(Float64,Nfp,Nq)
-    uL_k        = zeros(SVector{Nc,Float64},Nq)
-    P_k         = zeros(SVector{Nc,Float64},Nq)
-    f_bar_H     = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
-    f_bar_L     = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
-    f_bar_lim   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)  # TODO: unnecessary
-    Uf          = zeros(SVector{Nc,Float64},Nfp,K)
-    VUf         = zeros(SVector{Nc,Float64},Nfp,K)
-    rhoef       = zeros(Float64,Nfp,K)
+    resW        = zeros(SVector{Nc,Float64},Nq,K)
+    resZ        = zeros(SVector{Nc,Float64},Nq,K)
 
-    prealloc = Preallocation{Nc,Nd}(Uq,vq,v_tilde,u_tilde,rhsH,rhsxyH,BF_H,BF_L,rhsL,rhsxyL,Larr,L_local_arr,rhsU,rhsxyU,v3tilde,rhotilde,rhoetilde,vq_k,v_tilde_k,u_tilde_k,U_modal,U_k,Uq_k,resW,resZ,Farr,θ_local_arr,LGLind,L_G2L_arr,L_L2G_arr,L_Vf_arr,Vf_new,uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim,Uf,VUf,rhoef)
+    prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,
+                                    rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,
+                                    Larr,L_local_arr,Farr,θ_local_arr,LGLind,L_G2L_arr,L_L2G_arr,
+                                    resW,resZ)
     return prealloc
 end
 
@@ -60,6 +44,74 @@ function initialize_rhs_data(param,sizes)
     rhs_data = get_rhs_data(param.rhs_type,Nd,Nc,K,Np,Nq,Nh,Nfp)
 end
 
+function initialize_limiter_cache(limiter_type::NoPositivityLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    Nd = get_dim(param.equation)
+
+    return NoPositivityLimiterCache{Nd,Nc}()
+end
+
+function initialize_limiter_cache(limiter_type::ZhangShuLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    uL_k        = zeros(SVector{Nc,Float64},Nq)
+    P_k         = zeros(SVector{Nc,Float64},Nq)
+
+    return ZhangShuLimiterCache{Nd,Nc}(uL_k,P_k)
+end
+
+function initialize_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+    N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
+
+    uL_k        = zeros(SVector{Nc,Float64},Nq)
+    P_k         = zeros(SVector{Nc,Float64},Nq)
+    f_bar_H     = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
+    f_bar_L     = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
+    f_bar_lim   = tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:Nd]...)
+
+    return SubcellLimiterCache{Nd,Nc}(uL_k,P_k,f_bar_H,f_bar_L,f_bar_lim)
+end
+
+function initialize_entropy_proj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    Nd = get_dim(param.equation)
+
+    return NoEntropyProjectionLimiterCache{Nd,Nc}()
+end
+
+function initialize_entropy_proj_limiter_cache(entropyproj_limiter_type::Union{AdaptiveFilter,ScaledExtrapolation},param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+
+    K  = get_num_elements(param)
+    Nd = get_dim(param.equation)
+
+    Vf_new      = zeros(Float64,Nfp,Nq)
+    U_modal     = zeros(SVector{Nc,Float64},Np,K)
+    U_k         = zeros(SVector{Nc,Float64},Np)
+    Uq_k        = zeros(SVector{Nc,Float64},Nq)
+    vq_k        = zeros(SVector{Nc,Float64},Nq)
+    v_tilde_k   = zeros(SVector{Nc,Float64},Nh)      # TODO: refactor with v_tilde, u_tilde
+    u_tilde_k   = zeros(SVector{Nc,Float64},Nh)
+    v3tilde     = zeros(Float64,Nh)
+    rhotilde    = zeros(Float64,Nh)
+    rhoetilde   = zeros(Float64,Nh)
+    Uf          = zeros(SVector{Nc,Float64},Nfp,K)
+    VUf         = zeros(SVector{Nc,Float64},Nfp,K)
+    rhoef       = zeros(Float64,Nfp,K)
+
+    return EntropyProjectionLimiterCache{Nd,Nc}(Vf_new,U_modal,
+                                                U_k,Uq_k,vq_k,v_tilde_k,u_tilde_k,
+                                                v3tilde,rhotilde,rhoetilde,
+                                                Uf,VUf,rhoef)
+end
+
 function initialize_DG(param,initial_condition,initial_boundary_conditions)
     rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops = initialize_data(param)
 
@@ -67,10 +119,12 @@ function initialize_DG(param,initial_condition,initial_boundary_conditions)
     bcdata = initial_boundary_conditions(param,md_gauss)
     prealloc = initialize_preallocations(param,md_gauss,sizes)
     rhs_data = initialize_rhs_data(param,sizes)
+    limiter_cache = initialize_limiter_cache(param.positivity_limiter_type,param,sizes)
+    entropyproj_limiter_cache = initialize_entropy_proj_limiter_cache(param.entropyproj_limiter_type,param,sizes)
 
     init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
 
-    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data
+    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,rhs_data,limiter_cache,entropyproj_limiter_cache
 end
 
 function initialize_data(param)

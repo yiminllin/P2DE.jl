@@ -252,11 +252,11 @@ function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limit
 end
 
 function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,k,nstage)
-    @unpack BF_H,Vf_new                                   = prealloc
-    @unpack MinvVhTQF1,MinvVfTBF1,QF1,VhT_new,MinvVhT_new = cache
-    @unpack Nq,Nh                                         = discrete_data_gauss.sizes
+    @unpack BF_H                                                 = prealloc
+    @unpack MinvVhTQF1,MinvVfTBF1,QF1,VhT_new,MinvVhT_new,Vf_new = cache
+    @unpack Nq,Nh                                                = discrete_data_gauss.sizes
 
-    update_limited_extrapolation!(prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,k,nstage)
+    update_limited_extrapolation!(cache,prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,k,nstage)
     VqT_new = @views VhT_new[:,1:Nq]
     VfT_new = @views VhT_new[:,Nq+1:Nh]
     VqT_new .= transpose(discrete_data_gauss.ops.Vq)
@@ -267,16 +267,16 @@ function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limit
     @views mul!(MinvVfTBF1[:,k],MinvVfT_new,BF_H[:,k])
 end
 
-function update_limited_extrapolation!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,k,nstage)
-    @unpack Vf_new    = prealloc
+function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,k,nstage)
+    @unpack Vf_new    = cache
     @unpack Vf,Vf_low = discrete_data_gauss.ops
 
     l_k = prealloc.Farr[k,nstage]
     @. Vf_new = l_k*Vf+(1.0-l_k)*Vf_low
 end
 
-function update_limited_extrapolation!(prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data_gauss,k,nstage)
-    @unpack Vf_new    = prealloc
+function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data_gauss,k,nstage)
+    @unpack Vf_new    = cache
     @unpack Vf,Vf_low = discrete_data_gauss.ops
 
     l_k = prealloc.Farr[k,nstage]
