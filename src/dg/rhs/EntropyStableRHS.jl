@@ -187,10 +187,11 @@ function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
     # TODO: assume Sxyh_db_ij = -Sxyh_db_ji
     #              Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
-    Sxyh_db_ji = -Sxyh_db_ij
     fxy = fS_prim_log(equation,Ui,Uj)
-    QF1[i,k] += Sxyh_db_ij .* fxy
-    QF1[j,k] += Sxyh_db_ji .* fxy
+    Sfxy_ij = Sxyh_db_ij .* fxy
+    Sfxy_ji = -Sfxy_ij
+    QF1[i,k] += Sfxy_ij
+    QF1[j,k] += Sfxy_ji
 end
 
 function flux_differencing_surface!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
