@@ -18,13 +18,9 @@ function apply_positivity_limiter!(prealloc,param,discrete_data_gauss,discrete_d
         Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
         Urho  = Inf
         Urhoe = Inf
-        @timeit timer "Find zhang shu limiting parameter" begin
         zhang_shu_bound_limiter!(prealloc.Larr,param,uL_k,P_k,k,Lrho,Lrhoe,Urho,Urhoe,nstage)
-        end
         l = prealloc.Larr[k,nstage]
-        @timeit timer "Assemble limited solution" begin
         @views @. rhsU[:,k] = (1-l)*rhsL[:,k] + l*(rhsH[:,k])
-        end
     end
 end
 
