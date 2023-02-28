@@ -116,7 +116,7 @@ function get_rhs_cache(rhs_type::ESLimitedLowOrderPos,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    cacheH = EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    cacheH = EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
     cacheL = LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
     return ESLimitedLowOrderPosCache(cacheH = cacheH, cacheL = cacheL)
 end
