@@ -124,7 +124,6 @@ function construct_gauss_reference_data(rd)
                        M, Pq, Drst, LIFT)
 end
 
-# TODO: specialize for 1D
 function initialize_operators(param,rd,quad_type)
     @unpack N = param
     ZEROTOL = param.global_constants.ZEROTOL
@@ -176,9 +175,44 @@ function initialize_operators(param,rd,quad_type)
         end
     end
 
+    # Construct nonzero entries in Srsh and Srs0
+    Srsh_nnz = Vector{Tuple{Int64, Int64}}()
+    for j = 1:Nh
+        for i = j+1:Nh
+            if sum([abs(s[i,j]) for s in Srsh_db]) != 0
+                push!(Srsh_nnz,(i,j))
+            end
+        end
+    end
+    
+    Srs0_nnz = Vector{Tuple{Int64, Int64}}()
+    for j = 1:Nq
+        for i = j+1:Nq
+            if sum([abs(s[i,j]) for s in Srs0]) != 0
+                push!(Srs0_nnz,(i,j))
+            end
+        end
+    end
+
+    # Face quadrature and volume quadrature mapping
+    # q2fq       ::Array{Array{Float64,1},1}
+    # fq2q       ::Array{Float64,1}
+    fq2q = zeros(Int64,Nfp)
+    for i = 1:Nfp
+        iq = findfirst(x->x==1.0, view(Vf_low,i,:))
+        fq2q[i] = iq
+    end
+
+    q2fq = [Array{Int64,1}() for _ = 1:Nq]
+    for i = 1:Nq
+        for iface in (first(idx) for idx in pairs(view(Vf_low,:,i)) if last(idx) == 1.0)
+            push!(q2fq[i],iface)
+        end
+    end
+    
     sizes = SizeData(Nc,Np,Nq,Nfp,Nh,Ns)
     geom  = GeomData(J,Jq,GJh)
-    ops   = Operators(Srsh_db,Srs0,Brs,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,MinvVfT,wq)
+    ops   = Operators(Srsh_db,Srs0,Srsh_nnz,Srs0_nnz,Brs,Vh,MinvVhT,inv(VDM),VDMinvPq,VqVDM,VhPq,Vq,Vf,Vf_low,Pq,MinvVfT,wq,q2fq,fq2q)
     discrete_data = DiscretizationData(sizes,geom,ops)
 
     return md,discrete_data

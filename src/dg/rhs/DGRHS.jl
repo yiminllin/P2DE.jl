@@ -123,21 +123,11 @@ end
 function entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k_i,param,discrete_data,prealloc)
     @unpack Nh,Nq     = discrete_data.sizes
     @unpack Vf,Vf_low = discrete_data.ops
-    if (l_k_i != 1.0)   # TODO: require l_k ∈ [0,1]
-        # TODO: v_tilde_k[i+Nq] = @views sum(Vf_new[i,:].*vq_k)
-        #       requires allocation... why?
-        v_tilde_k[i+Nq] = zero(v_tilde_k[i+Nq])
-        for j = 1:Nq
-            v_tilde_k[i+Nq] += (l_k_i*Vf[i,j]+(1-l_k_i)*Vf_low[i,j])*vq_k[j]
-        end
-    else
-        # Nothing is applied if l_k == 1
-        # TODO: v_tilde_k[i+Nq] = @views sum(Vf[i,:].*vq_k)
-        #       requires allocation... why?
-        v_tilde_k[i+Nq] = zero(v_tilde_k[i+Nq])
-        for j = 1:Nq
-            v_tilde_k[i+Nq] += Vf[i,j]*vq_k[j]
-        end
+    # TODO: v_tilde_k[i+Nq] = @views sum(Vf_new[i,:].*vq_k)
+    #       requires allocation... why?
+    v_tilde_k[i+Nq] = zero(v_tilde_k[i+Nq])
+    for j = 1:Nq
+        v_tilde_k[i+Nq] += (l_k_i*Vf[i,j]+(1-l_k_i)*Vf_low[i,j])*vq_k[j]
     end
     u_tilde_k[i+Nq] = u_vfun(param.equation,v_tilde_k[i+Nq])
 end
@@ -190,24 +180,14 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::NodewiseSc
         u_tilde_k = view(u_tilde,:,k)
         Uq_k      = view(Uq,:,k)
         # TODO: we can skip LGL instead of applying identity
-        if (LGLind[k])
-            entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data_LGL,prealloc)
-        else
-            # TODO: refactor
-            @timeit timer "calculate entropy variables" begin
-            calculate_entropy_var!(vq_k,Uq_k,param,discrete_data_gauss)
-            end
-            @timeit timer "entropy projection volume nodes" begin
-            for i = 1:Nq
-                entropy_projection_volume_node!(v_tilde_k,u_tilde_k,vq_k,Uq_k,i,param,discrete_data_gauss,prealloc)
-            end
-            end
-            @timeit timer "entropy projection face nodes" begin
-            for i = 1:Nfp
-                l_k_i = prealloc.θ_local_arr[i,k,nstage]
-                entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k_i,param,discrete_data_gauss,prealloc)
-            end
-            end
+        # TODO: refactor
+        calculate_entropy_var!(vq_k,Uq_k,param,discrete_data_gauss)
+        for i = 1:Nq
+            entropy_projection_volume_node!(v_tilde_k,u_tilde_k,vq_k,Uq_k,i,param,discrete_data_gauss,prealloc)
+        end
+        for i = 1:Nfp
+            l_k_i = prealloc.θ_local_arr[i,k,nstage]
+            entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k_i,param,discrete_data_gauss,prealloc)
         end
     end
 end

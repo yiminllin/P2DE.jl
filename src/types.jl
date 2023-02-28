@@ -36,7 +36,6 @@ abstract type Cache{DIM,Nc} end
 struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     flux       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Q0F1       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    wavespeed  ::Array{Float64,3}
     wavespeed_f::Array{Float64,2}
     alphaarr   ::Array{Float64,2}
     Uf         ::Array{SVector{Nc,Float64},2}   # TODO: Redundant with limiters cache
@@ -48,7 +47,6 @@ end
 LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
     LowOrderPositivityCache(zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                             zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
-                            zeros(Float64,Nq,Nq,K),
                             zeros(Float64,Nfp,K),
                             zeros(Float64,Nfp,K),
                             zeros(SVector{Nc,Float64},Nfp,K),
@@ -66,8 +64,6 @@ struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     betalogP   ::Array{Float64,2}
     lam        ::Array{Float64,2}
     LFc        ::Array{Float64,2}
-    Ui         ::Array{Float64,1}
-    Uj         ::Array{Float64,1}
     Vf_new     ::Array{Float64,2}
     VhT_new    ::Array{Float64,2}
     MinvVhT_new::Array{Float64,2}
@@ -86,10 +82,8 @@ EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
-                       zeros(Float64,Nc+2),
-                       zeros(Float64,Nc+2),
                        zeros(Float64,Nfp,Nq),
-                       zeros(Float64,Np,Nh),
+                       [diagm(ones(Nq)) zeros(Nq,Nfp)],
                        zeros(Float64,Np,Nh),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
@@ -299,6 +293,8 @@ end
 struct Operators{DIM}
     Srsh_db    ::NTuple{DIM,Array{Float64,2}}
     Srs0       ::NTuple{DIM,SparseMatrixCSC{Float64,Int64}}
+    Srsh_nnz   ::Array{Tuple{Int64,Int64},1}
+    Srs0_nnz   ::Array{Tuple{Int64,Int64},1}
     Brs        ::NTuple{DIM,Array{Float64,2}}    # TODO: to sparse matrix
     Vh         ::Array{Float64,2}
     MinvVhT    ::Array{Float64,2}
@@ -312,6 +308,8 @@ struct Operators{DIM}
     Pq         ::Array{Float64,2}
     MinvVfT    ::Array{Float64,2}
     wq         ::Array{Float64,1}
+    q2fq       ::Array{Array{Int64,1},1}
+    fq2q       ::Array{Int64,1}
 end
 
 struct TransferOperators
