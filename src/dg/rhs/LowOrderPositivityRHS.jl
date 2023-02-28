@@ -130,17 +130,21 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data_gau
         for (i,j) in Srs0_nnz
             u_i = Uq[i,k]
             u_j = Uq[j,k]
-            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
-            Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
-            n_ij = Sxy0J_ij./n_ij_norm
-            n_ji = Sxy0J_ji./n_ji_norm
             Fxyij = @. .5*(flux[i,k]+flux[j,k])
+            # TODO: assume Sxy0J_ij = -Sxy0J_ji
+            #              n_ij_norm = n_ji_norm
+            #              Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
+            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
+            n_ij = Sxy0J_ij./n_ij_norm
+            n_ji = -n_ij
             wavespeed_ij = max(wavespeed_davis_estimate(equation,u_i,n_ij),wavespeed_davis_estimate(equation,u_j,n_ji))
             λarr[i,j,k] = n_ij_norm*wavespeed_ij
-            λarr[j,i,k] = n_ji_norm*wavespeed_ij
+            λarr[j,i,k] = λarr[i,j,k]
             ΛD_ij = get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim)
-            Q0F1[i,k] += 2.0*Sxy0J_ij.*Fxyij - ΛD_ij
-            Q0F1[j,k] += 2.0*Sxy0J_ji.*Fxyij + ΛD_ij
+            SFxy_ΛD_ij = 2.0*Sxy0J_ij.*Fxyij - ΛD_ij
+            SFxy_ΛD_ji = -SFxy_ΛD_ij
+            Q0F1[i,k] += SFxy_ΛD_ij
+            Q0F1[j,k] += SFxy_ΛD_ji
         end
     end
 
