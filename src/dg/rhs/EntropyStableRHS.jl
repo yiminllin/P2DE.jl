@@ -157,14 +157,11 @@ function flux_differencing_volume!(cache,prealloc,param,discrete_data_LGL,discre
     Uj = zero(SVector{5,Float64})
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        for j = 1:Nh
+        @unpack Srsh_nnz = discrete_data.ops
+        for (i,j) in Srsh_nnz
+            Ui = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
             Uj = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
-            for i = j+1:Nh
-                if i <= Nq || j <= Nq   # Skip lower diagonal
-                    Ui = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
-                    accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
-                end
-            end
+            accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
         end
     end
 end
@@ -189,11 +186,9 @@ function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
     dim = get_dim_type(equation)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
     Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
-    if sum(Sxyh_db_ij) > ϵ || sum(Sxyh_db_ji) > ϵ
-        fxy = fS_prim_log(equation,Ui,Uj)
-        QF1[i,k] += Sxyh_db_ij .* fxy
-        QF1[j,k] += Sxyh_db_ji .* fxy
-    end
+    fxy = fS_prim_log(equation,Ui,Uj)
+    QF1[i,k] += Sxyh_db_ij .* fxy
+    QF1[j,k] += Sxyh_db_ji .* fxy
 end
 
 function flux_differencing_surface!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)

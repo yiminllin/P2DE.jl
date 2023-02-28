@@ -77,22 +77,29 @@ end
 function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_data)
     @unpack equation = param
     @unpack Uq       = prealloc
+    @unpack Srs0_nnz = discrete_data.ops
     @unpack Uf,wavespeed,wavespeed_f,flux = cache
 
     Nq  = size(Uq,1)
     Nfp = size(Uf,1)
     dim = get_dim_type(equation)
-    # Volume wavespeed and inviscid flux
+
+    # Volume inviscid flux
     for i = 1:Nq
         u_i = Uq[i,k]
-        for j = 1:Nq
-            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
-            if n_ij_norm > param.global_constants.ZEROTOL
-                n_ij = Sxy0J_ij./n_ij_norm
-                wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
-            end
-        end
         flux[i,k] = euler_fluxes(equation,u_i)
+    end
+
+    # Volume wavespeed
+    for (i,j) in Srs0_nnz
+        u_i = Uq[i,k]
+        u_j = Uq[j,k]
+        Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
+        Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
+        n_ij = Sxy0J_ij./n_ij_norm
+        n_ji = Sxy0J_ji./n_ji_norm
+        wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
+        wavespeed[j,i,k] = wavespeed_davis_estimate(equation,u_j,n_ji)
     end
 
     # Surface wavespeed and inviscid flux
@@ -132,21 +139,18 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data_gau
     Nq = size(Q0F1,1)
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
+        @unpack Srs0_nnz = discrete_data.ops
         # Volume contributions
-        for j = 1:Nq
-            for i = j+1:Nq
-                Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
-                Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
-                if n_ij_norm > param.global_constants.ZEROTOL
-                    Fxyij = @. .5*(flux[i,k]+flux[j,k])
-                    wavespeed_ij = max(wavespeed[i,j,k],wavespeed[j,i,k])
-                    λarr[i,j,k] = n_ij_norm*wavespeed_ij
-                    λarr[j,i,k] = n_ji_norm*wavespeed_ij
-                    ΛD_ij = get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim)
-                    Q0F1[i,k] += 2.0*Sxy0J_ij.*Fxyij - ΛD_ij
-                    Q0F1[j,k] += 2.0*Sxy0J_ji.*Fxyij + ΛD_ij
-                end
-            end
+        for (i,j) in Srs0_nnz
+            Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
+            Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
+            Fxyij = @. .5*(flux[i,k]+flux[j,k])
+            wavespeed_ij = max(wavespeed[i,j,k],wavespeed[j,i,k])
+            λarr[i,j,k] = n_ij_norm*wavespeed_ij
+            λarr[j,i,k] = n_ji_norm*wavespeed_ij
+            ΛD_ij = get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim)
+            Q0F1[i,k] += 2.0*Sxy0J_ij.*Fxyij - ΛD_ij
+            Q0F1[j,k] += 2.0*Sxy0J_ji.*Fxyij + ΛD_ij
         end
     end
 

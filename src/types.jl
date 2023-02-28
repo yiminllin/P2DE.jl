@@ -295,6 +295,8 @@ end
 struct Operators{DIM}
     Srsh_db    ::NTuple{DIM,Array{Float64,2}}
     Srs0       ::NTuple{DIM,SparseMatrixCSC{Float64,Int64}}
+    Srsh_nnz   ::Array{Tuple{Int64,Int64},1}
+    Srs0_nnz   ::Array{Tuple{Int64,Int64},1}
     Brs        ::NTuple{DIM,Array{Float64,2}}    # TODO: to sparse matrix
     Vh         ::Array{Float64,2}
     MinvVhT    ::Array{Float64,2}
