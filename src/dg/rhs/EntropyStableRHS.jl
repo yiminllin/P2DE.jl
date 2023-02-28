@@ -199,20 +199,26 @@ function flux_differencing_surface!(cache,prealloc,param,discrete_data_LGL,discr
     for k  = 1:K
         discrete_data = (LGLind[k]) ? discrete_data_LGL : discrete_data_gauss
         accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equation)
-        apply_LF_dissipation!(prealloc,cache,param,discrete_data,k)
     end
 end
 
 function accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equation)
-    @unpack BF_H = prealloc
+    @unpack BF_H,u_tilde = prealloc
+    @unpack uP,LFc       = cache
     
     # Boundary contributions (B F)1
+    Nq  = size(prealloc.Uq,1)
+    Nh  = size(u_tilde,1)
     Nfp = size(BF_H,1)
     dim = get_dim_type(equation)
+    uf = @view u_tilde[Nq+1:Nh,:]
     for i = 1:Nfp
         fxy = evaluate_high_order_surface_flux(prealloc,cache,param,i,k,get_high_order_surface_flux(param.rhs_type))
-        Bxy_i = get_Bx(i,k,discrete_data,dim)     # TODO: redundant calculation
+        Bxy_i = get_Bx(i,k,discrete_data,dim)
         BF_H[i,k] = Bxy_i.*fxy
+        # Apply LF dissipation
+        lf = LFc[i,k]*(uP[i,k]-uf[i,k])
+        apply_LF_dissipation_to_BF(BF_H,param,i,k,lf,dim)
     end
 end
 
@@ -244,23 +250,6 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     fxyP = euler_fluxes(equation,uP[i,k])
 
     return .5 .* (fxyf.+fxyP)
-end
-
-function apply_LF_dissipation!(prealloc,cache,param,discrete_data,k)
-    @unpack LFc,uP       = cache
-    @unpack BF_H,u_tilde = prealloc
-
-    # LF dissipation
-    dim = get_dim_type(param.equation)
-    Nq = size(prealloc.Uq,1)
-    Nh = size(u_tilde,1)
-    Nfp = size(BF_H,1)
-    uf = @view u_tilde[Nq+1:Nh,:]
-    for i = 1:Nfp
-        lf = LFc[i,k]*(uP[i,k]-uf[i,k])
-        Bxy_i = get_Bx(i,k,discrete_data,dim)     # TODO: redundant calculation
-        apply_LF_dissipation_to_BF(BF_H,param,i,k,lf,dim)
-    end
 end
 
 function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
