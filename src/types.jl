@@ -308,6 +308,8 @@ struct Operators{DIM}
     Pq         ::Array{Float64,2}
     MinvVfT    ::Array{Float64,2}
     wq         ::Array{Float64,1}
+    q2fq       ::Array{Array{Int64,1},1}
+    fq2q       ::Array{Int64,1}
 end
 
 struct TransferOperators
