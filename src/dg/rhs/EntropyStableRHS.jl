@@ -263,51 +263,68 @@ function apply_LF_dissipation!(prealloc,cache,param,discrete_data,k)
     end
 end
 
-function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data_gauss,k,nstage)
+function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
     @unpack BF_H                      = prealloc
     @unpack MinvVhTQF1,MinvVfTBF1,QF1 = cache
+    @unpack MinvVhT,MinvVfT           = discrete_data.ops
 
-    @views mul!(MinvVhTQF1[:,k],discrete_data_gauss.ops.MinvVhT,QF1[:,k])
-    @views mul!(MinvVfTBF1[:,k],discrete_data_gauss.ops.MinvVfT,BF_H[:,k])
+    @views mul!(MinvVhTQF1[:,k],MinvVhT,QF1[:,k])
+    @views mul!(MinvVfTBF1[:,k],MinvVfT,BF_H[:,k])
 end
 
-function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data_gauss,k,nstage)
+function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data,k,nstage)
+    project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
+end
+
+# TODO: hardcoded, only for gauss
+function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data,k,nstage)
     @unpack BF_H                                                 = prealloc
     @unpack MinvVhTQF1,MinvVfTBF1,QF1,VhT_new,MinvVhT_new,Vf_new = cache
-    @unpack Nq,Nh                                                = discrete_data_gauss.sizes
+    @unpack Nq,Nh                                                = discrete_data.sizes
 
-    update_limited_extrapolation!(cache,prealloc,param,param.entropyproj_limiter_type,discrete_data_gauss,k,nstage)
-    VqT_new = @views VhT_new[:,1:Nq]
+    # TODO: only consider Gauss and LGL for now, so Vq = I
+    #       and we assume VqT_new = I
+    #       VqT_new = @views VhT_new[:,1:Nq]
+    #       VqT_new .= transpose(discrete_data.ops.Vq)
+    update_limited_extrapolation!(cache,prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage)
     VfT_new = @views VhT_new[:,Nq+1:Nh]
-    VqT_new .= transpose(discrete_data_gauss.ops.Vq)
     VfT_new .= transpose(Vf_new)
-    @. MinvVhT_new = (1/discrete_data_gauss.ops.wq)*VhT_new
+    @. MinvVhT_new = (1/discrete_data.ops.wq)*VhT_new
     MinvVfT_new = @views MinvVhT_new[:,Nq+1:Nh]
     @views mul!(MinvVhTQF1[:,k],MinvVhT_new,QF1[:,k])
     @views mul!(MinvVfTBF1[:,k],MinvVfT_new,BF_H[:,k])
 end
 
-function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data_gauss,k,nstage)
+function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data,k,nstage)
     @unpack Vf_new    = cache
-    @unpack Vf,Vf_low = discrete_data_gauss.ops
+    @unpack Vf,Vf_low = discrete_data.ops
 
     l_k = prealloc.θ_arr[k,nstage]
     @. Vf_new = l_k*Vf+(1.0-l_k)*Vf_low
 end
 
-function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data_gauss,k,nstage)
+function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data,k,nstage)
     @unpack Vf_new    = cache
-    @unpack Vf,Vf_low = discrete_data_gauss.ops
+    @unpack Vf,Vf_low = discrete_data.ops
 
-    l_k = prealloc.θ_arr[k,nstage]
-    for i = 1:discrete_data_gauss.sizes.Nfp
+    for i = 1:discrete_data.sizes.Nfp
         l_k_i = prealloc.θ_local_arr[i,k,nstage]
         @views @. Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]
     end
 end
 
+# Return whether on element k, the extrapolation is limited
+function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation)
+    return prealloc.θ_arr[k,nstage] < 1.0
+end
+
+function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation)
+    return minimum(view(prealloc.θ_local_arr,:,k,nstage)) < 1.0
+end
+
 # TODO: dispatch
 function assemble_rhs!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,nstage)
+    @unpack entropyproj_limiter_type  = param
     @unpack QF1,MinvVhTQF1,MinvVfTBF1 = cache
     @unpack BF_H,LGLind,rhsH,rhsxyH   = prealloc
     @unpack Jq                        = discrete_data_gauss.geom
@@ -317,11 +334,21 @@ function assemble_rhs!(cache,prealloc,param,discrete_data_gauss,discrete_data_LG
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         @unpack MinvVhT,MinvVfT,Vq = discrete_data.ops
+        # If 1. LGL
+        #    2. Gauss with no entropy proj limiter, adaptive filter
+        #                  scaled extrapolation with l_k = 1 (elementwise)
+        #                                            l_k_i = 1 for all i (nodewise)
+        # Apply precomputed matrix 
+        # otherwise, if on Gauss with scaled extrapolation and nonzero limiting param
+        #            apply limited Vf
         if LGLind[k]
-            @views mul!(MinvVhTQF1[:,k],discrete_data.ops.MinvVhT,QF1[:,k])
-            @views mul!(MinvVfTBF1[:,k],discrete_data.ops.MinvVfT,BF_H[:,k])
+            project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
         else
-            project_flux_difference_to_quad!(cache,prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage)
+            if !is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type)
+                project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
+            else
+                project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type,discrete_data,k,nstage)
+            end
         end
         # TODO: assume collocation scheme, so Nq = Np
         for i = 1:size(rhsH,1)

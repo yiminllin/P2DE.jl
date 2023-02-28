@@ -85,7 +85,7 @@ EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,Nq),
-                       zeros(Float64,Np,Nh),
+                       [diagm(ones(Nq)) zeros(Nq,Nfp)],
                        zeros(Float64,Np,Nh),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
