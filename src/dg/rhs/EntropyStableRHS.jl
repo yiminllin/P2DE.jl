@@ -158,10 +158,10 @@ function flux_differencing_volume!(cache,prealloc,param,discrete_data_LGL,discre
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         for j = 1:Nh
-            Ui = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
+            Uj = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
             for i = j+1:Nh
                 if i <= Nq || j <= Nq   # Skip lower diagonal
-                    Uj = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
+                    Ui = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
                     accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
                 end
             end
