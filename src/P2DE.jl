@@ -8,6 +8,9 @@ module P2DE
 using Revise
 using UnPack
 
+# Performance related
+using Polyester
+
 # Packages math related
 using LinearAlgebra
 using StaticArrays

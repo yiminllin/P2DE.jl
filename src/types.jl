@@ -64,15 +64,15 @@ struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     betalogP   ::Array{Float64,2}
     lam        ::Array{Float64,2}
     LFc        ::Array{Float64,2}
-    Vf_new     ::Array{Float64,2}
-    VhT_new    ::Array{Float64,2}
-    MinvVhT_new::Array{Float64,2}
+    Vf_new     ::Array{Float64,3}
+    VhT_new    ::Array{Float64,3}
+    MinvVhT_new::Array{Float64,3}
     QF1        ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     MinvVhTQF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     MinvVfTBF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
 end
 
-EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
+EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
     EntropyStableCache(zeros(Float64,Nh,K),
                        zeros(Float64,Nh,K),
                        zeros(Float64,Nh,K),
@@ -82,9 +82,9 @@ EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
-                       zeros(Float64,Nfp,Nq),
-                       [diagm(ones(Nq)) zeros(Nq,Nfp)],
-                       zeros(Float64,Np,Nh),
+                       zeros(Float64,Nfp,Nq,Nthread),
+                       reshape(hcat([[diagm(ones(Nq)) zeros(Nq,Nfp)] for _ = 1:Nthread]...),Nq,Nq+Nfp,Nthread),
+                       zeros(Float64,Np,Nh,Nthread),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K))
@@ -108,7 +108,7 @@ function get_rhs_cache(rhs_type::EntropyStable,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    return EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
 function get_rhs_cache(rhs_type::ESLimitedLowOrderPos,param,sizes)
