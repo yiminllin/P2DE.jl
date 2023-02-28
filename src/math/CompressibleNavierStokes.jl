@@ -253,7 +253,7 @@ end
     FxS3 = FxS1*vavg
     FxS4 = f4aux*uavg
 
-    return SVector(FxS1,FxS2,FxS3,FxS4)
+    return SVector(FxS1,FxS2,FxS3,FxS4), SVector(0.0,0.0,0.0,0.0)
 end
 
 @inline function fS_prim_log_y(equation::CompressibleIdealGas{Dim2},UL,UR)
@@ -275,11 +275,11 @@ end
     f4aux = rholog/(2*(γ-1)*betalog) + pa + .5*rholog*unorm
 
     FyS1 = rholog*vavg
-    FyS2 = FxS3
+    FyS2 = FyS1*uavg
     FyS3 = FyS1*vavg + pa
     FyS4 = f4aux*vavg
 
-    return SVector(FyS1,FyS2,FyS3,FyS4)
+    return SVector(0.0,0.0,0.0,0.0), SVector(FyS1,FyS2,FyS3,FyS4)
 end
 
 @inline function logmean(aL,aR)
