@@ -39,11 +39,9 @@ function rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_da
 end
 
 function calculate_wavespeed_and_inviscid_flux!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    @unpack wavespeed = cache
     @unpack LGLind    = prealloc
     
     K  = get_num_elements(param)
-    wavespeed .= 0.0
     for k = 1:K
         discrete_data = (LGLind[k]) ? discrete_data_LGL : discrete_data_gauss
         update_face_values!(cache,prealloc,k,discrete_data,get_low_order_surface_flux(param.rhs_type))
@@ -78,7 +76,7 @@ function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_dat
     @unpack equation = param
     @unpack Uq       = prealloc
     @unpack Srs0_nnz = discrete_data.ops
-    @unpack Uf,wavespeed,wavespeed_f,flux = cache
+    @unpack Uf,wavespeed_f,flux = cache
 
     Nq  = size(Uq,1)
     Nfp = size(Uf,1)
@@ -88,18 +86,6 @@ function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_dat
     for i = 1:Nq
         u_i = Uq[i,k]
         flux[i,k] = euler_fluxes(equation,u_i)
-    end
-
-    # Volume wavespeed
-    for (i,j) in Srs0_nnz
-        u_i = Uq[i,k]
-        u_j = Uq[j,k]
-        Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
-        Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
-        n_ij = Sxy0J_ij./n_ij_norm
-        n_ji = Sxy0J_ji./n_ji_norm
-        wavespeed[i,j,k] = wavespeed_davis_estimate(equation,u_i,n_ij)
-        wavespeed[j,i,k] = wavespeed_davis_estimate(equation,u_j,n_ji)
     end
 
     # Surface wavespeed and inviscid flux
@@ -130,9 +116,9 @@ function clear_low_order_rhs!(cache,prealloc,param)
 end
 
 function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    @unpack equation                 = param
-    @unpack rhsxyL,LGLind            = prealloc
-    @unpack flux,wavespeed,λarr,Q0F1 = cache
+    @unpack equation         = param
+    @unpack rhsxyL,LGLind,Uq = prealloc
+    @unpack flux,λarr,Q0F1   = cache
     
     dim = get_dim_type(equation)
     K  = get_num_elements(param)
@@ -142,10 +128,14 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data_gau
         @unpack Srs0_nnz = discrete_data.ops
         # Volume contributions
         for (i,j) in Srs0_nnz
+            u_i = Uq[i,k]
+            u_j = Uq[j,k]
             Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
             Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
+            n_ij = Sxy0J_ij./n_ij_norm
+            n_ji = Sxy0J_ji./n_ji_norm
             Fxyij = @. .5*(flux[i,k]+flux[j,k])
-            wavespeed_ij = max(wavespeed[i,j,k],wavespeed[j,i,k])
+            wavespeed_ij = max(wavespeed_davis_estimate(equation,u_i,n_ij),wavespeed_davis_estimate(equation,u_j,n_ji))
             λarr[i,j,k] = n_ij_norm*wavespeed_ij
             λarr[j,i,k] = n_ji_norm*wavespeed_ij
             ΛD_ij = get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim)

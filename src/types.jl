@@ -36,7 +36,6 @@ abstract type Cache{DIM,Nc} end
 struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     flux       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Q0F1       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    wavespeed  ::Array{Float64,3}
     wavespeed_f::Array{Float64,2}
     alphaarr   ::Array{Float64,2}
     Uf         ::Array{SVector{Nc,Float64},2}   # TODO: Redundant with limiters cache
@@ -48,7 +47,6 @@ end
 LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
     LowOrderPositivityCache(zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                             zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
-                            zeros(Float64,Nq,Nq,K),
                             zeros(Float64,Nfp,K),
                             zeros(Float64,Nfp,K),
                             zeros(SVector{Nc,Float64},Nfp,K),
