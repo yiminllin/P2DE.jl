@@ -326,7 +326,7 @@ function apply_subcell_limiter!(prealloc,cache,param,discrete_data_gauss,discret
             end
         end
 
-        @. rhsU = sum(rhsxyU)
+        @. @views rhsU[:,k] = sum(rhsxyU[:,k])
     end
 end
 
