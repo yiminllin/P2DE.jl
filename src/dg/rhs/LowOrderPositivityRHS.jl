@@ -216,10 +216,11 @@ function calculate_lambda_and_low_order_CFL!(cache,prealloc,param,discrete_data_
 
     K  = get_num_elements(param)
     Nq  = size(prealloc.Uq,1)
+    surface_flux_type = get_low_order_surface_flux(param.rhs_type)
     dt = min(CFL*dt0,T-t)
     for k = 1:K
         discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        accumulate_alpha!(cache,prealloc,k,param,discrete_data)
+        accumulate_alpha!(cache,prealloc,k,param,discrete_data,surface_flux_type)
         for i = 1:Nq
             lambda_i = get_lambda_i(i,k,cache,prealloc,param,discrete_data,bcdata)
             wq_i  = discrete_data.ops.wq[i]
@@ -230,7 +231,11 @@ function calculate_lambda_and_low_order_CFL!(cache,prealloc,param,discrete_data_
     return dt
 end
 
-function accumulate_alpha!(cache,prealloc,k,param,discrete_data)
+function accumulate_alpha!(cache,prealloc,k,param,discrete_data,surface_flux_type::LaxFriedrichsOnNodalVal)
+    return nothing
+end
+
+function accumulate_alpha!(cache,prealloc,k,param,discrete_data,surface_flux_type::LaxFriedrichsOnProjectedVal)
     @unpack αarr       = cache
     @unpack Uq,u_tilde = prealloc
     @unpack fq2q       = discrete_data.ops
@@ -262,7 +267,7 @@ function get_lambda_i(i,k,cache,prealloc,param,discrete_data,bcdata)
         lambda_i += λarr[i,j,k]
     end
     
-    surface_flux_type = LGLind[k] ? LaxFriedrichsOnNodalVal() : get_low_order_surface_flux(param.rhs_type)
+    surface_flux_type = get_low_order_surface_flux(param.rhs_type)
     for j in q2fq[i]
         _,n_j_norm = get_Bx_with_n(j,k,discrete_data,dim)    # TODO: redundant
         lambda_i += get_lambda_B_CFL(cache,j,n_j_norm,k,surface_flux_type)
