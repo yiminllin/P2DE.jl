@@ -44,6 +44,7 @@ function calculate_primitive_variables!(cache,prealloc,param,bcdata)
     @unpack u_tilde    = prealloc
     @unpack beta,rholog,betalog,uP,betaP,rhologP,betalogP = cache
     K = get_num_elements(param)
+    Nfp = size(mapP,1)
 
     @batch for k = 1:K
         for i = 1:size(beta,1)
@@ -62,12 +63,13 @@ function calculate_primitive_variables!(cache,prealloc,param,bcdata)
     rhologf  = @view rholog[Nq+1:Nh,:]
     betalogf = @view betalog[Nq+1:Nh,:]
     @batch for k = 1:K
-        for i = 1:size(mapP,1)
+        for i = 1:Nfp
             iP = mapP[i,k]
-            uP[i,k]       = uf[iP]
-            betaP[i,k]    = betaf[iP]
-            rhologP[i,k]  = rhologf[iP]
-            betalogP[i,k] = betalogf[iP]
+            # TODO: why direct access uf[iP] fails on obelix?
+            uP[i,k]       = uf[iP:iP][1]
+            betaP[i,k]    = betaf[iP:iP][1]
+            rhologP[i,k]  = rhologf[iP:iP][1]
+            betalogP[i,k] = betalogf[iP:iP][1]
         end
     end
 end
