@@ -55,17 +55,17 @@ N = param.N
 K = param.K
 equation = param.equation
 
-rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches = initialize_DG(param,initial_condition,initial_boundary_conditions)
+rd,md,discrete_data,bcdata,prealloc,caches = initialize_DG(param,initial_condition,initial_boundary_conditions)
 
-data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches)
+data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
-err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
+err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
 using Plots
 gr(aspect_ratio=1, legend=false,
    markerstrokewidth=0, markersize=2,xlim=[0,1],ylim=[0,1])
-x = md_LGL.xq[:]
-y = md_LGL.yq[:]
+x = md.xq[:]
+y = md.yq[:]
 rho = [x[1] for x in prealloc.Uq][:]
 scatter(x,y,rho,zcolor=rho,camera=(0,90))
 savefig("~/Desktop/test.png")

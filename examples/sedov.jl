@@ -64,24 +64,24 @@ N = param.N
 K = param.K
 equation = param.equation
 
-rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches = initialize_DG(param,initial_condition,initial_boundary_conditions)
+rd,md,discrete_data,bcdata,prealloc,caches = initialize_DG(param,initial_condition,initial_boundary_conditions)
 
-data_hist = SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches)
+data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
-err_data = calculate_error(prealloc.Uq,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
+err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
 # # TODO: refactor
 plot_rho_path = "outputs/figures/sedov/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η)-rho.png"
 plot_E_path   = "outputs/figures/sedov/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η)-E.png"
 gif_path      = "outputs/figures/sedov/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).gif"
 
-plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
+plot_component(param,discrete_data,md,prealloc,
                [u[1] for u in prealloc.Uq],1,K,0,8,plot_rho_path,
-               true,md_gauss.xq,[exact_sol(equation,xi,T)[1] for xi in md_gauss.xq],1,K)
-plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
+               true,md.xq,[exact_sol(equation,xi,T)[1] for xi in md.xq],1,K)
+plot_component(param,discrete_data,md,prealloc,
                [u[3] for u in prealloc.Uq],1,K,0,3,plot_E_path,
-               true,md_gauss.xq,[exact_sol(equation,xi,T)[3] for xi in md_gauss.xq],1,K)
-plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,data_hist.θhist,0,8,
+               true,md.xq,[exact_sol(equation,xi,T)[3] for xi in md.xq],1,K)
+plot_rho_animation(md,param,prealloc,data_hist,data_hist.θhist,0,8,
                    gif_path)
 
 # df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
