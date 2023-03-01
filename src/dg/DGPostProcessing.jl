@@ -1,6 +1,6 @@
-function calculate_error(U,param,discrete_data_gauss,discrete_data_LGL,md_gauss,md_LGL,prealloc,exact_sol)
+function calculate_error(U,param,discrete_data,md,prealloc,exact_sol)
     @unpack equation,N = param
-    @unpack Nq,Nc      = discrete_data_gauss.sizes
+    @unpack Nq,Nc      = discrete_data.sizes
     
     K  = get_num_elements(param)
     T = param.timestepping_param.T
@@ -14,8 +14,8 @@ function calculate_error(U,param,discrete_data_gauss,discrete_data_LGL,md_gauss,
     for k = 1:K
         U_k = @views U[:,k]
         for i = 1:Nq
-            exact_U_k_i = get_exact_solution(prealloc,i,k,T,md_gauss,md_LGL,equation,exact_sol)
-            wJq_i       = (prealloc.LGLind[k]) ? discrete_data_LGL.ops.wq[i]*discrete_data_LGL.geom.Jq[i] : discrete_data_gauss.ops.wq[i]*discrete_data_gauss.geom.Jq[i]
+            exact_U_k_i = get_exact_solution(prealloc,i,k,T,md,equation,exact_sol)
+            wJq_i       = discrete_data.ops.wq[i]*discrete_data.geom.Jq[i]
             L1err       = L1err + wJq_i*abs.(exact_U_k_i-U_k[i])
             L2err       = L2err + wJq_i*abs.(exact_U_k_i-U_k[i]).^2
             Linferr     = max.(Linferr, abs.(exact_U_k_i-U_k[i]))
@@ -45,27 +45,29 @@ function calculate_error(U,param,discrete_data_gauss,discrete_data_LGL,md_gauss,
     return err
 end
 
-function get_exact_solution(prealloc,i,k,T,md_gauss,md_LGL,equation::EquationType{Dim1},exact_sol)
-    xq_i = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
+function get_exact_solution(prealloc,i,k,T,md,equation::EquationType{Dim1},exact_sol)
+    @unpack xq = md
+    xq_i = xq[i,k]
     return primitive_to_conservative(equation,exact_sol(equation,xq_i,T))
 end
 
-function get_exact_solution(prealloc,i,k,T,md_gauss,md_LGL,equation::EquationType{Dim2},exact_sol)
-    xq_i = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
-    yq_i = (prealloc.LGLind[k]) ? md_LGL.yq[i,k] : md_gauss.yq[i,k]
+function get_exact_solution(prealloc,i,k,T,md,equation::EquationType{Dim2},exact_sol)
+    @unpack xq,yq = md
+    xq_i = xq[i,k]
+    yq_i = yq[i,k]
     return primitive_to_conservative(equation,exact_sol(equation,xq_i,yq_i,T))
 end
 
-function plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
+function plot_component(param,discrete_data,md,prealloc,
                         rhoq,kL,kR,PlotL,PlotU,output_filename,
                         plot_exact=false,xexact=nothing,rhoexact=nothing,kLexact=kL,kRexact=kR)
     @unpack xL,xR = param
-    @unpack Nq    = discrete_data_gauss.sizes
+    @unpack Nq    = discrete_data.sizes
 
     gr(x_lim=[xL,xR],ylim=[PlotL,PlotU],label=false,legend=false)
     xplot        = zeros(Float64,Nq,kR-kL+1)
     for k = kL:kR
-        xplot[:,k-kL+1] = (prealloc.LGLind[k]) ? md_LGL.xq[:,k] : md_gauss.xq[:,k]
+        xplot[:,k-kL+1] = md.xq[:,k]
     end
     rhoplot      = rhoq[:,kL:kR]
     plot(xplot[:],rhoplot[:])
@@ -77,7 +79,7 @@ function plot_component(param,discrete_data_gauss,md_gauss,md_LGL,prealloc,
     savefig(output_filename)
 end
 
-function plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,limiting_hist,PlotL,PlotU,output_filename)
+function plot_rho_animation(md,param,prealloc,data_hist,limiting_hist,PlotL,PlotU,output_filename)
     @unpack xL,xR = param
     @unpack Uhist = data_hist
 
@@ -85,9 +87,9 @@ function plot_rho_animation(md_gauss,md_LGL,param,prealloc,data_hist,limiting_hi
     gr(x_lim=[xL,xR],ylim=[PlotL,PlotU],label=false,legend=false)
     anim = Animation()
     normalization_factor = reduce(max, map(x->maximum(x), limiting_hist))
-    xplot = zeros(Float64,size(md_gauss.xq,1),K)
+    xplot = zeros(Float64,size(md.xq,1),K)
     for k = 1:K
-        xplot[:,k] = (prealloc.LGLind[k]) ? md_LGL.xq[:,k] : md_gauss.xq[:,k]
+        xplot[:,k] = md.xq[:,k]
     end
     for i = 1:length(Uhist)
         rho = [u[1] for u in Uhist[i]]

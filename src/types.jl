@@ -154,7 +154,6 @@ struct SubcellLimiter      <: PositivityLimiterType end
 abstract type ApproxBasisType end
 struct GaussCollocation   <: ApproxBasisType end
 struct LobattoCollocation <: ApproxBasisType end
-struct HybridGaussLGL     <: ApproxBasisType end
 
 abstract type QuadratureType end
 struct GaussQuadrature   <: QuadratureType end
@@ -215,8 +214,6 @@ end
 function get_num_components(equation::EquationType{Dim2})
     return 4
 end
-
-# TODO: iterator on Gauss elements (for k = 1:K  if (!LGLind[k])) end end)
 
 Base.@kwdef struct GlobalConstant
     POSTOL ::Float64    # Tolerance for positivity
@@ -350,9 +347,6 @@ struct Preallocation{Nc,DIM}
     L_local_arr::Array{Float64,4}
     θ_arr      ::Array{Float64,2}
     θ_local_arr::Array{Float64,3}
-    LGLind     ::BitArray
-    L_G2L_arr  ::Array{Float64,2}
-    L_L2G_arr  ::Array{Float64,2}
     resW       ::Array{SVector{Nc,Float64},2}
     resZ       ::Array{SVector{Nc,Float64},2}
 end
@@ -468,10 +462,6 @@ struct DataHistory{Nc}
     θhist     ::Vector{Array{Float64,2}}
     thist     ::Vector{Float64}
     dthist    ::Vector{Float64}
-    LGLindhist::Vector{BitArray}
-    L_L2G_hist::Vector{Array{Float64,2}}
-    L_G2L_hist::Vector{Array{Float64,2}}
-    L_Vf_hist ::Vector{Array{Float64,2}}
 end
 
 struct ErrorData

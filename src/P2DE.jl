@@ -52,7 +52,7 @@ export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjec
 export NoEntropyProjectionLimiter,ExponentialFilter,ZhangShuFilter,
        ElementwiseScaledExtrapolation,NodewiseScaledExtrapolation
 export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter
-export GaussCollocation,LobattoCollocation,HybridGaussLGL
+export GaussCollocation,LobattoCollocation
 export Dim1,Dim2,Dim3
 export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas
 

@@ -22,15 +22,12 @@ function initialize_preallocations(param,md,sizes)
     L_local_arr = zeros(Float64,Nq+N1D,Nd,K,Ns)
     θ_arr       = zeros(Float64,K,Ns)                # TODO: rename F, eta to theta
     θ_local_arr = zeros(Float64,Nfp,K,Ns)
-    LGLind      = falses(K)                          # TODO: array of BasisType, singleton type
-    L_G2L_arr   = ones(Float64,K,Ns)
-    L_L2G_arr   = ones(Float64,K,Ns)
     resW        = zeros(SVector{Nc,Float64},Nq,K)
     resZ        = zeros(SVector{Nc,Float64},Nq,K)
 
     prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,
                                     rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,
-                                    Larr,L_local_arr,θ_arr,θ_local_arr,LGLind,L_G2L_arr,L_L2G_arr,
+                                    Larr,L_local_arr,θ_arr,θ_local_arr,
                                     resW,resZ)
     return prealloc
 end
@@ -49,38 +46,43 @@ function initialize_cache(param,sizes)
 end
 
 function initialize_DG(param,initial_condition,initial_boundary_conditions)
-    rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops = initialize_data(param)
+    rd,md,discrete_data = initialize_data(param)
 
-    @unpack sizes = discrete_data_gauss 
-    bcdata = initial_boundary_conditions(param,md_gauss)
-    prealloc = initialize_preallocations(param,md_gauss,sizes)
+    @unpack sizes = discrete_data
+    bcdata = initial_boundary_conditions(param,md)
+    prealloc = initialize_preallocations(param,md,sizes)
     caches = initialize_cache(param,sizes)
 
-    init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
+    init_U!(param,discrete_data,md,prealloc,initial_condition)
 
-    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches
+    return rd,md,discrete_data,bcdata,prealloc,caches
 end
 
 function initialize_data(param)
-    @unpack N,equation = param
-
-    rd_gauss,rd_LGL              = initialize_reference_data(N,equation)
-    md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss,GaussQuadrature())
-    md_LGL  ,discrete_data_LGL   = initialize_operators(param,rd_LGL,LobattoQuadrature())
-    transfer_ops                 = initialize_transfer_operators(rd_gauss.element_type,param,rd_gauss,rd_LGL)
-
-    return rd_gauss,md_gauss,discrete_data_gauss,rd_LGL,md_LGL,discrete_data_LGL,transfer_ops
+    @unpack N,equation,approximation_basis_type = param
+    return initialize_reference_data(param,equation,approximation_basis_type)
 end
 
-function initialize_reference_data(N,equation::EquationType{Dim1})
+function initialize_reference_data(param,equation::EquationType{Dim1},approx_basis_type::GaussCollocation)
+    @unpack N = param
     element_type = Line()
     rd_gauss = construct_gauss_reference_data(RefElemData(element_type,N,quad_rule_vol=gauss_quad(0,0,N)))
-    rd_LGL   = RefElemData(element_type,N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
+    md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss,GaussQuadrature())
 
-    return rd_gauss,rd_LGL
+    return rd_gauss,md_gauss,discrete_data_gauss
 end
 
-function initialize_reference_data(N,equation::EquationType{Dim2})
+function initialize_reference_data(param,equation::EquationType{Dim1},approx_basis_type::LobattoCollocation)
+    @unpack N = param
+    element_type = Line()
+    rd_LGL = RefElemData(element_type,N,quad_rule_vol=gauss_lobatto_quad(0,0,N))
+    md_LGL,discrete_data_LGL = initialize_operators(param,rd_LGL,LobattoQuadrature())
+
+    return rd_LGL,md_LGL,discrete_data_LGL
+end
+
+function initialize_reference_data(param,equation::EquationType{Dim2},approx_basis_type::GaussCollocation)
+    @unpack N = param
     element_type = Quad()
 
     # create degree N tensor product Gauss quadrature rule
@@ -90,9 +92,17 @@ function initialize_reference_data(N,equation::EquationType{Dim2})
     wq = @. wr*ws
 
     rd_gauss = construct_gauss_reference_data(RefElemData(element_type,N,quad_rule_vol=(rq,sq,wq),quad_rule_face=(r1D,w1D)))
-    rd_LGL   = RefElemData(element_type,SBP(),N)
+    md_gauss,discrete_data_gauss = initialize_operators(param,rd_gauss,GaussQuadrature())
 
-    return rd_gauss,rd_LGL
+    return rd_gauss,md_gauss,discrete_data_gauss
+end
+
+function initialize_reference_data(param,equation::EquationType{Dim2},approx_basis_type::LobattoCollocation)
+    @unpack N = param
+    rd_LGL   = RefElemData(element_type,SBP(),N)
+    md_LGL,discrete_data_LGL = initialize_operators(param,rd_LGL,LobattoQuadrature())
+
+    return rd_LGL,md_LGL,discrete_data_LGL
 end
 
 # Construct Gauss collocation reference element data from the reference element
@@ -330,35 +340,24 @@ function get_low_order_extrapolation(param,rd,element_type::Quad,quad_type::Loba
     return droptol!(sparse(rd.Vf),param.global_constants.ZEROTOL)
 end
 
-function initialize_transfer_operators(elem_type,param,rd_gauss,rd_LGL)
-    @unpack N = param
-
-    T_g2l = vandermonde(elem_type,N,rd_LGL.rst...)/vandermonde(elem_type,N,rd_gauss.rst...)
-    T_l2g = vandermonde(elem_type,N,rd_gauss.rst...)/vandermonde(elem_type,N,rd_LGL.rst...)
-    transfer_ops = TransferOperators(T_g2l,T_l2g)
-
-    return transfer_ops
-end
-
-function init_U!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,md_gauss,md_LGL,prealloc,initial_condition)
-    @unpack Nq = discrete_data_gauss.sizes
+function init_U!(param,discrete_data,md,prealloc,initial_condition)
+    @unpack Nq = discrete_data.sizes
 
     K  = get_num_elements(param)
-    update_indicator!(prealloc,param.approximation_basis_type,param,discrete_data_gauss,discrete_data_LGL,transfer_ops,true)
     for k = 1:K
         for i = 1:Nq
-            set_initial_condition!(prealloc,i,k,param,initial_condition,md_gauss,md_LGL,param.equation)
+            set_initial_condition!(prealloc,i,k,param,initial_condition,md,param.equation)
         end
     end
 end
 
-function set_initial_condition!(prealloc,i,k,param,initial_condition,md_gauss,md_LGL,equation::EquationType{Dim1})
-    xqi = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
+function set_initial_condition!(prealloc,i,k,param,initial_condition,md,equation::EquationType{Dim1})
+    xqi = md.xq[i,k]
     prealloc.Uq[i,k] = initial_condition(param,xqi)
 end
 
-function set_initial_condition!(prealloc,i,k,param,initial_condition,md_gauss,md_LGL,equation::EquationType{Dim2})
-    xqi = (prealloc.LGLind[k]) ? md_LGL.xq[i,k] : md_gauss.xq[i,k]
-    yqi = (prealloc.LGLind[k]) ? md_LGL.yq[i,k] : md_gauss.yq[i,k]
+function set_initial_condition!(prealloc,i,k,param,initial_condition,md,equation::EquationType{Dim2})
+    xqi = md.xq[i,k]
+    yqi = md.yq[i,k]
     prealloc.Uq[i,k] = initial_condition(param,xqi,yqi)
 end
