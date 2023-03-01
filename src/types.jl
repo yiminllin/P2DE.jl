@@ -353,13 +353,13 @@ end
 abstract type LimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoPositivityLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
 struct ZhangShuLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
-    uL_k     ::Array{SVector{Nc,Float64},1}
-    P_k      ::Array{SVector{Nc,Float64},1}
+    uL_k     ::Array{SVector{Nc,Float64},2}
+    P_k      ::Array{SVector{Nc,Float64},2}
 end
 
-ZhangShuLimiterCache{DIM,Nc}(; Nq=0) where {DIM,Nc} =
-    ZhangShuLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq),
-                                 zeros(SVector{Nc,Float64},Nq))
+ZhangShuLimiterCache{DIM,Nc}(; Nq=0,Nthread=1) where {DIM,Nc} =
+    ZhangShuLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq,Nthread),
+                                 zeros(SVector{Nc,Float64},Nq,Nthread))
 
 struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     uL_k     ::Array{SVector{Nc,Float64},1}
@@ -419,7 +419,7 @@ function get_limiter_cache(limiter_type::ZhangShuLimiter,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq)
+    return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq,Nthread=Threads.nthreads())
 end
 
 function get_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
