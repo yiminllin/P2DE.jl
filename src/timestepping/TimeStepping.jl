@@ -20,7 +20,7 @@ function SSP33!(param,discrete_data,bcdata,prealloc,caches)
     dt = CFL*dt0
     # @btime rhs!($param,$discrete_data,$bcdata,$prealloc,$caches,$t,$dt,1)
     @time while t < T
-        @timeit timer "rhs calculation" begin
+        @timeit_debug timer "SSP stages" begin
         dt = min(CFL*dt0,T-t)
         @. resW = Uq    # TODO: rename, resW is now the copy of previous time step Uq, and Uq is wi in paper
         dt = rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,1,timer)

@@ -3,10 +3,10 @@ include("./EntropyStableRHS.jl")
 include("./LowOrderPositivityRHS.jl")
 
 function rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
-    @timeit timer "initialize rhs" begin
+    @timeit_debug timer "initialize rhs" begin
     init_get_rhs!(param,param.entropyproj_limiter_type,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
     end
-    @timeit timer "rhs calculation" begin
+    @timeit_debug timer "rhs calculation" begin
     dt = get_rhs!(param.rhs_type,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
     end
     return dt
@@ -20,7 +20,7 @@ function init_get_rhs!(param,entropyproj_limiter_type::ScaledExtrapolation,discr
     @unpack approximation_basis_type  = param
     @unpack entropyproj_limiter_cache = caches
 
-    @timeit timer "compute entropy projection limiting parameters" begin
+    @timeit_debug timer "compute entropy projection limiting parameters" begin
     compute_entropyproj_limiting_param!(param,discrete_data,prealloc,entropyproj_limiter_cache,approximation_basis_type,nstage)
     end
 end
@@ -29,7 +29,7 @@ function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data,bcdata,preall
     @unpack rhsL,rhsU = prealloc
     @unpack rhs_cache = caches
 
-    @timeit timer "low order positivity" begin
+    @timeit_debug timer "low order positivity" begin
     dt = rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data,bcdata,t,dt,nstage,timer,true)
     end
     copyto!(rhsU,rhsL)
@@ -40,7 +40,7 @@ function get_rhs!(rhs_type::EntropyStable,param,discrete_data,bcdata,prealloc,ca
     @unpack rhsH,rhsU = prealloc
     @unpack rhs_cache = caches
 
-    @timeit timer "high order ESDG" begin
+    @timeit_debug timer "high order ESDG" begin
     rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,true)
     end
     copyto!(rhsU,rhsH)
@@ -50,16 +50,16 @@ end
 function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
     @unpack rhs_cache,limiter_cache = caches
 
-    @timeit timer "entropy projection" begin
+    @timeit_debug timer "entropy projection" begin
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data,nstage,timer)
     end
-    @timeit timer "low order positivity" begin
+    @timeit_debug timer "low order positivity" begin
     dt = rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data,bcdata,t,dt,nstage,timer,false)
     end
-    @timeit timer "high order ESDG" begin
+    @timeit_debug timer "high order ESDG" begin
     rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,false)
     end
-    @timeit timer "apply positivity limiter" begin
+    @timeit_debug timer "apply positivity limiter" begin
     apply_positivity_limiter!(prealloc,param,discrete_data,bcdata,limiter_cache,dt,nstage,param.positivity_limiter_type,timer)
     end
     return dt
