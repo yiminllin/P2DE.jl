@@ -1,13 +1,13 @@
 #########################
 ### RHS of modal ESDG ###
 #########################
-function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_data_LGL,bcdata,nstage,timer,need_proj=true)
+function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,need_proj=true)
     @unpack entropyproj_limiter_type = param
 
     cache = get_high_order_cache(rhs_cache)
     @timeit timer "entropy projection" begin
     if (need_proj)
-        entropy_projection!(prealloc,param,entropyproj_limiter_type,discrete_data_gauss,discrete_data_LGL,nstage,timer)
+        entropy_projection!(prealloc,param,entropyproj_limiter_type,discrete_data,nstage,timer)
     end
     end
 
@@ -15,7 +15,7 @@ function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_da
     calculate_primitive_variables!(cache,prealloc,param,bcdata)
     end
     @timeit timer "calculate interface dissipation coefficients" begin
-    calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL)
+    calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data)
     end
     @timeit timer "enforce boundary conditions" begin
     enforce_BC!(cache,prealloc,param,bcdata)
@@ -26,15 +26,15 @@ function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data_gauss,discrete_da
     clear_flux_differencing_cache!(cache)
     end
     @timeit timer "flux differencing volume kernel" begin
-    flux_differencing_volume!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
+    flux_differencing_volume!(cache,prealloc,param,discrete_data)
     end
     @timeit timer "flux differencing surface kernel" begin
-    flux_differencing_surface!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
+    flux_differencing_surface!(cache,prealloc,param,discrete_data)
     end
 
     # Assemble RHS
     @timeit timer "assemble rhs" begin
-    assemble_rhs!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,nstage)
+    assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
     end
 end
 
@@ -72,11 +72,11 @@ function calculate_primitive_variables!(cache,prealloc,param,bcdata)
     end
 end
 
-function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data_gauss,discrete_data_LGL)
-    @unpack lam,LFc        = cache
-    @unpack u_tilde,LGLind = prealloc
-    @unpack equation       = param
-    @unpack mapP           = bcdata
+function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data)
+    @unpack lam,LFc  = cache
+    @unpack u_tilde  = prealloc
+    @unpack equation = param
+    @unpack mapP     = bcdata
 
     # TODO: refactor
     K  = get_num_elements(param)
@@ -88,7 +88,6 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
 
     # Lax Friedrichs dissipation
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         for i = 1:Nfp
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             n_i = Bxy_i./n_i_norm 
@@ -98,7 +97,6 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
     end
 
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
         for i = 1:Nfp
             LFc[i,k] = LFc[i,k]*max(lam[i,k],lam[mapP[i,k]])
         end
@@ -144,20 +142,18 @@ function clear_flux_differencing_cache!(cache)
     @. QF1 = zero(QF1)
 end
 
-function flux_differencing_volume!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
+function flux_differencing_volume!(cache,prealloc,param,discrete_data)
     @unpack equation = param
     @unpack QF1      = cache
-    @unpack LGLind   = prealloc
+    @unpack Srsh_nnz = discrete_data.ops
 
     dim = get_dim_type(equation)
     K  = get_num_elements(param)
-    Nq = discrete_data_gauss.sizes.Nq
+    Nq = discrete_data.sizes.Nq
     Nh = size(QF1,1)
     Ui = zero(SVector{5,Float64})
     Uj = zero(SVector{5,Float64})
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack Srsh_nnz = discrete_data.ops
         for (i,j) in Srsh_nnz
             Ui = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
             Uj = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
@@ -194,13 +190,11 @@ function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
     QF1[j,k] += Sfxy_ji
 end
 
-function flux_differencing_surface!(cache,prealloc,param,discrete_data_LGL,discrete_data_gauss)
-    @unpack LGLind   = prealloc
+function flux_differencing_surface!(cache,prealloc,param,discrete_data)
     @unpack equation = param
 
     K  = get_num_elements(param)
     for k  = 1:K
-        discrete_data = (LGLind[k]) ? discrete_data_LGL : discrete_data_gauss
         accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equation)
     end
 end
@@ -264,7 +258,7 @@ function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_da
     @views mul!(MinvVfTBF1[:,k],MinvVfT,BF_H[:,k])
 end
 
-function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data,k,nstage)
+function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data,k,nstage)
     project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
 end
 
@@ -306,6 +300,10 @@ function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_
 end
 
 # Return whether on element k, the extrapolation is limited
+function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::NoEntropyProjectionLimiter)
+    return false
+end
+
 function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation)
     return prealloc.θ_arr[k,nstage] < 1.0
 end
@@ -315,17 +313,16 @@ function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::NodewiseScale
 end
 
 # TODO: dispatch
-function assemble_rhs!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,nstage)
+function assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
     @unpack entropyproj_limiter_type  = param
     @unpack QF1,MinvVhTQF1,MinvVfTBF1 = cache
-    @unpack BF_H,LGLind,rhsH,rhsxyH   = prealloc
-    @unpack Jq                        = discrete_data_gauss.geom
+    @unpack BF_H,rhsH,rhsxyH          = prealloc
+    @unpack Jq                        = discrete_data.geom
+    @unpack MinvVhT,MinvVfT,Vq        = discrete_data.ops
  
     K  = get_num_elements(param)
     # Assemble RHS
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack MinvVhT,MinvVfT,Vq = discrete_data.ops
         # If 1. LGL
         #    2. Gauss with no entropy proj limiter, adaptive filter
         #                  scaled extrapolation with l_k = 1 (elementwise)
@@ -333,14 +330,10 @@ function assemble_rhs!(cache,prealloc,param,discrete_data_gauss,discrete_data_LG
         # Apply precomputed matrix 
         # otherwise, if on Gauss with scaled extrapolation and nonzero limiting param
         #            apply limited Vf
-        if LGLind[k]
+        if !is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type)
             project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
         else
-            if !is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type)
-                project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
-            else
-                project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type,discrete_data,k,nstage)
-            end
+            project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type,discrete_data,k,nstage)
         end
         # TODO: assume collocation scheme, so Nq = Np
         for i = 1:size(rhsH,1)

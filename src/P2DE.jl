@@ -49,10 +49,10 @@ export GlobalConstant,TimesteppingParameter,PostprocessingParameter,
        LimitingParameter
 export LowOrderPositivity,EntropyStable,ESLimitedLowOrderPos
 export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjectedVal
-export NoEntropyProjectionLimiter,ExponentialFilter,ZhangShuFilter,
+export NoEntropyProjectionLimiter,
        ElementwiseScaledExtrapolation,NodewiseScaledExtrapolation
 export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter
-export GaussCollocation,LobattoCollocation,HybridGaussLGL
+export GaussCollocation,LobattoCollocation
 export Dim1,Dim2,Dim3
 export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas
 

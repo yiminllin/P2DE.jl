@@ -1,7 +1,7 @@
-function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches)
+function SSP33!(param,discrete_data,bcdata,prealloc,caches)
     @unpack CFL,dt0,t0,T    = param.timestepping_param
     @unpack output_interval = param.postprocessing_param
-    @unpack θ_arr,Larr,LGLind,L_L2G_arr,L_G2L_arr,rhsU,resW,resZ = prealloc
+    @unpack θ_arr,Larr,rhsU,resW,resZ = prealloc
     @unpack Uq = prealloc
 
     Nc = get_num_components(param.equation)
@@ -10,10 +10,6 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
     θhist      = []
     thist      = []
     dthist     = []
-    LGLindhist = []
-    L_L2G_hist = []
-    L_G2L_hist = []
-    L_Vf_hist  = []
 
     timer = TimerOutput()
 
@@ -22,17 +18,17 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
 
     i = 1
     dt = CFL*dt0
-    # @btime rhs!($param,$discrete_data_gauss,$discrete_data_LGL,$transfer_ops,$bcdata,$prealloc,$caches,$t,$dt,1)
+    # @btime rhs!($param,$discrete_data,$bcdata,$prealloc,$caches,$t,$dt,1)
     @time while t < T
         @timeit timer "rhs calculation" begin
         dt = min(CFL*dt0,T-t)
         @. resW = Uq    # TODO: rename, resW is now the copy of previous time step Uq, and Uq is wi in paper
-        dt = rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,1,timer)
+        dt = rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,1,timer)
         @. Uq = resW + dt*rhsU
-        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,2,timer)
+        rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,2,timer)
         @. resZ = Uq+dt*rhsU
         @. Uq = 3/4*resW+1/4*resZ
-        rhs!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,prealloc,caches,t,dt,3,timer)
+        rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,3,timer)
         @. resZ = Uq+dt*rhsU
         @. Uq = 1/3*resW+2/3*resZ
         end
@@ -46,18 +42,14 @@ function SSP33!(param,discrete_data_gauss,discrete_data_LGL,transfer_ops,bcdata,
             push!(Uhist,copy(Uq))
             push!(Lhist,copy(Larr))
             push!(θhist,copy(θ_arr))
-            push!(LGLindhist,copy(LGLind))
-            push!(L_L2G_hist,copy(L_L2G_arr))
-            push!(L_G2L_hist,copy(L_G2L_arr))
-            push!(L_Vf_hist,copy(θ_arr))
             println("Current time $t with time step size $dt, and final time $T, step $i")
-            total_conservation = check_conservation(prealloc,param,discrete_data_gauss,discrete_data_LGL)
+            total_conservation = check_conservation(prealloc,param,discrete_data)
             @show total_conservation
         end
     end
 
     println(timer)
     
-    data_hist = DataHistory{Nc}(Uhist,Lhist,θhist,thist,dthist,LGLindhist,L_L2G_hist,L_G2L_hist,L_Vf_hist)
+    data_hist = DataHistory{Nc}(Uhist,Lhist,θhist,thist,dthist)
     return data_hist
 end

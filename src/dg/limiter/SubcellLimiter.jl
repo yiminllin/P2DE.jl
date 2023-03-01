@@ -2,17 +2,16 @@
 ### Subcell limiter methods ###
 ###############################
 # TODO: documentation... from the ipad note
-function accumulate_f_bar!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
-    @unpack f_bar_H,f_bar_L            = cache
-    @unpack LGLind,rhsL,rhsH,BF_H,BF_L = prealloc
-    
+function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim1)
+    @unpack f_bar_H,f_bar_L     = cache
+    @unpack rhsL,rhsH,BF_H,BF_L = prealloc
+    @unpack wq = discrete_data.ops
+    @unpack Jq = discrete_data.geom
+
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache?
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack wq = discrete_data.ops
-        @unpack Jq = discrete_data.geom
         f_bar_H[1][1,k] = BF_H[1,k][1]
         f_bar_L[1][1,k] = BF_L[1,k][1]
         for i = 2:Nq+1
@@ -23,18 +22,17 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data_gauss,discrete_dat
 end
 
 # TODO: use views instead of index flattening
-function accumulate_f_bar!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
-    @unpack f_bar_H,f_bar_L                          = cache
-    @unpack rhsL,rhsH,rhsxyH,rhsxyL,BF_H,BF_L,LGLind = prealloc
+function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
+    @unpack f_bar_H,f_bar_L                   = cache
+    @unpack rhsL,rhsH,rhsxyH,rhsxyL,BF_H,BF_L = prealloc
+    @unpack wq = discrete_data.ops
+    @unpack Jq = discrete_data.geom
     
     K   = get_num_elements(param)
     Nq  = size(prealloc.Uq,1)
     N1D = param.N+1    # TODO: hardcoded
     N1Dp1 = N1D+1
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack wq = discrete_data.ops
-        @unpack Jq = discrete_data.geom
 
         # TODO: hardcoding views
         fx_bar_H_k = reshape(view(f_bar_H[1],:,k),N1Dp1,N1D)
@@ -72,9 +70,11 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data_gauss,discrete_dat
     end
 end
 
-function subcell_bound_limiter!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim1)
-    @unpack uL_k,f_bar_H,f_bar_L       = cache
-    @unpack Uq,LGLind,L_local_arr,rhsL = prealloc
+function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim1)
+    @unpack uL_k,f_bar_H,f_bar_L = cache
+    @unpack Uq,L_local_arr,rhsL  = prealloc
+    @unpack wq = discrete_data.ops
+    @unpack Jq = discrete_data.geom
     
     K  = get_num_elements(param)
     Nq = size(Uq,1)
@@ -82,10 +82,6 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data_gauss,discret
     @views @. L_local_arr[:,:,:,nstage] = 1.0
     # Calculate limiting parameter
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack wq = discrete_data.ops
-        @unpack Jq = discrete_data.geom
-
         @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
         Lrho(uL_i)  = ζ*uL_i[1]
         Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
@@ -110,10 +106,12 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data_gauss,discret
     end
 end
 
-function subcell_bound_limiter!(cache,prealloc,param,discrete_data_gauss,discrete_data_LGL,bcdata,dt,nstage,dim::Dim2)
-    @unpack uL_k,f_bar_H,f_bar_L       = cache
-    @unpack Uq,rhsL,L_local_arr,LGLind = prealloc
+function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim2)
+    @unpack uL_k,f_bar_H,f_bar_L = cache
+    @unpack Uq,rhsL,L_local_arr  = prealloc
     @unpack mapP = bcdata
+    @unpack wq = discrete_data.ops
+    @unpack Jq = discrete_data.geom
 
     K  = get_num_elements(param)
     Nq = size(Uq,1)
@@ -126,10 +124,6 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data_gauss,discret
     @views @. L_local_arr[:,:,:,nstage] = 1.0
 
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack wq = discrete_data.ops
-        @unpack Jq = discrete_data.geom
-
         @views @. uL_k = Uq[:,k] + dt*rhsL[:,k]
         Lrho(uL_i)  = ζ*uL_i[1]
         Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
@@ -275,17 +269,16 @@ function accumulate_f_bar_limited!(cache,prealloc,param,nstage,dim::Dim2)
     end
 end
 
-function apply_subcell_limiter!(prealloc,cache,param,discrete_data_gauss,discrete_data_LGL,dim::Dim1)
-    @unpack LGLind,rhsU = prealloc
-    @unpack f_bar_lim   = cache
+function apply_subcell_limiter!(prealloc,cache,param,discrete_data,dim::Dim1)
+    @unpack rhsU      = prealloc
+    @unpack f_bar_lim = cache
+    @unpack wq = discrete_data.ops
+    @unpack Jq = discrete_data.geom
     
     K  = get_num_elements(param)
     Nq = size(prealloc.Uq,1)
     # Update step
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack wq = discrete_data.ops
-        @unpack Jq = discrete_data.geom
         for i = 1:Nq
             wJq_i     = (wq[i]*Jq[i,k])
             rhsU[i,k] = (f_bar_lim[1][i+1,k]-f_bar_lim[1][i,k])/wJq_i
@@ -293,10 +286,12 @@ function apply_subcell_limiter!(prealloc,cache,param,discrete_data_gauss,discret
     end
 end
 
-function apply_subcell_limiter!(prealloc,cache,param,discrete_data_gauss,discrete_data_LGL,dim::Dim2)
-    @unpack f_bar_lim          = cache
-    @unpack LGLind,rhsU,rhsxyU = prealloc
-    
+function apply_subcell_limiter!(prealloc,cache,param,discrete_data,dim::Dim2)
+    @unpack f_bar_lim   = cache
+    @unpack rhsU,rhsxyU = prealloc
+    @unpack wq = discrete_data.ops
+    @unpack Jq = discrete_data.geom
+
     K  = get_num_elements(param)
     N1D = param.N+1    # TODO: hardcoded
     N1Dp1 = N1D+1
@@ -304,10 +299,6 @@ function apply_subcell_limiter!(prealloc,cache,param,discrete_data_gauss,discret
 
     # Update step
     for k = 1:K
-        discrete_data = LGLind[k] ? discrete_data_LGL : discrete_data_gauss
-        @unpack wq = discrete_data.ops
-        @unpack Jq = discrete_data.geom
-
         # TODO: hardcoding views
         fx_bar_lim_k = reshape(view(f_bar_lim[1],:,k),N1Dp1,N1D)
         fy_bar_lim_k = reshape(view(f_bar_lim[2],:,k),N1D,N1Dp1)

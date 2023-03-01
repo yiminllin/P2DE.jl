@@ -36,14 +36,14 @@ function check_positivity_node(Ui,param)
     return is_positive,rho,p
 end
 
-function check_conservation(prealloc,param,discrete_data_gauss,discrete_data_LGL)
-    @unpack Uq,LGLind = prealloc
+function check_conservation(prealloc,param,discrete_data)
+    @unpack Uq = prealloc
     
     K  = get_num_elements(param)
     total = zero(prealloc.Uq[1])
     for k = 1:K
         for i = 1:size(Uq,1)
-            total += LGLind[k] ? discrete_data_LGL.geom.J[i,k]*discrete_data_LGL.ops.wq[i]*Uq[i,k] : discrete_data_gauss.geom.J[i,k]*discrete_data_gauss.ops.wq[i]*Uq[i,k]
+            total += discrete_data.geom.J[i,k]*discrete_data.ops.wq[i]*Uq[i,k]
         end
     end
     return sum(total)

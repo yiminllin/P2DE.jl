@@ -138,11 +138,8 @@ function get_high_order_cache(rhs_cache::ESLimitedLowOrderPosCache)
 end
 
 abstract type EntropyProjectionLimiterType end
-abstract type AdaptiveFilter          <: EntropyProjectionLimiterType end
 abstract type ScaledExtrapolation     <: EntropyProjectionLimiterType end
 struct NoEntropyProjectionLimiter     <: EntropyProjectionLimiterType end
-struct ExponentialFilter              <: AdaptiveFilter end
-struct ZhangShuFilter                 <: AdaptiveFilter end
 struct ElementwiseScaledExtrapolation <: ScaledExtrapolation end
 struct NodewiseScaledExtrapolation    <: ScaledExtrapolation end
 
@@ -154,7 +151,6 @@ struct SubcellLimiter      <: PositivityLimiterType end
 abstract type ApproxBasisType end
 struct GaussCollocation   <: ApproxBasisType end
 struct LobattoCollocation <: ApproxBasisType end
-struct HybridGaussLGL     <: ApproxBasisType end
 
 abstract type QuadratureType end
 struct GaussQuadrature   <: QuadratureType end
@@ -215,8 +211,6 @@ end
 function get_num_components(equation::EquationType{Dim2})
     return 4
 end
-
-# TODO: iterator on Gauss elements (for k = 1:K  if (!LGLind[k])) end end)
 
 Base.@kwdef struct GlobalConstant
     POSTOL ::Float64    # Tolerance for positivity
@@ -350,9 +344,6 @@ struct Preallocation{Nc,DIM}
     L_local_arr::Array{Float64,4}
     θ_arr      ::Array{Float64,2}
     θ_local_arr::Array{Float64,3}
-    LGLind     ::BitArray
-    L_G2L_arr  ::Array{Float64,2}
-    L_L2G_arr  ::Array{Float64,2}
     resW       ::Array{SVector{Nc,Float64},2}
     resZ       ::Array{SVector{Nc,Float64},2}
 end
@@ -387,7 +378,6 @@ abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
 struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
     Vf_new   ::Array{Float64,2}
-    U_modal  ::Array{SVector{Nc,Float64},2}
     U_k      ::Array{SVector{Nc,Float64},1}
     Uq_k     ::Array{SVector{Nc,Float64},1}
     vq_k     ::Array{SVector{Nc,Float64},1}
@@ -403,7 +393,6 @@ end
 
 EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
     EntropyProjectionLimiterCache{DIM,Nc}(zeros(Float64,Nfp,Nq),
-                                          zeros(SVector{Nc,Float64},Np,K),
                                           zeros(SVector{Nc,Float64},Np),
                                           zeros(SVector{Nc,Float64},Nq),
                                           zeros(SVector{Nc,Float64},Nq),
@@ -447,7 +436,7 @@ function get_entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjec
     return NoEntropyProjectionLimiterCache{Nd,Nc}()
 end
 
-function get_entropyproj_limiter_cache(entropyproj_limiter_type::Union{AdaptiveFilter,ScaledExtrapolation},param,sizes)
+function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapolation,param,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
@@ -468,10 +457,6 @@ struct DataHistory{Nc}
     θhist     ::Vector{Array{Float64,2}}
     thist     ::Vector{Float64}
     dthist    ::Vector{Float64}
-    LGLindhist::Vector{BitArray}
-    L_L2G_hist::Vector{Array{Float64,2}}
-    L_G2L_hist::Vector{Array{Float64,2}}
-    L_Vf_hist ::Vector{Array{Float64,2}}
 end
 
 struct ErrorData
