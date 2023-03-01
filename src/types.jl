@@ -42,9 +42,10 @@ struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     λarr       ::Array{Float64,3}
     λBarr      ::Array{Float64,2}
     αarr       ::Array{Float64,2}
+    dtarr      ::Array{Float64,1}
 end
 
-LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
+LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
     LowOrderPositivityCache(zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                             zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
                             zeros(Float64,Nfp,K),
@@ -52,7 +53,8 @@ LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                             zeros(SVector{Nc,Float64},Nfp,K),
                             zeros(Float64,Nq,Nq,K),
                             zeros(Float64,Nfp,K),
-                            zeros(Float64,Nfp,K))
+                            zeros(Float64,Nfp,K),
+                            zeros(Float64,Nthread))
 
 struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     beta       ::Array{Float64,2}
@@ -100,7 +102,7 @@ function get_rhs_cache(rhs_type::LowOrderPositivity,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    return LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
 function get_rhs_cache(rhs_type::EntropyStable,param,sizes)
@@ -117,7 +119,7 @@ function get_rhs_cache(rhs_type::ESLimitedLowOrderPos,param,sizes)
     Nd = get_dim(param.equation)
 
     cacheH = EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
-    cacheL = LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    cacheL = LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
     return ESLimitedLowOrderPosCache(cacheH = cacheH, cacheL = cacheL)
 end
 
