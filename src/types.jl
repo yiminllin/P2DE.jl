@@ -362,16 +362,16 @@ ZhangShuLimiterCache{DIM,Nc}(; Nq=0,Nthread=1) where {DIM,Nc} =
                                  zeros(SVector{Nc,Float64},Nq,Nthread))
 
 struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
-    uL_k     ::Array{SVector{Nc,Float64},1}
-    P_k      ::Array{SVector{Nc,Float64},1}
+    uL_k     ::Array{SVector{Nc,Float64},2}
+    P_k      ::Array{SVector{Nc,Float64},2}
     f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # TODO: unnecessary
 end
 
-SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0) where {DIM,Nc} =
-    SubcellLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq),
-                                zeros(SVector{Nc,Float64},Nq),
+SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
+    SubcellLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq,Nthread),
+                                zeros(SVector{Nc,Float64},Nq,Nthread),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...))
@@ -428,7 +428,7 @@ function get_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
 
-    return SubcellLimiterCache{Nd,Nc}(K=K,Nq=Nq,N1D=N1D)
+    return SubcellLimiterCache{Nd,Nc}(K=K,Nq=Nq,N1D=N1D,Nthread=Threads.nthreads())
 end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter,param,sizes)
