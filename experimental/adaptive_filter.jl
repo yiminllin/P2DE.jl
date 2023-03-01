@@ -22,13 +22,13 @@ function init_get_rhs!(param,entropyproj_limiter_type::AdaptiveFilter,discrete_d
     @unpack approximation_basis_type  = param
     @unpack entropyproj_limiter_cache = caches
 
-    @timeit timer "compute modal coefficients" begin
+    @timeit_debug timer "compute modal coefficients" begin
     compute_modal_coefficients!(prealloc,param,discrete_data,entropyproj_limiter_cache)
     end
-    @timeit timer "compute entropy projection limiting parameters" begin
+    @timeit_debug timer "compute entropy projection limiting parameters" begin
     compute_entropyproj_limiting_param!(param,discrete_data,prealloc,entropyproj_limiter_cache,approximation_basis_type,nstage)
     end
-    @timeit timer "apply entropy projection limiting" begin
+    @timeit_debug timer "apply entropy projection limiting" begin
     apply_entropyproj_filtering!(prealloc,param,param.entropyproj_limiter_type,discrete_data,nstage)
     end
 end
