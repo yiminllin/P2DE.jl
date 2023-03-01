@@ -116,11 +116,7 @@ function plot_limiting_bar!(entropyproj_limiter_type::NoEntropyProjectionLimiter
     # Do nothing
 end
 
-function plot_limiting_bar!(entropyproj_limiter_type::ExponentialFilter,x,barL,normalization_factor,k)
-    plot!(x,barL[k]*ones(2)/normalization_factor,st=:bar,alpha=0.2)
-end
-
-function plot_limiting_bar!(entropyproj_limiter_type::Union{ZhangShuFilter,ScaledExtrapolation},x,barL,normalization_factor,k)
+function plot_limiting_bar!(entropyproj_limiter_type::ScaledExtrapolation,x,barL,normalization_factor,k)
     plot!(x,(1-barL[k])*ones(2),st=:bar,alpha=0.2)
 end
 

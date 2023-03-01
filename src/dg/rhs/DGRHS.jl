@@ -16,21 +16,6 @@ function init_get_rhs!(param,entropyproj_limiter_type::NoEntropyProjectionLimite
     return nothing
 end
 
-function init_get_rhs!(param,entropyproj_limiter_type::AdaptiveFilter,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
-    @unpack approximation_basis_type  = param
-    @unpack entropyproj_limiter_cache = caches
-
-    @timeit timer "compute modal coefficients" begin
-    compute_modal_coefficients!(prealloc,param,discrete_data,entropyproj_limiter_cache)
-    end
-    @timeit timer "compute entropy projection limiting parameters" begin
-    compute_entropyproj_limiting_param!(param,discrete_data,prealloc,entropyproj_limiter_cache,approximation_basis_type,nstage)
-    end
-    @timeit timer "apply entropy projection limiting" begin
-    apply_entropyproj_filtering!(prealloc,param,param.entropyproj_limiter_type,discrete_data,nstage)
-    end
-end
-
 function init_get_rhs!(param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
     @unpack approximation_basis_type  = param
     @unpack entropyproj_limiter_cache = caches
@@ -121,7 +106,7 @@ function entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,l_k_i,param,di
 end
 
 # TODO: ugly dispatch
-function entropy_projection!(prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data,nstage,timer)
+function entropy_projection!(prealloc,param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data,nstage,timer)
     @unpack Uq,vq,v_tilde,u_tilde = prealloc
     @unpack Nh,Nq,Nfp             = discrete_data.sizes
     K = get_num_elements(param)

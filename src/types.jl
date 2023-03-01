@@ -138,11 +138,8 @@ function get_high_order_cache(rhs_cache::ESLimitedLowOrderPosCache)
 end
 
 abstract type EntropyProjectionLimiterType end
-abstract type AdaptiveFilter          <: EntropyProjectionLimiterType end
 abstract type ScaledExtrapolation     <: EntropyProjectionLimiterType end
 struct NoEntropyProjectionLimiter     <: EntropyProjectionLimiterType end
-struct ExponentialFilter              <: AdaptiveFilter end
-struct ZhangShuFilter                 <: AdaptiveFilter end
 struct ElementwiseScaledExtrapolation <: ScaledExtrapolation end
 struct NodewiseScaledExtrapolation    <: ScaledExtrapolation end
 
@@ -381,7 +378,6 @@ abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
 struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
     Vf_new   ::Array{Float64,2}
-    U_modal  ::Array{SVector{Nc,Float64},2}
     U_k      ::Array{SVector{Nc,Float64},1}
     Uq_k     ::Array{SVector{Nc,Float64},1}
     vq_k     ::Array{SVector{Nc,Float64},1}
@@ -397,7 +393,6 @@ end
 
 EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
     EntropyProjectionLimiterCache{DIM,Nc}(zeros(Float64,Nfp,Nq),
-                                          zeros(SVector{Nc,Float64},Np,K),
                                           zeros(SVector{Nc,Float64},Np),
                                           zeros(SVector{Nc,Float64},Nq),
                                           zeros(SVector{Nc,Float64},Nq),
@@ -441,7 +436,7 @@ function get_entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjec
     return NoEntropyProjectionLimiterCache{Nd,Nc}()
 end
 
-function get_entropyproj_limiter_cache(entropyproj_limiter_type::Union{AdaptiveFilter,ScaledExtrapolation},param,sizes)
+function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapolation,param,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)

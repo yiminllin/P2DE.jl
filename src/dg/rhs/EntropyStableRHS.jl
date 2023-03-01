@@ -258,7 +258,7 @@ function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_da
     @views mul!(MinvVfTBF1[:,k],MinvVfT,BF_H[:,k])
 end
 
-function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter},discrete_data,k,nstage)
+function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data,k,nstage)
     project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
 end
 

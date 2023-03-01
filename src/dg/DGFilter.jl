@@ -14,16 +14,6 @@ function compute_entropyproj_limiting_param!(param,discrete_data,prealloc,cache,
 end
 
 # TODO: unnecessary?
-function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ExponentialFilter,nstage)
-    view(prealloc.θ_arr,:,nstage) .= 0.0
-end
-
-# TODO: unnecessary?
-function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ZhangShuFilter,nstage)
-    view(prealloc.θ_arr,:,nstage) .= 1.0
-end
-
-# TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ElementwiseScaledExtrapolation,nstage)
     view(prealloc.θ_arr,:,nstage) .= 1.0
 end
@@ -53,16 +43,6 @@ function calc_face_values!(prealloc,cache,param,discrete_data)
         end
         @views mul!(VUf[:,k],Vf,vq[:,k])
     end
-end
-
-function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ExponentialFilter,param,discrete_data)
-    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data)
-    prealloc.θ_arr[k,nstage] = bisection(f,-log(param.global_constants.ZEROTOL),0.0)
-end
-
-function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ZhangShuFilter,param,discrete_data)
-    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data)
-    prealloc.θ_arr[k,nstage] = bisection(f,0.0,1.0)
 end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation,param,discrete_data)
@@ -98,19 +78,6 @@ function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cac
         end
     end
     return false
-end
-
-function update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,entropyproj_limiter_type::AdaptiveFilter,param,discrete_data)
-    @unpack VqVDM                                     = discrete_data.ops
-    @unpack U_modal,U_k,Uq_k,vq_k,v_tilde_k,u_tilde_k = cache
-    
-    U_k .= @views U_modal[:,k]
-    apply_filter!(U_k,param.entropyproj_limiter_type,param.equation,θ)
-    mul!(Uq_k,VqVDM,U_k)
-    
-    # TODO: only project to Gauss element
-    entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,1.0,param,discrete_data,prealloc)
-    calculate_limited_entropyproj_vars_on_element!(cache,param)
 end
 
 function update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data)
@@ -193,48 +160,4 @@ function update_limited_entropyproj_vars_on_face_node!(prealloc,cache,θ_i,i,k,e
     
     entropy_projection_face_node!(v_tilde_k,u_tilde_k,vq_k,i,θ_i,param,discrete_data,prealloc)
     calculate_limited_entropyproj_vars_on_face_node!(cache,i,param)
-end
-
-#########################
-### Filtering methods ###
-#########################
-function compute_modal_coefficients!(prealloc,param,discrete_data,cache)
-    @unpack Uq       = prealloc
-    @unpack U_modal  = cache
-    @unpack VDMinvPq = discrete_data.ops
-    
-    K  = get_num_elements(param)
-    for k = 1:K
-        @views mul!(U_modal[:,k],VDMinvPq,Uq[:,k])      # TODO: why there is allocation when remove k = 1:K loop?
-    end
-end
-
-function apply_entropyproj_filtering!(prealloc,param,entropyproj_limiter_type::AdaptiveFilter,discrete_data,nstage)
-    @unpack Uq,θ_arr,U_modal = prealloc
-    @unpack VqVDM            = discrete_data.ops
-    
-    K  = get_num_elements(param)
-    for k = 1:K
-        U_modal_k = @views U_modal[:,k]
-        apply_filter!(U_modal_k,param.entropyproj_limiter_type,param.equation,θ_arr[k,nstage])
-    end
-    for k = 1:K
-        @views mul!(Uq[:,k],VqVDM,U_modal[:,k])      # TODO: why there is allocation when remove k = 1:K loop?
-    end
-end
-
-function apply_entropyproj_filtering!(prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data,nstage)
-    # Do nothing
-end
-
-function apply_filter!(U,entropyproj_limiter_type::ExponentialFilter,equation::EquationType{Dim1},θ)
-    for i = 1:size(U,1)
-        U[i] = exp(-θ*(i-1)*(i-1))*U[i]
-    end
-end
-
-function apply_filter!(U,entropyproj_limiter_type::ZhangShuFilter,equation::EquationType{Dim1},θ)
-    for i = 2:size(U,1)
-        U[i] = θ*U[i]
-    end
 end
