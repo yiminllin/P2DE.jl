@@ -42,7 +42,7 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
         rhsxyH_k = reshape(view(rhsxyH,:,k),N1D,N1D)
         rhsxyL_k = reshape(view(rhsxyL,:,k),N1D,N1D)
 
-        wq   = reshape(view(wq,:),N1D,N1D)
+        wq_k = reshape(view(wq,:),N1D,N1D)
         Jq_k = reshape(view(Jq,:,k),N1D,N1D)
 
         # For each stride along x direction
@@ -51,8 +51,8 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
             fx_bar_H_k[1,sj] = BF_H[iface,k][1]
             fx_bar_L_k[1,sj] = BF_L[iface,k][1]
             for si = 2:N1Dp1
-                fx_bar_H_k[si,sj] = fx_bar_H_k[si-1,sj] + wq[si-1,sj]*Jq_k[si-1,sj]*rhsxyH_k[si-1,sj][1]
-                fx_bar_L_k[si,sj] = fx_bar_L_k[si-1,sj] + wq[si-1,sj]*Jq_k[si-1,sj]*rhsxyL_k[si-1,sj][1]
+                fx_bar_H_k[si,sj] = fx_bar_H_k[si-1,sj] + wq_k[si-1,sj]*Jq_k[si-1,sj]*rhsxyH_k[si-1,sj][1]
+                fx_bar_L_k[si,sj] = fx_bar_L_k[si-1,sj] + wq_k[si-1,sj]*Jq_k[si-1,sj]*rhsxyL_k[si-1,sj][1]
             end
         end
 
@@ -62,8 +62,8 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
             fy_bar_H_k[si,1] = BF_H[iface,k][2]
             fy_bar_L_k[si,1] = BF_L[iface,k][2]
             for sj = 2:N1Dp1
-                fy_bar_H_k[si,sj] = fy_bar_H_k[si,sj-1] + wq[si,sj-1]*Jq_k[si,sj-1]*rhsxyH_k[si,sj-1][2]
-                fy_bar_L_k[si,sj] = fy_bar_L_k[si,sj-1] + wq[si,sj-1]*Jq_k[si,sj-1]*rhsxyL_k[si,sj-1][2]
+                fy_bar_H_k[si,sj] = fy_bar_H_k[si,sj-1] + wq_k[si,sj-1]*Jq_k[si,sj-1]*rhsxyH_k[si,sj-1][2]
+                fy_bar_L_k[si,sj] = fy_bar_L_k[si,sj-1] + wq_k[si,sj-1]*Jq_k[si,sj-1]*rhsxyL_k[si,sj-1][2]
             end
         end
     end
@@ -137,7 +137,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
 
         u_L_k = reshape(view(uL_k,:,tid),N1D,N1D)
 
-        wq   = reshape(view(wq,:),N1D,N1D)
+        wq_k = reshape(view(wq,:),N1D,N1D)
         Jq_k = reshape(view(Jq,:,k),N1D,N1D)
 
         # For each stride along x direction
@@ -147,7 +147,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 # index of quad node right to subcell face
                 iq = si
                 jq = sj
-                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(param,uL_k_i,-4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
             end
@@ -156,7 +156,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 # index of quad node left to subcell face
                 iq = si-1
                 jq = sj
-                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(param,uL_k_i,4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
             end
@@ -169,7 +169,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 # index of quad node top to subcell face
                 iq = si
                 jq = sj
-                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(param,uL_k_i,-4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
             end
@@ -178,7 +178,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 # index of quad node beneath the subcell face
                 iq = si
                 jq = sj-1
-                wJq_i = wq[iq,jq]*Jq_k[iq,jq]
+                wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(param,uL_k_i,4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,Lrho(uL_k_i),Lrhoe(uL_k_i),Urho,Urhoe))
             end
@@ -325,13 +325,13 @@ function apply_subcell_limiter!(prealloc,cache,param,discrete_data,dim::Dim2)
         
         rhsxyU_k = reshape(view(rhsxyU,:,k),N1D,N1D)
 
-        wq   = reshape(view(wq,:),N1D,N1D)
+        wq_k = reshape(view(wq,:),N1D,N1D)
         Jq_k = reshape(view(Jq,:,k),N1D,N1D)
 
 
         for j = 1:N1D
             for i = 1:N1D
-                wJq_ij = wq[i,j]*Jq_k[i,j]
+                wJq_ij = wq_k[i,j]*Jq_k[i,j]
                 rhsxyU_k[i,j] = SVector(fx_bar_lim_k[i+1,j]-fx_bar_lim_k[i,j],
                                         fy_bar_lim_k[i,j+1]-fy_bar_lim_k[i,j])/wJq_ij
             end

@@ -33,10 +33,10 @@ function apply_positivity_limiter!(prealloc,param,discrete_data,bcdata,cache,dt,
     @timeit_debug timer "Find subcell limiting parameters" begin
     subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim)
     end
-    @timeit timer "Symmetrize subcell limiting parameters" begin
+    @timeit_debug timer "Symmetrize subcell limiting parameters" begin
     symmetrize_limiting_parameters!(prealloc,param,bcdata,nstage,dim)
     end
-    @timeit timer "Accumulate limited subcell fluxes" begin
+    @timeit_debug timer "Accumulate limited subcell fluxes" begin
     accumulate_f_bar_limited!(cache,prealloc,param,nstage,dim)
     end
     @timeit_debug timer "Apply subcell limiter, accumulate limited rhs" begin
