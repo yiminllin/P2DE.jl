@@ -42,9 +42,10 @@ struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     λarr       ::Array{Float64,3}
     λBarr      ::Array{Float64,2}
     αarr       ::Array{Float64,2}
+    dtarr      ::Array{Float64,1}
 end
 
-LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
+LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
     LowOrderPositivityCache(zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                             zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
                             zeros(Float64,Nfp,K),
@@ -52,7 +53,8 @@ LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                             zeros(SVector{Nc,Float64},Nfp,K),
                             zeros(Float64,Nq,Nq,K),
                             zeros(Float64,Nfp,K),
-                            zeros(Float64,Nfp,K))
+                            zeros(Float64,Nfp,K),
+                            zeros(Float64,Nthread))
 
 struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     beta       ::Array{Float64,2}
@@ -64,15 +66,15 @@ struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     betalogP   ::Array{Float64,2}
     lam        ::Array{Float64,2}
     LFc        ::Array{Float64,2}
-    Vf_new     ::Array{Float64,2}
-    VhT_new    ::Array{Float64,2}
-    MinvVhT_new::Array{Float64,2}
+    Vf_new     ::Array{Float64,3}
+    VhT_new    ::Array{Float64,3}
+    MinvVhT_new::Array{Float64,3}
     QF1        ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     MinvVhTQF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     MinvVfTBF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
 end
 
-EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
+EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
     EntropyStableCache(zeros(Float64,Nh,K),
                        zeros(Float64,Nh,K),
                        zeros(Float64,Nh,K),
@@ -82,9 +84,9 @@ EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
                        zeros(Float64,Nfp,K),
-                       zeros(Float64,Nfp,Nq),
-                       [diagm(ones(Nq)) zeros(Nq,Nfp)],
-                       zeros(Float64,Np,Nh),
+                       zeros(Float64,Nfp,Nq,Nthread),
+                       reshape(hcat([[diagm(ones(Nq)) zeros(Nq,Nfp)] for _ = 1:Nthread]...),Nq,Nq+Nfp,Nthread),
+                       zeros(Float64,Np,Nh,Nthread),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K))
@@ -100,7 +102,7 @@ function get_rhs_cache(rhs_type::LowOrderPositivity,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    return LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
 function get_rhs_cache(rhs_type::EntropyStable,param,sizes)
@@ -108,7 +110,7 @@ function get_rhs_cache(rhs_type::EntropyStable,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    return EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
 function get_rhs_cache(rhs_type::ESLimitedLowOrderPos,param,sizes)
@@ -116,8 +118,8 @@ function get_rhs_cache(rhs_type::ESLimitedLowOrderPos,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    cacheH = EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
-    cacheL = LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    cacheH = EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
+    cacheL = LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
     return ESLimitedLowOrderPosCache(cacheH = cacheH, cacheL = cacheL)
 end
 
@@ -351,25 +353,25 @@ end
 abstract type LimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoPositivityLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
 struct ZhangShuLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
-    uL_k     ::Array{SVector{Nc,Float64},1}
-    P_k      ::Array{SVector{Nc,Float64},1}
+    uL_k     ::Array{SVector{Nc,Float64},2}
+    P_k      ::Array{SVector{Nc,Float64},2}
 end
 
-ZhangShuLimiterCache{DIM,Nc}(; Nq=0) where {DIM,Nc} =
-    ZhangShuLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq),
-                                 zeros(SVector{Nc,Float64},Nq))
+ZhangShuLimiterCache{DIM,Nc}(; Nq=0,Nthread=1) where {DIM,Nc} =
+    ZhangShuLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq,Nthread),
+                                 zeros(SVector{Nc,Float64},Nq,Nthread))
 
 struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
-    uL_k     ::Array{SVector{Nc,Float64},1}
-    P_k      ::Array{SVector{Nc,Float64},1}
+    uL_k     ::Array{SVector{Nc,Float64},2}
+    P_k      ::Array{SVector{Nc,Float64},2}
     f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # TODO: unnecessary
 end
 
-SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0) where {DIM,Nc} =
-    SubcellLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq),
-                                zeros(SVector{Nc,Float64},Nq),
+SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
+    SubcellLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq,Nthread),
+                                zeros(SVector{Nc,Float64},Nq,Nthread),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...))
@@ -377,30 +379,24 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0) where {DIM,Nc} =
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
 struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
-    Vf_new   ::Array{Float64,2}
-    U_k      ::Array{SVector{Nc,Float64},1}
-    Uq_k     ::Array{SVector{Nc,Float64},1}
-    vq_k     ::Array{SVector{Nc,Float64},1}
-    v_tilde_k::Array{SVector{Nc,Float64},1}   # TODO: refactor with v_tilde, u_tilde
-    u_tilde_k::Array{SVector{Nc,Float64},1}
-    v3tilde  ::Array{Float64,1}
-    rhotilde ::Array{Float64,1}
-    rhoetilde::Array{Float64,1}
+    vq_k     ::Array{SVector{Nc,Float64},2}
+    v_tilde_k::Array{SVector{Nc,Float64},2}   # TODO: refactor with v_tilde, u_tilde
+    u_tilde_k::Array{SVector{Nc,Float64},2}
+    v3tilde  ::Array{Float64,2}
+    rhotilde ::Array{Float64,2}
+    rhoetilde::Array{Float64,2}
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
 end
 
-EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
-    EntropyProjectionLimiterCache{DIM,Nc}(zeros(Float64,Nfp,Nq),
-                                          zeros(SVector{Nc,Float64},Np),
-                                          zeros(SVector{Nc,Float64},Nq),
-                                          zeros(SVector{Nc,Float64},Nq),
-                                          zeros(SVector{Nc,Float64},Nh),
-                                          zeros(SVector{Nc,Float64},Nh),
-                                          zeros(Float64,Nh),
-                                          zeros(Float64,Nh),
-                                          zeros(Float64,Nh),
+EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
+    EntropyProjectionLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq,Nthread),
+                                          zeros(SVector{Nc,Float64},Nh,Nthread),
+                                          zeros(SVector{Nc,Float64},Nh,Nthread),
+                                          zeros(Float64,Nh,Nthread),
+                                          zeros(Float64,Nh,Nthread),
+                                          zeros(Float64,Nh,Nthread),
                                           zeros(SVector{Nc,Float64},Nfp,K),
                                           zeros(SVector{Nc,Float64},Nfp,K),
                                           zeros(Float64,Nfp,K))
@@ -417,7 +413,7 @@ function get_limiter_cache(limiter_type::ZhangShuLimiter,param,sizes)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq)
+    return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq,Nthread=Threads.nthreads())
 end
 
 function get_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
@@ -426,7 +422,7 @@ function get_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
 
-    return SubcellLimiterCache{Nd,Nc}(K=K,Nq=Nq,N1D=N1D)
+    return SubcellLimiterCache{Nd,Nc}(K=K,Nq=Nq,N1D=N1D,Nthread=Threads.nthreads())
 end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter,param,sizes)
@@ -441,7 +437,7 @@ function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapola
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return EntropyProjectionLimiterCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    return EntropyProjectionLimiterCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
 

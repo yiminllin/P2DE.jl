@@ -40,7 +40,7 @@ end
 
 function calculate_wavespeed_and_inviscid_flux!(cache,prealloc,param,discrete_data)
     K  = get_num_elements(param)
-    for k = 1:K
+    @batch for k = 1:K
         update_face_values!(cache,prealloc,k,discrete_data,get_low_order_surface_flux(param.rhs_type))
         update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_data)
     end
@@ -102,6 +102,7 @@ function clear_low_order_rhs!(cache,prealloc,param)
     K  = get_num_elements(param)
     Nc = get_num_components(param.equation)
     Nd = get_dim(param.equation)
+    # TODO: Adding @batch results in a lot of allocations...
     for k = 1:K
         for i = 1:size(rhsxyL,1)
             rhsxyL[i,k] = zero(SVector{Nd,SVector{Nc,Float64}})
@@ -121,7 +122,7 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
     dim = get_dim_type(equation)
     K  = get_num_elements(param)
     Nq = size(Q0F1,1)
-    for k = 1:K
+    @batch for k = 1:K
         # Volume contributions
         for (i,j) in Srs0_nnz
             u_i = Uq[i,k]
@@ -144,7 +145,7 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
         end
     end
 
-    for k = 1:K
+    @batch for k = 1:K
         for i = 1:Nq
             rhsxyL[i,k] -= Q0F1[i,k]
         end
@@ -163,7 +164,7 @@ function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bc
     Nd  = get_dim(equation)
     Nq  = size(prealloc.Uq,1)
     Nfp = size(bcdata.mapP,1)
-    for k = 1:K
+    @batch for k = 1:K
         # Surface contributions
         for i = 1:Nfp
             # TODO: refactor
@@ -197,7 +198,7 @@ function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data)
     @unpack rhsL,rhsxyL = prealloc
 
     K  = get_num_elements(param)
-    for k = 1:K
+    @batch for k = 1:K
         # Divide by mass
         for i = 1:size(rhsxyL,1)
             wJq_i    = Jq[i,k]*wq[i]
@@ -211,12 +212,15 @@ function calculate_lambda_and_low_order_CFL!(cache,prealloc,param,discrete_data,
     @unpack CFL,dt0,T = param.timestepping_param
     @unpack Jq        = discrete_data.geom
     @unpack wq        = discrete_data.ops
+    @unpack dtarr     = cache
 
     K  = get_num_elements(param)
     Nq  = size(prealloc.Uq,1)
     surface_flux_type = get_low_order_surface_flux(param.rhs_type)
-    dt = min(CFL*dt0,T-t)
-    for k = 1:K
+    @. dtarr = min(CFL*dt0,T-t)
+    @batch for k = 1:K
+        tid = Threads.threadid()
+        dt = dtarr[tid]
         accumulate_alpha!(cache,prealloc,k,param,discrete_data,surface_flux_type)
         for i = 1:Nq
             lambda_i = get_lambda_i(i,k,cache,prealloc,param,discrete_data,bcdata)
@@ -224,8 +228,9 @@ function calculate_lambda_and_low_order_CFL!(cache,prealloc,param,discrete_data,
             wJq_i = Jq[i,k]*wq_i
             dt = min(dt, CFL*.5*wJq_i/lambda_i)
         end
+        dtarr[tid] = dt
     end
-    return dt
+    return minimum(dtarr)
 end
 
 function accumulate_alpha!(cache,prealloc,k,param,discrete_data,surface_flux_type::LaxFriedrichsOnNodalVal)

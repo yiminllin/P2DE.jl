@@ -111,7 +111,7 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::NoEntropyP
     @unpack Nh,Nq,Nfp             = discrete_data.sizes
     K = get_num_elements(param)
     
-    for k = 1:K
+    @batch for k = 1:K
         vq_k      = view(vq,:,k)
         v_tilde_k = view(v_tilde,:,k)
         u_tilde_k = view(u_tilde,:,k)
@@ -128,7 +128,7 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::Elementwis
     @unpack Nh,Nq,Nfp             = discrete_data.sizes
     K = get_num_elements(param)
     
-    for k = 1:K
+    @batch for k = 1:K
         vq_k      = view(vq,:,k)
         v_tilde_k = view(v_tilde,:,k)
         u_tilde_k = view(u_tilde,:,k)
@@ -145,7 +145,7 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::NodewiseSc
     @unpack Nh,Nq,Nfp             = discrete_data.sizes
     K = get_num_elements(param)
     
-    for k = 1:K
+    @batch for k = 1:K
         vq_k      = view(vq,:,k)
         v_tilde_k = view(v_tilde,:,k)
         u_tilde_k = view(u_tilde,:,k)

@@ -44,8 +44,9 @@ function calculate_primitive_variables!(cache,prealloc,param,bcdata)
     @unpack u_tilde    = prealloc
     @unpack beta,rholog,betalog,uP,betaP,rhologP,betalogP = cache
     K = get_num_elements(param)
+    Nfp = size(mapP,1)
 
-    for k = 1:K
+    @batch for k = 1:K
         for i = 1:size(beta,1)
             beta[i,k]    = betafun(equation,u_tilde[i,k])
             rholog[i,k]  = log(u_tilde[i,k][1])
@@ -61,13 +62,14 @@ function calculate_primitive_variables!(cache,prealloc,param,bcdata)
     betaf    = @view beta[Nq+1:Nh,:]
     rhologf  = @view rholog[Nq+1:Nh,:]
     betalogf = @view betalog[Nq+1:Nh,:]
-    for k = 1:K
-        for i = 1:size(mapP,1)
-            iP = mapP[i,k]
-            uP[i,k]       = uf[iP]
-            betaP[i,k]    = betaf[iP]
-            rhologP[i,k]  = rhologf[iP]
-            betalogP[i,k] = betalogf[iP]
+    @batch for k = 1:K
+        for i = 1:Nfp
+            iP = mod1(mapP[i,k],Nfp)
+            kP = div(mapP[i,k]-1,Nfp)+1
+            uP[i,k]       = uf[iP,kP]
+            betaP[i,k]    = betaf[iP,kP]
+            rhologP[i,k]  = rhologf[iP,kP]
+            betalogP[i,k] = betalogf[iP,kP]
         end
     end
 end
@@ -87,7 +89,7 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
     dim = get_dim_type(equation)
 
     # Lax Friedrichs dissipation
-    for k = 1:K
+    @batch for k = 1:K
         for i = 1:Nfp
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             n_i = Bxy_i./n_i_norm 
@@ -96,7 +98,7 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
         end
     end
 
-    for k = 1:K
+    @batch for k = 1:K
         for i = 1:Nfp
             LFc[i,k] = LFc[i,k]*max(lam[i,k],lam[mapP[i,k]])
         end
@@ -110,15 +112,15 @@ function enforce_BC!(cache,prealloc,param,bcdata)
     @unpack LFc,uP,betaP,rhologP,betalogP = cache
 
     # zero dissipation on the boundary
-    for i = mapI
+    @batch for i in mapI
         LFc[i] = 0.0
     end 
-    for i in mapO
+    @batch for i in mapO
         LFc[i] = 0.0
     end 
 
     # Enforce Inflow BC
-    for i = 1:size(mapI,1)
+    @batch for i = 1:size(mapI,1)
         ii = mapI[i]
         uP[ii]       = inflowarr[i]
         betaP[ii]    = betafun(equation,uP[ii])
@@ -127,7 +129,7 @@ function enforce_BC!(cache,prealloc,param,bcdata)
     end
 
     # Enforce outflow BC
-    for i = 1:size(mapO,1)
+    @batch for i = 1:size(mapO,1)
         io = mapO[i]
         # TODO: hardcoded
         uP[io]       = Uq[end,end]
@@ -153,7 +155,7 @@ function flux_differencing_volume!(cache,prealloc,param,discrete_data)
     Nh = size(QF1,1)
     Ui = zero(SVector{5,Float64})
     Uj = zero(SVector{5,Float64})
-    for k = 1:K
+    @batch for k = 1:K
         for (i,j) in Srsh_nnz
             Ui = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
             Uj = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
@@ -194,7 +196,7 @@ function flux_differencing_surface!(cache,prealloc,param,discrete_data)
     @unpack equation = param
 
     K  = get_num_elements(param)
-    for k  = 1:K
+    @batch for k = 1:K
         accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equation)
     end
 end
@@ -249,7 +251,7 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     return .5 .* (fxyf.+fxyP)
 end
 
-function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
+function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data,tid)
     @unpack BF_H                      = prealloc
     @unpack MinvVhTQF1,MinvVfTBF1,QF1 = cache
     @unpack MinvVhT,MinvVfT           = discrete_data.ops
@@ -258,12 +260,12 @@ function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_da
     @views mul!(MinvVfTBF1[:,k],MinvVfT,BF_H[:,k])
 end
 
-function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data,k,nstage)
-    project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
+function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data,k,nstage,tid)
+    project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data,tid)
 end
 
 # TODO: hardcoded, only for gauss
-function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data,k,nstage)
+function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::ScaledExtrapolation,discrete_data,k,nstage,tid)
     @unpack BF_H                                                 = prealloc
     @unpack MinvVhTQF1,MinvVfTBF1,QF1,VhT_new,MinvVhT_new,Vf_new = cache
     @unpack Nq,Nh                                                = discrete_data.sizes
@@ -272,7 +274,10 @@ function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limit
     #       and we assume VqT_new = I
     #       VqT_new = @views VhT_new[:,1:Nq]
     #       VqT_new .= transpose(discrete_data.ops.Vq)
-    update_limited_extrapolation!(cache,prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage)
+    update_limited_extrapolation!(cache,prealloc,param,param.entropyproj_limiter_type,discrete_data,k,nstage,tid)
+    Vf_new      = @views Vf_new[:,:,tid]
+    VhT_new     = @views VhT_new[:,:,tid]
+    MinvVhT_new = @views MinvVhT_new[:,:,tid]
     VfT_new = @views VhT_new[:,Nq+1:Nh]
     VfT_new .= transpose(Vf_new)
     @. MinvVhT_new = (1/discrete_data.ops.wq)*VhT_new
@@ -281,21 +286,21 @@ function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limit
     @views mul!(MinvVfTBF1[:,k],MinvVfT_new,BF_H[:,k])
 end
 
-function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data,k,nstage)
+function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data,k,nstage,tid)
     @unpack Vf_new    = cache
     @unpack Vf,Vf_low = discrete_data.ops
 
     l_k = prealloc.θ_arr[k,nstage]
-    @. Vf_new = l_k*Vf+(1.0-l_k)*Vf_low
+    @. @views Vf_new[:,:,tid] = l_k*Vf+(1.0-l_k)*Vf_low
 end
 
-function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data,k,nstage)
+function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data,k,nstage,tid)
     @unpack Vf_new    = cache
     @unpack Vf,Vf_low = discrete_data.ops
 
     for i = 1:discrete_data.sizes.Nfp
         l_k_i = prealloc.θ_local_arr[i,k,nstage]
-        @views @. Vf_new[i,:] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]
+        @views @. Vf_new[i,:,tid] = l_k_i*Vf[i,:]+(1-l_k_i)*Vf_low[i,:]
     end
 end
 
@@ -322,7 +327,8 @@ function assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
  
     K  = get_num_elements(param)
     # Assemble RHS
-    for k = 1:K
+    @batch for k = 1:K
+        tid = Threads.threadid()
         # If 1. LGL
         #    2. Gauss with no entropy proj limiter, adaptive filter
         #                  scaled extrapolation with l_k = 1 (elementwise)
@@ -331,9 +337,9 @@ function assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
         # otherwise, if on Gauss with scaled extrapolation and nonzero limiting param
         #            apply limited Vf
         if !is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type)
-            project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data)
+            project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data,tid)
         else
-            project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type,discrete_data,k,nstage)
+            project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type,discrete_data,k,nstage,tid)
         end
         # TODO: assume collocation scheme, so Nq = Np
         for i = 1:size(rhsH,1)
