@@ -379,30 +379,24 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
 struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
-    Vf_new   ::Array{Float64,2}
-    U_k      ::Array{SVector{Nc,Float64},1}
-    Uq_k     ::Array{SVector{Nc,Float64},1}
-    vq_k     ::Array{SVector{Nc,Float64},1}
-    v_tilde_k::Array{SVector{Nc,Float64},1}   # TODO: refactor with v_tilde, u_tilde
-    u_tilde_k::Array{SVector{Nc,Float64},1}
-    v3tilde  ::Array{Float64,1}
-    rhotilde ::Array{Float64,1}
-    rhoetilde::Array{Float64,1}
+    vq_k     ::Array{SVector{Nc,Float64},2}
+    v_tilde_k::Array{SVector{Nc,Float64},2}   # TODO: refactor with v_tilde, u_tilde
+    u_tilde_k::Array{SVector{Nc,Float64},2}
+    v3tilde  ::Array{Float64,2}
+    rhotilde ::Array{Float64,2}
+    rhoetilde::Array{Float64,2}
     Uf       ::Array{SVector{Nc,Float64},2}
     VUf      ::Array{SVector{Nc,Float64},2}
     rhoef    ::Array{Float64,2}
 end
 
-EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0) where {DIM,Nc} =
-    EntropyProjectionLimiterCache{DIM,Nc}(zeros(Float64,Nfp,Nq),
-                                          zeros(SVector{Nc,Float64},Np),
-                                          zeros(SVector{Nc,Float64},Nq),
-                                          zeros(SVector{Nc,Float64},Nq),
-                                          zeros(SVector{Nc,Float64},Nh),
-                                          zeros(SVector{Nc,Float64},Nh),
-                                          zeros(Float64,Nh),
-                                          zeros(Float64,Nh),
-                                          zeros(Float64,Nh),
+EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
+    EntropyProjectionLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq,Nthread),
+                                          zeros(SVector{Nc,Float64},Nh,Nthread),
+                                          zeros(SVector{Nc,Float64},Nh,Nthread),
+                                          zeros(Float64,Nh,Nthread),
+                                          zeros(Float64,Nh,Nthread),
+                                          zeros(Float64,Nh,Nthread),
                                           zeros(SVector{Nc,Float64},Nfp,K),
                                           zeros(SVector{Nc,Float64},Nfp,K),
                                           zeros(Float64,Nfp,K))
@@ -443,7 +437,7 @@ function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapola
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return EntropyProjectionLimiterCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp)
+    return EntropyProjectionLimiterCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
 
