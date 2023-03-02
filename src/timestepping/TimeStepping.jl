@@ -42,9 +42,9 @@ function SSP33!(param,discrete_data,bcdata,prealloc,caches)
         t = t+dt
         i = i+1
 
-        push!(thist,t)
         push!(dthist,dt)
         if (mod(i,output_interval) == 0 || abs(t-T) < 1e-10)
+            push!(thist,t)
             push!(Uhist,copy(Uq))
             push!(Lhist,copy(Larr))
             push!(θhist,copy(θ_arr))

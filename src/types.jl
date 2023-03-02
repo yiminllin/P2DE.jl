@@ -230,6 +230,12 @@ Base.@kwdef struct PostprocessingParameter
     output_interval::Int64      # interval of saving snapshots 
 end
 
+Base.@kwdef struct PostprocessingCache{Nc}
+    xp::Array{Float64,2}
+    yp::Array{Float64,2}
+    Up::Array{SVector{Nc,Float64},2}
+end
+
 # TODO: put parameters into limiter
 Base.@kwdef struct LimitingParameter
     ζ::Float64           # Positiivty relaxation parameter ρ,ρe >= η min
@@ -441,10 +447,11 @@ function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapola
 end
 
 
-struct Caches{RHSCACHE,LIMITERCACHE,ENTROPYPROJCACHE}
+struct Caches{RHSCACHE,LIMITERCACHE,ENTROPYPROJCACHE,POSTPROCESSCACHE}
     rhs_cache                ::RHSCACHE
     limiter_cache            ::LIMITERCACHE
     entropyproj_limiter_cache::ENTROPYPROJCACHE
+    postprocessing_cache     ::POSTPROCESSCACHE
 end
 
 struct DataHistory{Nc}
