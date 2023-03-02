@@ -49,7 +49,7 @@ end
 γ = 1.4
 param = Param(N=3, K=(40,20), xL=(0.0,0.0), xR=(20.0,10.0),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
-              timestepping_param=TimesteppingParameter(T=0.1, CFL=0.5, dt0=1e-3, t0=0.0),
+              timestepping_param=TimesteppingParameter(T=1.0, CFL=0.5, dt0=1e-3, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
               postprocessing_param=PostprocessingParameter(output_interval=100),
               equation=CompressibleEulerIdealGas{Dim2}(γ),
@@ -70,11 +70,4 @@ data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
-using Plots
-gr(size=(1200,600),legend=false,
-   markerstrokewidth=0,markersize=2)
-x = md.xq[:]
-y = md.yq[:]
-rho = [x[1] for x in prealloc.Uq][:]
-scatter(x,y,rho,zcolor=rho,camera=(0,90),aspect_ratio=.5)
-savefig("./outputs/figures/2D/vortex/N=$N,K=$K.png")
+construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"./outputs/isentropic-vortex","isentropic-vortex")
