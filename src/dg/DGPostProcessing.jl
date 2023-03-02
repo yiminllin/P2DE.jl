@@ -137,3 +137,63 @@ function visualize_error_data(df)
     df[!,:num_steps] = [length(dthist) for dthist in [datahist.dthist for datahist in df[!,:data_history]]]
     pretty_table(df[:, [:N,:K,:timestepping_param,:limiting_param,:approximation_basis_type,:rhs_type,:entropyproj_limiter_type,:positivity_limiter_type,:L1err,:L2err,:Linferr,:num_steps]])
 end
+
+# TODO: only works for rectangular 2D quad mesh
+function get_postprocessing_cache(param,md)
+    @unpack K = param
+    @unpack N = param
+    @unpack xq,yq = md
+    N1D = N+1
+    Kx,Ky = K
+    K  = get_num_elements(param)
+    Nc = get_num_components(param.equation)
+
+    Up = zeros(SVector{Nc,Float64},N1D*Kx,N1D*Ky)
+    xp = zeros(Float64,N1D*Kx,N1D*Ky)
+    yp = zeros(Float64,N1D*Kx,N1D*Ky)
+
+    for k = 1:K
+        ik = mod1(k,Kx)
+        jk = div(k-1,Kx)+1
+        xq_k = reshape(view(xq,:,k),N1D,N1D)
+        yq_k = reshape(view(yq,:,k),N1D,N1D)
+        irange = (ik-1)*N1D+1:ik*N1D
+        jrange = (jk-1)*N1D+1:jk*N1D
+        @views @. xp[irange,jrange] = xq_k
+        @views @. yp[irange,jrange] = yq_k
+    end
+
+    return PostprocessingCache(xp=xp,yp=yp,Up=Up)
+end
+
+function construct_vtk_file!(cache,param,data_hist,output_path,filename)
+    @unpack Uhist,thist = data_hist
+    @unpack xp,yp,Up    = cache
+    @unpack N,K         = param
+    N1D = N+1
+    Kx,Ky = K
+    K = get_num_elements(param)
+
+    pvd = paraview_collection("$(output_path)/$(filename)_N=$(N)_K=$(K).pvd")
+    for i in 1:length(Uhist)
+        t = thist[i]
+        U = Uhist[i]
+        vtk_grid("$(output_path)/$(filename)_N=$(N)_K=$(K)_t=$(t)",xp,yp) do vtk
+            for k = 1:K
+                ik = mod1(k,Kx)
+                jk = div(k-1,Kx)+1
+                irange = (ik-1)*N1D+1:ik*N1D
+                jrange = (jk-1)*N1D+1:jk*N1D
+                @views Up[irange,jrange] = reshape(U[:,k],N1D,N1D)
+            end    
+            vtk["rho"]  = [u[1] for u in Up]
+            vtk["rhou"] = [u[2] for u in Up]
+            vtk["rhov"] = [u[3] for u in Up]
+            vtk["E"]    = [u[4] for u in Up]
+
+            pvd[t] = vtk
+        end
+    end
+
+    vtk_save(pvd)
+end

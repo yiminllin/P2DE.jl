@@ -32,7 +32,7 @@ function initialize_preallocations(param,md,sizes)
     return prealloc
 end
 
-function initialize_cache(param,sizes)
+function initialize_cache(param,md,sizes)
     @unpack rhs_type,positivity_limiter_type,entropyproj_limiter_type = param
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     K  = get_num_elements(param)
@@ -41,8 +41,9 @@ function initialize_cache(param,sizes)
     rhs_cache                 = get_rhs_cache(rhs_type,param,sizes)
     limiter_cache             = get_limiter_cache(positivity_limiter_type,param,sizes)
     entropyproj_limiter_cache = get_entropyproj_limiter_cache(entropyproj_limiter_type,param,sizes)
+    postprocessing_cache      = get_postprocessing_cache(param,md)
 
-    return Caches(rhs_cache,limiter_cache,entropyproj_limiter_cache)
+    return Caches(rhs_cache,limiter_cache,entropyproj_limiter_cache,postprocessing_cache)
 end
 
 function initialize_DG(param,initial_condition,initial_boundary_conditions)
@@ -51,7 +52,7 @@ function initialize_DG(param,initial_condition,initial_boundary_conditions)
     @unpack sizes = discrete_data
     bcdata = initial_boundary_conditions(param,md)
     prealloc = initialize_preallocations(param,md,sizes)
-    caches = initialize_cache(param,sizes)
+    caches = initialize_cache(param,md,sizes)
 
     init_U!(param,discrete_data,md,prealloc,initial_condition)
 

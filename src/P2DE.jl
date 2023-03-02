@@ -28,6 +28,7 @@ using DataFrames
 using JLD2
 using MAT
 using PrettyTables
+using WriteVTK
 
 
 ########################
@@ -68,6 +69,7 @@ export primitive_to_conservative
 export SSP33!
 export calculate_error,plot_component,plot_rho_animation,write_to_jld2
 export visualize_error_data
+export construct_vtk_file!
 export check_positivity,check_conservation
 export get_num_components
 
