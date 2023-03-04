@@ -135,8 +135,8 @@ function enforce_BC!(cache,prealloc,param,bcdata)
     # Enforce outflow BC
     @batch for i = 1:size(mapO,1)
         io = mapO[i]
-        iP = mod1(mapP[ii],Nfp)
-        kP = div(mapP[ii]-1,Nfp)+1
+        iP = mod1(mapP[io],Nfp)
+        kP = div(mapP[io]-1,Nfp)+1
         uP[io]       = uf[iP,kP]
         betaP[io]    = betafun(equation,uP[io])
         rhologP[io]  = log(uP[io][1])
