@@ -35,13 +35,14 @@ end
 function initialize_cache(param,md,sizes)
     @unpack rhs_type,positivity_limiter_type,entropyproj_limiter_type = param
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    dim = get_dim_type(param.equation)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
     rhs_cache                 = get_rhs_cache(rhs_type,param,sizes)
     limiter_cache             = get_limiter_cache(positivity_limiter_type,param,sizes)
     entropyproj_limiter_cache = get_entropyproj_limiter_cache(entropyproj_limiter_type,param,sizes)
-    postprocessing_cache      = get_postprocessing_cache(param,md)
+    postprocessing_cache      = get_postprocessing_cache(param,md,dim)
 
     return Caches(rhs_cache,limiter_cache,entropyproj_limiter_cache,postprocessing_cache)
 end
@@ -100,6 +101,7 @@ end
 
 function initialize_reference_data(param,equation::EquationType{Dim2},approx_basis_type::LobattoCollocation)
     @unpack N = param
+    element_type = Quad()
     rd_LGL   = RefElemData(element_type,SBP(),N)
     md_LGL,discrete_data_LGL = initialize_operators(param,rd_LGL,LobattoQuadrature())
 
