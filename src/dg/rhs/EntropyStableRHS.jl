@@ -18,7 +18,7 @@ function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,tim
     calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data)
     end
     @timeit_debug timer "enforce boundary conditions" begin
-    enforce_BC!(cache,prealloc,param,bcdata)
+    enforce_BC!(cache,prealloc,param,bcdata,discrete_data)
     end
 
     # Flux differencing
@@ -105,11 +105,12 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
     end
 end
 
-function enforce_BC!(cache,prealloc,param,bcdata)
+function enforce_BC!(cache,prealloc,param,bcdata,discrete_data)
     @unpack Uq,u_tilde                    = prealloc
     @unpack equation                      = param
     @unpack mapP,mapI,mapO,Ival           = bcdata
     @unpack LFc,uP,betaP,rhologP,betalogP = cache
+    @unpack fq2q                          = discrete_data.ops
 
     Nfp = size(mapP,1)
     # zero dissipation on the boundary
@@ -137,7 +138,8 @@ function enforce_BC!(cache,prealloc,param,bcdata)
         io = mapO[i]
         iP = mod1(io,Nfp)
         kP = div(io-1,Nfp)+1
-        uP[io]       = uf[iP,kP]
+        iq = fq2q[iP]
+        uP[io]       = Uq[iq,kP]
         betaP[io]    = betafun(equation,uP[io])
         rhologP[io]  = log(uP[io][1])
         betalogP[io] = log(betaP[io])
