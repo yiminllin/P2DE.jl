@@ -62,7 +62,7 @@ function initial_condition(param,x)
     return primitive_to_conservative(param.equation,SVector{3,Float64}(exact_sol(param.equation,x,t0)))
 end
 
-jld_path = "outputs/jld2/leblanc/leblanc.jld2"
+jld_path = "outputs/jld2/leblanc.jld2"
 
 γ = 5/3
 CFL = 0.8

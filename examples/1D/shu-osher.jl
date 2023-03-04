@@ -38,7 +38,7 @@ function initial_condition(param,x)
     return primitive_to_conservative(param.equation,SVector{3,Float64}(exact_sol(param.equation,x,t0)))
 end
 
-jld_path = "outputs/jld2/shu-osher/shu-soher.jld2"
+jld_path = "outputs/jld2/shu-soher.jld2"
 
 γ = 1.4
 param = Param(N=3, K=64, xL=-5.0, xR=5.0,
