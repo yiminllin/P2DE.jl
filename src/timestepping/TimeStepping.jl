@@ -49,6 +49,7 @@ function SSP33!(param,discrete_data,bcdata,prealloc,caches)
             push!(Lhist,copy(Larr))
             push!(θhist,copy(θ_arr))
             println("Current time $t with time step size $dt, and final time $T, step $i")
+            flush(stdout)
             total_conservation = check_conservation(prealloc,param,discrete_data)
             @show total_conservation
         end
