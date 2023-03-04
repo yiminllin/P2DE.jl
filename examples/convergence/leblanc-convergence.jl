@@ -63,7 +63,7 @@ function initial_condition(param,x)
 end
 
 # TODO: refactor convergence
-jld_path = "outputs/jld2/leblanc/leblanc.jld2"
+jld_path = "outputs/jld2/leblanc.jld2"
 
 for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter(),LobattoCollocation());
                      (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter() ,LobattoCollocation());
@@ -72,7 +72,7 @@ for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()
                      (ElementwiseScaledExtrapolation(),LaxFriedrichsOnProjectedVal(),ZhangShuLimiter(),GaussCollocation());
                      (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter(),GaussCollocation());]
 for N in [2;5]
-for K in [50;100;200]
+for K in [50;100;200;400]
 
 entropyproj_type,low_order_flux_type,pos_lim_type,discretization_type = limiter_type
 γ = 5/3
