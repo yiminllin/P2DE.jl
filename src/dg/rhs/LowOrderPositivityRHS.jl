@@ -130,8 +130,8 @@ function get_uP_and_enforce_BC!(cache,prealloc,param,bcdata,discrete_data)
     uf = @view u_tilde[Nq+1:Nh,:]
     @batch for i = 1:size(mapO,1)
         io = mapO[i]
-        iP = mod1(mapP[io],Nfp)
-        kP = div(mapP[io]-1,Nfp)+1
+        iP = mod1(io,Nfp)
+        kP = div(io-1,Nfp)+1
         iq = fq2q[iP]
         uP[io] = Uq[iq,kP]
     end
