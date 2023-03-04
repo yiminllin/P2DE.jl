@@ -47,7 +47,7 @@ function initial_condition(param,x,y)
 end
 
 γ = 1.4
-param = Param(N=3, K=(40,20), xL=(0.0,0.0), xR=(20.0,10.0),
+param = Param(N=3, K=(80,40), xL=(0.0,0.0), xR=(20.0,10.0),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=1.0, CFL=0.5, dt0=1e-3, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
@@ -70,4 +70,11 @@ data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
-construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"./outputs/isentropic-vortex","isentropic-vortex")
+construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"./outputs/figures/isentropic-vortex","isentropic-vortex")
+
+jld_path = "outputs/jld2/isentropic-vortex.jld2"
+df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)...,:data_history)])
+write_to_jld2(param,data_hist,err_data,df,jld_path)
+
+df = load(jld_path,"data")
+visualize_error_data(df)
