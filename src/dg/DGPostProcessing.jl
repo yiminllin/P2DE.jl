@@ -138,8 +138,21 @@ function visualize_error_data(df)
     pretty_table(df[:, [:N,:K,:timestepping_param,:limiting_param,:approximation_basis_type,:rhs_type,:entropyproj_limiter_type,:positivity_limiter_type,:L1err,:L2err,:Linferr,:num_steps]])
 end
 
+# TODO: hardcoded
+function get_postprocessing_cache(param,md,dim::Dim1)
+    @unpack K = param
+    @unpack N = param
+    @unpack xq = md
+    N1D = N+1
+    Nc = get_num_components(param.equation)
+
+    Up = zeros(SVector{Nc,Float64},N1D,K)
+
+    return PostprocessingCache(xp=xq,yp=xq,Up=Up)
+end
+
 # TODO: only works for rectangular 2D quad mesh
-function get_postprocessing_cache(param,md)
+function get_postprocessing_cache(param,md,dim::Dim2)
     @unpack K = param
     @unpack N = param
     @unpack xq,yq = md
