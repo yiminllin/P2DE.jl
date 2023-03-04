@@ -39,6 +39,7 @@ struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     wavespeed_f::Array{Float64,2}
     alphaarr   ::Array{Float64,2}
     Uf         ::Array{SVector{Nc,Float64},2}   # TODO: Redundant with limiters cache
+    uP         ::Array{SVector{Nc,Float64},2}
     λarr       ::Array{Float64,3}
     λBarr      ::Array{Float64,2}
     αarr       ::Array{Float64,2}
@@ -50,6 +51,7 @@ LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM
                             zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
                             zeros(Float64,Nfp,K),
                             zeros(Float64,Nfp,K),
+                            zeros(SVector{Nc,Float64},Nfp,K),
                             zeros(SVector{Nc,Float64},Nfp,K),
                             zeros(Float64,Nq,Nq,K),
                             zeros(Float64,Nfp,K),
@@ -280,9 +282,9 @@ end
 struct BCData{Nc}
     mapP::Array{Int64,2}
     mapI::Array{Int64,1}
-    mapO::Array{Int64,1}  # List of global indices with inflow and outflow 
-                          # boundary conditions
-    inflowarr::Array{SVector{Nc,Float64},1}
+    mapO::Array{Int64,1}  # List of global indices with inflow and outflow
+                          # (do nothing) boundary conditions
+    Ival::Array{SVector{Nc,Float64},1}
 end
 
 struct GeomData{NGEO}

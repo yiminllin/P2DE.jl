@@ -13,6 +13,9 @@ function rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data,bcdata,t,dt,nstag
     @timeit_debug timer "calculate wavespeed and inviscid flux" begin
     calculate_wavespeed_and_inviscid_flux!(cache,prealloc,param,discrete_data)
     end
+    @timeit_debug timer "enforce boundary condition" begin
+    get_uP_and_enforce_BC!(cache,prealloc,param,bcdata,discrete_data)
+    end
 
     # Assemble RHS
     @timeit_debug timer "clear cache" begin
@@ -95,6 +98,45 @@ function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_dat
     end
 end
 
+function get_uP_and_enforce_BC!(cache,prealloc,param,bcdata,discrete_data)
+    @unpack Uf,uP               = cache
+    @unpack Uq,u_tilde          = prealloc
+    @unpack equation            = param
+    @unpack mapP,mapI,mapO,Ival = bcdata
+    @unpack fq2q                = discrete_data.ops
+
+    K   = get_num_elements(param)
+    Nfp = size(mapP,1)
+    # Initialize uP
+    @batch for k = 1:K
+        for i = 1:Nfp
+            iP = mod1(mapP[i,k],Nfp)
+            kP = div(mapP[i,k]-1,Nfp)+1
+            uP[i,k] = Uf[iP,kP]
+        end
+    end
+
+    # TODO: we still apply LF dissipation on Dirichlet boundary condition now
+    # Enforce inflow BC
+    @batch for i = 1:size(mapI,1)
+        ii = mapI[i]
+        iP = mod1(mapP[ii],Nfp)
+        kP = div(mapP[ii]-1,Nfp)+1
+        uP[ii] = Ival[i]
+    end
+ 
+    Nq = size(Uq,1)
+    Nh = size(u_tilde,1)
+    uf = @view u_tilde[Nq+1:Nh,:]
+    @batch for i = 1:size(mapO,1)
+        io = mapO[i]
+        iP = mod1(mapP[io],Nfp)
+        kP = div(mapP[io]-1,Nfp)+1
+        iq = fq2q[iP]
+        uP[io] = Uq[iq,kP]
+    end
+end
+
 function clear_low_order_rhs!(cache,prealloc,param)
     @unpack rhsxyL          = prealloc
     @unpack Q0F1,λarr,λBarr = cache
@@ -155,8 +197,8 @@ end
 function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bcdata)
     @unpack equation = param
     @unpack rhsxyL,BF_L               = prealloc
-    @unpack Uf,flux,wavespeed_f,λBarr = cache
-    @unpack mapP,mapI,mapO,inflowarr  = bcdata
+    @unpack Uf,uP,flux,wavespeed_f,λBarr = cache
+    @unpack mapP                      = bcdata
     @unpack fq2q                      = discrete_data.ops
 
     K  = get_num_elements(param)
@@ -171,19 +213,15 @@ function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bc
             idx = i+Nfp*(k-1)
             iP = mod1(mapP[i,k],Nfp)
             kP = div(mapP[i,k]-1,Nfp)+1
-            Iidx = findfirst(x->(x==idx), mapI)
-            Oidx = findfirst(x->(x==idx), mapO)
-            flux_xy_P = !isnothing(Iidx) ? euler_fluxes(equation,inflowarr[Iidx]) : flux[iP+Nq,kP]
-            uP = !isnothing(Iidx) ? inflowarr[Iidx] : Uf[iP,kP]
 
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             λBarr[i,k] = .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
-            λB = (!isnothing(Iidx) || !isnothing(Oidx)) ? 0.0 : λBarr[i,k]
 
+            flux_xy_P = euler_fluxes(equation,uP[i,k])
             fxy = .5 .*(flux[i+Nq,k].+flux_xy_P)
             BF_L[i,k] = Bxy_i.*fxy
             
-            lf = λB*(uP-Uf[i,k])
+            lf = λBarr[i,k]*(uP[i,k]-Uf[i,k])
             apply_LF_dissipation_to_BF(BF_L,param,i,k,lf,get_dim_type(param.equation))
 
             iq = fq2q[i]

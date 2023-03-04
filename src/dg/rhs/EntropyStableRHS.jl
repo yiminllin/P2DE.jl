@@ -106,11 +106,12 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
 end
 
 function enforce_BC!(cache,prealloc,param,bcdata)
-    @unpack Uq                            = prealloc
+    @unpack Uq,u_tilde                    = prealloc
     @unpack equation                      = param
-    @unpack mapP,mapI,mapO,inflowarr      = bcdata
+    @unpack mapP,mapI,mapO,Ival           = bcdata
     @unpack LFc,uP,betaP,rhologP,betalogP = cache
 
+    Nfp = size(mapP,1)
     # zero dissipation on the boundary
     @batch for i in mapI
         LFc[i] = 0.0
@@ -119,10 +120,13 @@ function enforce_BC!(cache,prealloc,param,bcdata)
         LFc[i] = 0.0
     end 
 
-    # Enforce Inflow BC
+    # Enforce inflow BC
+    Nq = size(Uq,1)
+    Nh = size(u_tilde,1)
+    uf       = @view u_tilde[Nq+1:Nh,:]
     @batch for i = 1:size(mapI,1)
         ii = mapI[i]
-        uP[ii]       = inflowarr[i]
+        uP[ii]       = Ival[i]
         betaP[ii]    = betafun(equation,uP[ii])
         rhologP[ii]  = log(uP[ii][1])
         betalogP[ii] = log(betaP[ii])
@@ -131,8 +135,9 @@ function enforce_BC!(cache,prealloc,param,bcdata)
     # Enforce outflow BC
     @batch for i = 1:size(mapO,1)
         io = mapO[i]
-        # TODO: hardcoded
-        uP[io]       = Uq[end,end]
+        iP = mod1(mapP[ii],Nfp)
+        kP = div(mapP[ii]-1,Nfp)+1
+        uP[io]       = uf[iP,kP]
         betaP[io]    = betafun(equation,uP[io])
         rhologP[io]  = log(uP[io][1])
         betalogP[io] = log(betaP[io])
