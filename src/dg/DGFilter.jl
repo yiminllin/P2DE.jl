@@ -64,7 +64,7 @@ function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::Nodewise
     prealloc.θ_arr[k,nstage] = sum(view(prealloc.θ_local_arr,:,k,nstage))/discrete_data.sizes.Nfp
 end
 
-function solve_theta!(prealloc,cache,k,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data,tid)
+function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data,tid)
     return 1.0
 end
 
