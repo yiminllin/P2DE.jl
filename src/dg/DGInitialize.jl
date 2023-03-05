@@ -48,6 +48,11 @@ function initialize_cache(param,md,sizes)
 end
 
 function initialize_DG(param,initial_condition,initial_boundary_conditions)
+    # TODO: refactor
+    # To run plot on server
+    # https://stackoverflow.com/questions/64371677/plot-window-showing-up-when-run-from-terminal-in-plots-jl/64374367#64374367
+    ENV["GKSwstype"] = "nul"
+
     rd,md,discrete_data = initialize_data(param)
 
     @unpack sizes = discrete_data

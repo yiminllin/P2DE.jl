@@ -8,9 +8,16 @@ using StartUpDG
 using P2DE
 
 function exact_sol(eqn,x,y,t)
-    # return 1e-6 + 1.0 + sin(2*pi*(x-t)), 1.0, 1.0
-    # return 2.0 + sin(2*pi*(x-t)), 1.0, 0.0, 1.0
-    return 2.0 + sin(2*pi*(y-t)), 0.0, 1.0, 1.0
+    γ = get_γ(eqn)
+    K1D = 80                # TODO: hardcoded
+    r_ini = 4*3/K1D
+    r = sqrt(x^2+y^2)
+    if (r < r_ini)
+        p = (γ-1)*1/pi/r_ini/r_ini
+    else
+        p = 1e-5
+    end
+    return 1.0, 0.0, 0.0, p
 end
 
 function initial_boundary_conditions(param,md)
@@ -36,19 +43,18 @@ function initial_condition(param,x,y)
     return primitive_to_conservative(param.equation,SVector(exact_sol(param.equation,x,y,t0)))
 end
 
-jld_path = "outputs/jld2/2D/sine-wave/sine-wave.jld2"
-
 γ = 1.4
-param = Param(N=3, K=(20,20), xL=(0.0,0.0), xR=(1.0,1.0),
+param = Param(N=3, K=(80,80), xL=(-1.5,-1.5), xR=(1.5,1.5),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
-              timestepping_param=TimesteppingParameter(T=0.1, CFL=0.5, dt0=1e-4, t0=0.0),
-              limiting_param=LimitingParameter(ζ=0.1, η=1.0),
-              postprocessing_param=PostprocessingParameter(output_interval=1000),
+              timestepping_param=TimesteppingParameter(T=1.0, CFL=0.5, dt0=1e-3, t0=0.0),
+              limiting_param=LimitingParameter(ζ=0.1, η=0.1),
+              postprocessing_param=PostprocessingParameter(output_interval=100),
               equation=CompressibleEulerIdealGas{Dim2}(γ),
-              rhs_type=EntropyStable(surface_flux_type=LaxFriedrichsOnProjectedVal()),
+              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
+                                            high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
-              entropyproj_limiter_type=NoEntropyProjectionLimiter(),
-              positivity_limiter_type=NoPositivityLimiter())
+              entropyproj_limiter_type=NodewiseScaledExtrapolation(),
+              positivity_limiter_type=ZhangShuLimiter())
 
 T = param.timestepping_param.T
 N = param.N
@@ -61,11 +67,4 @@ data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
-using Plots
-gr(aspect_ratio=1, legend=false,
-   markerstrokewidth=0, markersize=2,xlim=[0,1],ylim=[0,1])
-x = md.xq[:]
-y = md.yq[:]
-rho = [x[1] for x in prealloc.Uq][:]
-scatter(x,y,rho,zcolor=rho,camera=(0,90))
-savefig("~/Desktop/test.png")
+construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"/data/yl184/outputs/figures/sedov","sedov")
