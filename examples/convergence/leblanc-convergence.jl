@@ -63,7 +63,7 @@ function initial_condition(param,x)
 end
 
 # TODO: refactor convergence
-jld_path = "outputs/jld2/leblanc.jld2"
+jld_path = "/data/yl184/outputs/jld2/leblanc.jld2"
 
 for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter(),LobattoCollocation());
                      (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter() ,LobattoCollocation());
@@ -100,9 +100,9 @@ data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
-plot_path     = "outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
-plotzoom_path = "outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
-gif_path      = "outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.gif"
+plot_path     = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
+plotzoom_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
+gif_path      = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.gif"
 
 plot_component(param,discrete_data,md,prealloc,
                [u[1] for u in prealloc.Uq],1,K,0,1.2,

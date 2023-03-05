@@ -47,14 +47,14 @@ end
 param = Param(N=3, K=(80,80), xL=(-1.5,-1.5), xR=(1.5,1.5),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=1.0, CFL=0.5, dt0=1e-3, t0=0.0),
-              limiting_param=LimitingParameter(ζ=0.1, η=1.0),
+              limiting_param=LimitingParameter(ζ=0.1, η=0.1),
               postprocessing_param=PostprocessingParameter(output_interval=100),
               equation=CompressibleEulerIdealGas{Dim2}(γ),
-              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
+              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-              positivity_limiter_type=SubcellLimiter())
+              positivity_limiter_type=ZhangShuLimiter())
 
 T = param.timestepping_param.T
 N = param.N
@@ -67,4 +67,4 @@ data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
-construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"./outputs/figures/sedov","sedov")
+construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"/data/yl184/outputs/figures/sedov","sedov")

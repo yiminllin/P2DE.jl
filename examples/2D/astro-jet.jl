@@ -93,4 +93,4 @@ data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
-construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"./outputs/figures/astro-jet","astro-jet")
+construct_vtk_file!(caches.postprocessing_cache,param,data_hist,"/data/yl184/outputs/figures/astro-jet","astro-jet")
