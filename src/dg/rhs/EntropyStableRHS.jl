@@ -93,7 +93,7 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
         for i = 1:Nfp
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             n_i = Bxy_i./n_i_norm 
-            lam[i,k] = wavespeed_davis_estimate(equation,uf[i,k],n_i)
+            lam[i,k] = wavespeed_estimate(equation,uf[i,k],n_i)
             LFc[i,k] = .5*n_i_norm
         end
     end
@@ -192,7 +192,7 @@ function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
     # TODO: assume Sxyh_db_ij = -Sxyh_db_ji
     #              Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
-    fxy = fS_prim_log(equation,Ui,Uj)
+    fxy = fS(equation,Ui,Uj)
     Sfxy_ij = Sxyh_db_ij .* fxy
     Sfxy_ji = -Sfxy_ij
     QF1[i,k] += Sfxy_ij
@@ -240,8 +240,8 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     betaf    = @view beta[Nq+1:Nh,:]
     rhologf  = @view rholog[Nq+1:Nh,:]
     betalogf = @view betalog[Nq+1:Nh,:]
-    return fS_prim_log(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
-                                (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
+    return fS(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
+                       (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
 end
 
 function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
@@ -252,8 +252,8 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     Nq = size(prealloc.Uq,1)
     Nh = size(u_tilde,1)
     uf = @view u_tilde[Nq+1:Nh,:]
-    fxyf = euler_fluxes(equation,uf[i,k])
-    fxyP = euler_fluxes(equation,uP[i,k])
+    fxyf = fluxes(equation,uf[i,k])
+    fxyP = fluxes(equation,uP[i,k])
 
     return .5 .* (fxyf.+fxyP)
 end

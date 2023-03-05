@@ -85,7 +85,7 @@ function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_dat
     # Volume inviscid flux
     for i = 1:Nq
         u_i = Uq[i,k]
-        flux[i,k] = euler_fluxes(equation,u_i)
+        flux[i,k] = fluxes(equation,u_i)
     end
 
     # Surface wavespeed and inviscid flux
@@ -93,8 +93,8 @@ function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_dat
         u_i = Uf[i,k]
         Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
         n_i = Bxy_i./n_i_norm
-        wavespeed_f[i,k] = wavespeed_davis_estimate(equation,u_i,n_i)
-        flux[i+Nq,k] = euler_fluxes(equation,u_i)
+        wavespeed_f[i,k] = wavespeed_estimate(equation,u_i,n_i)
+        flux[i+Nq,k] = fluxes(equation,u_i)
     end
 end
 
@@ -176,7 +176,7 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
             Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
             n_ij = Sxy0J_ij./n_ij_norm
             n_ji = -n_ij
-            wavespeed_ij = max(wavespeed_davis_estimate(equation,u_i,n_ij),wavespeed_davis_estimate(equation,u_j,n_ji))
+            wavespeed_ij = max(wavespeed_estimate(equation,u_i,n_ij),wavespeed_estimate(equation,u_j,n_ji))
             λarr[i,j,k] = n_ij_norm*wavespeed_ij
             λarr[j,i,k] = λarr[i,j,k]
             ΛD_ij = get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim)
@@ -217,7 +217,7 @@ function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bc
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             λBarr[i,k] = .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
 
-            flux_xy_P = euler_fluxes(equation,uP[i,k])
+            flux_xy_P = fluxes(equation,uP[i,k])
             fxy = .5 .*(flux[i+Nq,k].+flux_xy_P)
             BF_L[i,k] = Bxy_i.*fxy
             

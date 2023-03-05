@@ -44,20 +44,21 @@ end
     return U[1]/(2*p)
 end
 
-@inline function wavespeed_davis_estimate(equation::CompressibleIdealGas{Dim1},U)
+# TODO: dispatch on wavespeed estimate type
+@inline function wavespeed_estimate(equation::CompressibleIdealGas{Dim1},U)
     γ = get_γ(equation)
     p = pfun(equation,U)
     return abs(U[2]/U[1]) + sqrt(γ*p/U[1])
 end
 
-@inline function wavespeed_davis_estimate(equation::CompressibleIdealGas{Dim1},U,n)
-    return wavespeed_davis_estimate(equation,U)
+@inline function wavespeed_estimate(equation::CompressibleIdealGas{Dim1},U,n)
+    return wavespeed_estimate(equation,U)
 end
 
 # n - normalized normal
-@inline function wavespeed_davis_estimate(equation::CompressibleIdealGas{Dim2},U,n)
+@inline function wavespeed_estimate(equation::CompressibleIdealGas{Dim2},U,n)
     Un = SVector(U[1],n[1]*U[2]+n[2]*U[3],U[4])
-    return wavespeed_davis_estimate(get_equation_1D(equation),Un)
+    return wavespeed_estimate(get_equation_1D(equation),Un)
 end
 
 @inline function sfun(equation::CompressibleIdealGas{Dim},U) where {Dim}
@@ -144,7 +145,7 @@ end
     return SVector{4,Float64}(rho,rhou,rhov,E)
 end
 
-@inline function euler_fluxes(equation::CompressibleIdealGas{Dim1},U)
+@inline function fluxes(equation::CompressibleIdealGas{Dim1},U)
     rho,rhou,E = U
     p  = pfun(equation,U)
     u  = rhou/rho
@@ -154,7 +155,7 @@ end
     return (SVector(f1,f2,f3),)
 end
 
-@inline function euler_fluxes(equation::CompressibleIdealGas{Dim2},U)
+@inline function fluxes(equation::CompressibleIdealGas{Dim2},U)
     rho,rhou,rhov,E = U
     p  = pfun(equation,U)
     u  = rhou/rho
@@ -175,7 +176,7 @@ end
     return SVector(fx1,fx2,fx3,fx4), SVector(fy1,fy2,fy3,fy4)
 end
 
-@inline function fS_prim_log(equation::CompressibleIdealGas{Dim1},UL,UR)
+@inline function fS(equation::CompressibleIdealGas{Dim1},UL,UR)
     γ = get_γ(equation)
 
     rhoL,uL,betaL,rhologL,betalogL = UL
@@ -199,7 +200,7 @@ end
     return (SVector(FxS1,FxS2,FxS3),)
 end
 
-@inline function fS_prim_log(equation::CompressibleIdealGas{Dim2},UL,UR)
+@inline function fS(equation::CompressibleIdealGas{Dim2},UL,UR)
     γ = get_γ(equation)
 
     rhoL,uL,vL,betaL,rhologL,betalogL = UL
@@ -230,7 +231,7 @@ end
     return SVector(FxS1,FxS2,FxS3,FxS4), SVector(FyS1,FyS2,FyS3,FyS4)
 end
 
-@inline function fS_prim_log_x(equation::CompressibleIdealGas{Dim2},UL,UR)
+@inline function fS_x(equation::CompressibleIdealGas{Dim2},UL,UR)
     γ = get_γ(equation)
 
     rhoL,uL,vL,betaL,rhologL,betalogL = UL
@@ -256,7 +257,7 @@ end
     return SVector(FxS1,FxS2,FxS3,FxS4), SVector(0.0,0.0,0.0,0.0)
 end
 
-@inline function fS_prim_log_y(equation::CompressibleIdealGas{Dim2},UL,UR)
+@inline function fS_y(equation::CompressibleIdealGas{Dim2},UL,UR)
     γ = get_γ(equation)
 
     rhoL,uL,vL,betaL,rhologL,betalogL = UL
