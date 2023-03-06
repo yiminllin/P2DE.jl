@@ -7,7 +7,7 @@ function SSP33!(param,discrete_data,bcdata,prealloc,caches)
     # TODO: very ugly hack... otherwise allocation in each iteration due to @batch?
     @batch for k = 1:size(Uq,2)
         tid = Threads.threadid()
-        solve_theta!(prealloc,caches.entropyproj_limiter_cache,k,1,param.entropyproj_limiter_type,param,discrete_data,tid)
+        solve_theta!(prealloc,caches.entropyproj_limiter_cache,k,1,param.entropyproj_limiter_type,param.equation,param,discrete_data,tid)
     end
 
     Nc = get_num_components(param.equation)

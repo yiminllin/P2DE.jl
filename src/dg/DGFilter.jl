@@ -4,13 +4,14 @@ end
 
 # TODO: put into entropy projection to avoid an extra projection step
 function compute_entropyproj_limiting_param!(param,discrete_data,prealloc,cache,approx_basis_type::GaussCollocation,nstage)
+    @unpack equation = param
     K  = get_num_elements(param)
     clear_entropyproj_limiting_parameter_cache!(prealloc,param.entropyproj_limiter_type,nstage)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
-    calc_face_values!(prealloc,cache,param,discrete_data)
+    calc_face_values!(prealloc,cache,param,equation,discrete_data)
     @batch for k = 1:K
         tid = Threads.threadid()
-        solve_theta!(prealloc,cache,k,nstage,param.entropyproj_limiter_type,param,discrete_data,tid)
+        solve_theta!(prealloc,cache,k,nstage,param.entropyproj_limiter_type,equation,param,discrete_data,tid)
     end
 end
 
@@ -28,7 +29,7 @@ function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limite
     # Do nothing
 end
 
-function calc_face_values!(prealloc,cache,param,discrete_data)
+function calc_face_values!(prealloc,cache,param,equation::CompressibleEulerIdealGas,discrete_data)
     @unpack equation     = param
     @unpack Uq,vq        = prealloc
     @unpack Uf,VUf,rhoef = cache
@@ -47,12 +48,17 @@ function calc_face_values!(prealloc,cache,param,discrete_data)
     end
 end
 
-function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation,param,discrete_data,tid)
+# TODO: do nothing for KPP now
+function calc_face_values!(prealloc,cache,param,equation::KPP,discrete_data)
+    return nothing
+end
+
+function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation,equation::CompressibleIdealGas,param,discrete_data,tid)
     f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data,tid)
     prealloc.θ_arr[k,nstage] = bisection(f,0.0,1.0)
 end
 
-function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation,param,discrete_data,tid)
+function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation,equation::CompressibleIdealGas,param,discrete_data,tid)
     @unpack vq_k = cache
 
     calculate_entropy_var!(view(vq_k,:,tid),view(prealloc.Uq,:,k),param,discrete_data)    # TODO: calculation of vq seems duplicate with entropy projection step
@@ -64,8 +70,13 @@ function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::Nodewise
     prealloc.θ_arr[k,nstage] = sum(view(prealloc.θ_local_arr,:,k,nstage))/discrete_data.sizes.Nfp
 end
 
-function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data,tid)
+function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NoEntropyProjectionLimiter,equation::CompressibleIdealGas,param,discrete_data,tid)
     return 1.0
+end
+
+# TODO: do nothing for KPP now
+function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type,equation::KPP,param,discrete_data,tid)
+    return nothing
 end
 
 function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data,tid)

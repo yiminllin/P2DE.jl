@@ -45,17 +45,25 @@ function calculate_error(U,param,discrete_data,md,prealloc,exact_sol)
     return err
 end
 
-function get_exact_solution(prealloc,i,k,T,md,equation::EquationType{Dim1},exact_sol)
+function get_exact_solution(prealloc,i,k,T,md,equation::CompressibleIdealGas{Dim1},exact_sol)
     @unpack xq = md
     xq_i = xq[i,k]
     return primitive_to_conservative(equation,exact_sol(equation,xq_i,T))
 end
 
-function get_exact_solution(prealloc,i,k,T,md,equation::EquationType{Dim2},exact_sol)
+function get_exact_solution(prealloc,i,k,T,md,equation::CompressibleIdealGas{Dim2},exact_sol)
     @unpack xq,yq = md
     xq_i = xq[i,k]
     yq_i = yq[i,k]
     return primitive_to_conservative(equation,exact_sol(equation,xq_i,yq_i,T))
+end
+
+# TODO: hardcoded
+function get_exact_solution(prealloc,i,k,T,md,equation::KPP{Dim2},exact_sol)
+    @unpack xq,yq = md
+    xq_i = xq[i,k]
+    yq_i = yq[i,k]
+    return exact_sol(equation,xq_i,yq_i,T)
 end
 
 function plot_component(param,discrete_data,md,prealloc,
@@ -199,14 +207,22 @@ function construct_vtk_file!(cache,param,data_hist,output_path,filename)
                 jrange = (jk-1)*N1D+1:jk*N1D
                 @views Up[irange,jrange] = reshape(U[:,k],N1D,N1D)
             end    
-            vtk["rho"]  = [u[1] for u in Up]
-            vtk["rhou"] = [u[2] for u in Up]
-            vtk["rhov"] = [u[3] for u in Up]
-            vtk["E"]    = [u[4] for u in Up]
+            set_vtk_field!(vtk,Up,param.equation)
 
             pvd[t] = vtk
         end
     end
 
     vtk_save(pvd)
+end
+
+function set_vtk_field!(vtk,Up,equation::CompressibleIdealGas)
+    vtk["rho"]  = [u[1] for u in Up]
+    vtk["rhou"] = [u[2] for u in Up]
+    vtk["rhov"] = [u[3] for u in Up]
+    vtk["E"]    = [u[4] for u in Up]
+end
+
+function set_vtk_field!(vtk,Up,equation::KPP)
+    vtk["u"]  = [u[1] for u in Up]
 end

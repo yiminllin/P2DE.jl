@@ -279,6 +279,7 @@ function accumulate_alpha!(cache,prealloc,k,param,discrete_data,surface_flux_typ
     @unpack αarr       = cache
     @unpack Uq,u_tilde = prealloc
     @unpack fq2q       = discrete_data.ops
+    @unpack equation   = param
 
     Nq  = size(Uq,1)
     Nfp = size(αarr,1)
@@ -287,7 +288,7 @@ function accumulate_alpha!(cache,prealloc,k,param,discrete_data,surface_flux_typ
     for i = 1:Nfp
         # TODO: preallocate into Fmask, refactor
         iq = fq2q[i]
-        αarr[i,k] = find_alpha(param,Uq[iq,k],utilde_f[i,k])
+        αarr[i,k] = find_alpha(equation,param,Uq[iq,k],utilde_f[i,k])
     end
 end
 
@@ -331,7 +332,7 @@ end
 
 # TODO: refactor with bisection
 # Find alpha s.t. alpha*ui - uitilde >= 0
-function find_alpha(param,ui,uitilde)
+function find_alpha(equation::CompressibleIdealGas,param,ui,uitilde)
     @unpack equation = param
     POSTOL = param.global_constants.POSTOL
     alphaL = 0.0
@@ -360,4 +361,9 @@ function find_alpha(param,ui,uitilde)
     end
 
     return alphaR
+end
+
+# TODO: hardcoded
+function find_alpha(equation::KPP,param,ui,uitilde)
+    return 1.0
 end

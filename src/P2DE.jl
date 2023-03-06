@@ -37,6 +37,7 @@ using WriteVTK
 include("./types.jl")
 include("./math/nonlinear_solvers.jl")
 include("./math/CompressibleNavierStokes.jl")
+include("./math/KPP.jl")
 include("./dg/DGInitialize.jl")
 include("./dg/DGPostProcessing.jl")
 include("./dg/DGFilter.jl")
@@ -58,7 +59,7 @@ export NoEntropyProjectionLimiter,
 export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter
 export GaussCollocation,LobattoCollocation
 export Dim1,Dim2,Dim3
-export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas
+export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas,KPP
 
 ##################
 # Export methods #
