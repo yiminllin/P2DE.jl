@@ -16,3 +16,20 @@ end
     fy1 = cos(u)
     return (SVector(fx1),SVector(fy1))
 end
+
+@inline function fS(equation::KPP{Dim2},UL,UR)
+    uL = UL[1]
+    uR = UR[1]
+
+    psixL = -cos(uL)
+    psixR = -cos(uR)
+    psiyL = sin(uL)
+    psiyR = sin(uR)
+
+    # TODO: hardcoded
+    if abs(uR-uL) < 1e-2
+        return (SVector(.5*(sin(uL)+sin(uR))),SVector(.5*(cos(uL)+cos(uR))))
+    else
+        return (SVector((psixR-psixL)/(uR-uL)),SVector((psiyR-psiyL)/(uR-uL)))
+    end
+end
