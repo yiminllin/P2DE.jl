@@ -2,7 +2,7 @@
 ### RHS of modal ESDG ###
 #########################
 function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,need_proj=true)
-    @unpack entropyproj_limiter_type = param
+    @unpack entropyproj_limiter_type,equation = param
 
     cache = get_high_order_cache(rhs_cache)
     @timeit_debug timer "entropy projection" begin
@@ -12,7 +12,7 @@ function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,tim
     end
 
     @timeit_debug timer "calculate primitive variables" begin
-    calculate_primitive_variables!(cache,prealloc,param,bcdata)
+    calculate_primitive_variables!(cache,prealloc,param,equation,bcdata)
     end
     @timeit_debug timer "calculate interface dissipation coefficients" begin
     calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data)
@@ -26,7 +26,7 @@ function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,tim
     clear_flux_differencing_cache!(cache)
     end
     @timeit_debug timer "flux differencing volume kernel" begin
-    flux_differencing_volume!(cache,prealloc,param,discrete_data)
+    flux_differencing_volume!(cache,prealloc,param,equation,discrete_data)
     end
     @timeit_debug timer "flux differencing surface kernel" begin
     flux_differencing_surface!(cache,prealloc,param,discrete_data)
@@ -38,7 +38,7 @@ function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,tim
     end
 end
 
-function calculate_primitive_variables!(cache,prealloc,param,bcdata)
+function calculate_primitive_variables!(cache,prealloc,param,equation::CompressibleIdealGas,bcdata)
     @unpack equation   = param
     @unpack mapP       = bcdata
     @unpack u_tilde    = prealloc
@@ -74,6 +74,28 @@ function calculate_primitive_variables!(cache,prealloc,param,bcdata)
     end
 end
 
+function calculate_primitive_variables!(cache,prealloc,param,equation::KPP{Dim2},bcdata)
+    @unpack equation = param
+    @unpack mapP     = bcdata
+    @unpack u_tilde  = prealloc
+    @unpack uP       = cache
+    K = get_num_elements(param)
+    Nfp = size(mapP,1)
+
+    # Boundary contributions
+    # TODO: refactor
+    Nq = size(prealloc.Uq,1)
+    Nh = size(u_tilde,1)
+    uf       = @view u_tilde[Nq+1:Nh,:]
+    @batch for k = 1:K
+        for i = 1:Nfp
+            iP = mod1(mapP[i,k],Nfp)
+            kP = div(mapP[i,k]-1,Nfp)+1
+            uP[i,k] = uf[iP,kP]
+        end
+    end
+end
+
 function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,discrete_data)
     @unpack lam,LFc  = cache
     @unpack u_tilde  = prealloc
@@ -93,7 +115,7 @@ function calculate_interface_dissipation_coeff!(cache,prealloc,param,bcdata,disc
         for i = 1:Nfp
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             n_i = Bxy_i./n_i_norm 
-            lam[i,k] = wavespeed_davis_estimate(equation,uf[i,k],n_i)
+            lam[i,k] = wavespeed_estimate(equation,uf[i,k],n_i)
             LFc[i,k] = .5*n_i_norm
         end
     end
@@ -151,7 +173,7 @@ function clear_flux_differencing_cache!(cache)
     @. QF1 = zero(QF1)
 end
 
-function flux_differencing_volume!(cache,prealloc,param,discrete_data)
+function flux_differencing_volume!(cache,prealloc,param,equation::CompressibleIdealGas,discrete_data)
     @unpack equation = param
     @unpack QF1      = cache
     @unpack Srsh_nnz = discrete_data.ops
@@ -166,6 +188,27 @@ function flux_differencing_volume!(cache,prealloc,param,discrete_data)
         for (i,j) in Srsh_nnz
             Ui = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
             Uj = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
+            accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
+        end
+    end
+end
+
+function flux_differencing_volume!(cache,prealloc,param,equation::KPP{Dim2},discrete_data)
+    @unpack equation = param
+    @unpack QF1      = cache
+    @unpack Srsh_nnz = discrete_data.ops
+    @unpack u_tilde  = prealloc
+
+    dim = get_dim_type(equation)
+    K  = get_num_elements(param)
+    Nq = discrete_data.sizes.Nq
+    Nh = size(QF1,1)
+    Ui = zero(SVector{1,Float64})
+    Uj = zero(SVector{1,Float64})
+    @batch for k = 1:K
+        for (i,j) in Srsh_nnz
+            Ui = u_tilde[i,k]
+            Uj = u_tilde[j,k]
             accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
         end
     end
@@ -192,7 +235,7 @@ function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
     # TODO: assume Sxyh_db_ij = -Sxyh_db_ji
     #              Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
-    fxy = fS_prim_log(equation,Ui,Uj)
+    fxy = fS(equation,Ui,Uj)
     Sfxy_ij = Sxyh_db_ij .* fxy
     Sfxy_ji = -Sfxy_ij
     QF1[i,k] += Sfxy_ij
@@ -240,8 +283,8 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     betaf    = @view beta[Nq+1:Nh,:]
     rhologf  = @view rholog[Nq+1:Nh,:]
     betalogf = @view betalog[Nq+1:Nh,:]
-    return fS_prim_log(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
-                                (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
+    return fS(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
+                       (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
 end
 
 function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
@@ -252,8 +295,8 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     Nq = size(prealloc.Uq,1)
     Nh = size(u_tilde,1)
     uf = @view u_tilde[Nq+1:Nh,:]
-    fxyf = euler_fluxes(equation,uf[i,k])
-    fxyP = euler_fluxes(equation,uP[i,k])
+    fxyf = fluxes(equation,uf[i,k])
+    fxyP = fluxes(equation,uP[i,k])
 
     return .5 .* (fxyf.+fxyP)
 end

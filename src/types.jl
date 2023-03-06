@@ -208,12 +208,18 @@ function get_dim_type(equation::EquationType{Dim2})
     return Dim2()
 end
 
-function get_num_components(equation::EquationType{Dim1})
+function get_num_components(equation::CompressibleFlow{Dim1})
     return 3
 end
 
-function get_num_components(equation::EquationType{Dim2})
+function get_num_components(equation::CompressibleFlow{Dim2})
     return 4
+end
+
+struct KPP{DIM} <: EquationType{DIM} end
+
+function get_num_components(equation::KPP{Dim2})
+    return 1
 end
 
 Base.@kwdef struct GlobalConstant
@@ -384,6 +390,7 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...))
 
+# TODO: hardcoded for Compressible Euler
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
 struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
