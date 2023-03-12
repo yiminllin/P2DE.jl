@@ -205,20 +205,21 @@ function symmetrize_limiting_parameters!(prealloc,param,bcdata,nstage,dim::Dim2)
     K  = get_num_elements(param)
     N1D = param.N+1
     N1Dp1 = N1D+1
-    Lx_local = reshape(view(L_local_arr,:,1,:,nstage),N1Dp1,N1D,K)
-    Ly_local = reshape(view(L_local_arr,:,2,:,nstage),N1D,N1Dp1,K)
+    Lx_local = view(L_local_arr,:,1,:,nstage)
+    Ly_local = view(L_local_arr,:,2,:,nstage)
 
-    # TODO: error when @batch
-    for k = 1:K
+    @batch for k = 1:K
         # Symmetrize limiting parameters
         # For each stride in x direction
         for sj = 1:N1D
             # For each subcell index on boundary
             for si = 1:N1D:N1Dp1
                 siP,sjP,kP = get_subcell_index_P_x(si,sj,k,N1Dp1,bcdata)
-                l = min(Lx_local[si,sj,k],Lx_local[siP,sjP,kP])
-                Lx_local[si,sj,k]    = l
-                Lx_local[siP,sjP,kP] = l
+                idx  = si+(sj-1)*N1Dp1
+                idxP = siP+(sjP-1)*N1Dp1 
+                l = min(Lx_local[idx,k],Lx_local[idxP,kP])
+                Lx_local[idx,k]   = l
+                Lx_local[idxP,kP] = l
             end
         end
 
@@ -227,9 +228,11 @@ function symmetrize_limiting_parameters!(prealloc,param,bcdata,nstage,dim::Dim2)
             # For each subcell index on boundary
             for sj = 1:N1D:N1Dp1
                 siP,sjP,kP = get_subcell_index_P_y(si,sj,k,N1Dp1,bcdata)
-                l = min(Ly_local[si,sj,k],Ly_local[siP,sjP,kP])
-                Ly_local[si,sj,k]    = l
-                Ly_local[siP,sjP,kP] = l
+                idx  = si+(sj-1)*N1D
+                idxP = siP+(sjP-1)*N1D 
+                l = min(Ly_local[idx,k],Ly_local[idxP,kP])
+                Ly_local[idx,k]   = l
+                Ly_local[idxP,kP] = l
             end
         end
     end
