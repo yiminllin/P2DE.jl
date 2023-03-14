@@ -1,3 +1,3 @@
 #!/bin/bash
-rm -rf outputs/figures/*/*.png
-rm -rf outputs/figures/*/*.gif
+rm -rf /data/yl184/outputs/figures/*/*.png
+rm -rf /data/yl184/outputs/figures/*/*.gif

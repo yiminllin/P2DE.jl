@@ -1,2 +1,2 @@
 #!/bin/bash
-rm -rf outputs/jld2/*/*.jld2
+rm -rf /data/yl184/outputs/jld2/*.jld2
