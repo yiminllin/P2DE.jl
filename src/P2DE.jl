@@ -54,8 +54,7 @@ export GlobalConstant,TimesteppingParameter,PostprocessingParameter,
        LimitingParameter
 export LowOrderPositivity,EntropyStable,ESLimitedLowOrderPos
 export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjectedVal
-export NoEntropyProjectionLimiter,
-       ElementwiseScaledExtrapolation,NodewiseScaledExtrapolation
+export NoEntropyProjectionLimiter,NodewiseScaledExtrapolation
 export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter
 export PositivityBound,PositivityAndMinEntropyBound
 export GaussCollocation,LobattoCollocation

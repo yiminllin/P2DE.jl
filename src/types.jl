@@ -144,7 +144,6 @@ end
 abstract type EntropyProjectionLimiterType end
 abstract type ScaledExtrapolation     <: EntropyProjectionLimiterType end
 struct NoEntropyProjectionLimiter     <: EntropyProjectionLimiterType end
-struct ElementwiseScaledExtrapolation <: ScaledExtrapolation end
 struct NodewiseScaledExtrapolation    <: ScaledExtrapolation end
 
 # TODO: rename, shouldn't called positivity limiter. RHS limiter instead?
@@ -542,10 +541,6 @@ end
 
 function Base.show(io::IO,entropyproj_limiter_type::NodewiseScaledExtrapolation)
     text = print(io,"NodeOpBlend")
-end
-
-function Base.show(io::IO,entropyproj_limiter_type::ElementwiseScaledExtrapolation)
-    text = print(io,"ElemOpBlend")
 end
 
 function Base.show(io::IO,bound_type::PositivityBound)

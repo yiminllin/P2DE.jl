@@ -336,14 +336,6 @@ function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limit
     @views mul!(MinvVfTBF1[:,k],MinvVfT_new,BF_H[:,k])
 end
 
-function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data,k,nstage,tid)
-    @unpack Vf_new    = cache
-    @unpack Vf,Vf_low = discrete_data.ops
-
-    l_k = prealloc.θ_arr[k,nstage]
-    @. @views Vf_new[:,:,tid] = l_k*Vf+(1.0-l_k)*Vf_low
-end
-
 function update_limited_extrapolation!(cache,prealloc,param,entropyproj_limiter_type::NodewiseScaledExtrapolation,discrete_data,k,nstage,tid)
     @unpack Vf_new    = cache
     @unpack Vf,Vf_low = discrete_data.ops
@@ -357,10 +349,6 @@ end
 # Return whether on element k, the extrapolation is limited
 function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::NoEntropyProjectionLimiter)
     return false
-end
-
-function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation)
-    return prealloc.θ_arr[k,nstage] < 1.0
 end
 
 function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation)
