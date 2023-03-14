@@ -1,7 +1,25 @@
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
-function get_limiting_param(param,UL,P,Lrho,Lrhoe,Urho,Urhoe)
+# TODO: refactor
+function get_limiting_param(positivity_limiter_type::ZhangShuLimiter,bound_type,param,UL,P,bound)
+    Lrho,Lrhoe,Urho,Urhoe = bound
     l = min(1.0, get_limiting_param_bound_rho_rhoe(param,UL,P,Lrho,Lrhoe,Urho,Urhoe))
+    return l
+end
+
+function get_limiting_param(positivity_limiter_type::SubcellLimiter,bound_type::PositivityBound,param,UL,P,bound)
+    Lrho,Lrhoe,Lphi,Urho,Urhoe = bound
+    l = get_limiting_param_bound_rho_rhoe(param,UL,P,Lrho,Lrhoe,Urho,Urhoe)
+    return l
+end
+
+# Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
+#             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
+#             phi(UL + lP)  ∈ [Lphi, inf),    phi = rhoe rho^{-\gamma}, modified specific entropy
+function get_limiting_param(positivity_limiter_type::SubcellLimiter,bound_type::PositivityAndMinEntropyBound,param,UL,P,bound)
+    Lrho,Lrhoe,Lphi,Urho,Urhoe = bound
+    lpos = get_limiting_param_bound_rho_rhoe(param,UL,P,Lrho,Lrhoe,Urho,Urhoe)
+    l = get_limiting_param_bound_phi(param,UL,P,Lphi,lpos)   # TODO: assume for l \in [0,lpos] gives positive quantities
     return l
 end
 
@@ -18,6 +36,16 @@ function get_limiting_param_bound_rho_rhoe(param,U,P,Lrho,Lrhoe,Urho,Urhoe)
 
     l = min(l,rhoe_quadratic_solve(param,U,P,Lrhoe),
               rhoe_quadratic_solve(param,U,P,Urhoe))
+    return l
+end
+
+function get_limiting_param_bound_phi(param,U,P,Lphi,lpos)
+    @unpack equation = param
+    @unpack POSTOL   = param.global_constants
+
+    # TODO: refactor
+    f(l) = s_modified_ufun(equation,U+l*P) >= Lphi - POSTOL
+    l = bisection(f,0,lpos)
     return l
 end
 
@@ -123,4 +151,48 @@ function get_subcell_index_P_y(si,sj,k,N1Dp1,bcdata)
     end
 
     return siP,sjP,kP
+end
+
+# TODO: refactor
+function quad_index_to_quad_index_P(idx,k,N1D,Nfp,q2fq,fq2q,mapP,dim::Dim1)
+    i = idx
+    iface = q2fq[i][1]
+    iP    = mod1(mapP[iface,k],Nfp)
+    iP    = fq2q[iP]
+    kP    = div(mapP[iface,k]-1,Nfp)+1
+    return iP,kP
+end
+
+# TODO: hardcoding... Assume q2fq come in with order: first vertical face nodes
+#                     then horizontal face nodes
+function quad_index_to_quad_index_P(idx,k,N1D,Nfp,q2fq,direction,fq2q,mapP,dim::Dim2)
+    i = idx
+    iface = length(q2fq[i]) == 1 ? q2fq[i][1] : q2fq[i][direction]
+    iP    = mod1(mapP[iface,k],Nfp)
+    iP    = fq2q[iP]
+    kP    = div(mapP[iface,k]-1,Nfp)+1
+    jP    = div(iP-1,N1D)+1
+    iP    = mod1(iP,N1D)
+    return iP,jP,kP
+end
+
+function get_low_order_stencil(idx,k,N1D,Nfp,discrete_data,bcdata,dim::Dim1)
+    @unpack q2fq,fq2q = discrete_data.ops
+    @unpack mapP      = bcdata
+    i = idx
+    sl = i-1 >= 1   ? (i-1,k) : quad_index_to_quad_index_P(i,k,N1D,Nfp,q2fq,fq2q,mapP,dim)
+    sr = i+1 <= N1D ? (i+1,k) : quad_index_to_quad_index_P(i,k,N1D,Nfp,q2fq,fq2q,mapP,dim)
+    return (sl,sr)
+end
+
+function get_low_order_stencil(idx,k,N1D,Nfp,discrete_data,bcdata,dim::Dim2)
+    @unpack q2fq,fq2q = discrete_data.ops
+    @unpack mapP      = bcdata
+    i,j = idx
+    idxq = i+(j-1)*N1D 
+    sl = i-1 >= 1   ? (i-1,j,k) : quad_index_to_quad_index_P(idxq,k,N1D,Nfp,q2fq,1,fq2q,mapP,dim)
+    sr = i+1 <= N1D ? (i+1,j,k) : quad_index_to_quad_index_P(idxq,k,N1D,Nfp,q2fq,1,fq2q,mapP,dim)
+    sb = j-1 >= 1   ? (i,j-1,k) : quad_index_to_quad_index_P(idxq,k,N1D,Nfp,q2fq,2,fq2q,mapP,dim)
+    st = j+1 <= N1D ? (i,j+1,k) : quad_index_to_quad_index_P(idxq,k,N1D,Nfp,q2fq,2,fq2q,mapP,dim)
+    return (sl,sr,sb,st)
 end

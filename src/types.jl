@@ -147,10 +147,27 @@ struct NoEntropyProjectionLimiter     <: EntropyProjectionLimiterType end
 struct ElementwiseScaledExtrapolation <: ScaledExtrapolation end
 struct NodewiseScaledExtrapolation    <: ScaledExtrapolation end
 
+# TODO: rename, shouldn't called positivity limiter. RHS limiter instead?
 abstract type PositivityLimiterType end
 struct NoPositivityLimiter <: PositivityLimiterType end
 struct ZhangShuLimiter     <: PositivityLimiterType end
-struct SubcellLimiter      <: PositivityLimiterType end
+
+# TODO: It should depend on Equation type... Hardcode for CompressibleIdealGas for now
+abstract type LimiterBoundType end
+struct PositivityBound              <: LimiterBoundType end
+struct PositivityAndMinEntropyBound <: LimiterBoundType end
+
+Base.@kwdef struct SubcellLimiter{BOUNDTYPE<:LimiterBoundType} <: PositivityLimiterType
+    bound_type::BOUNDTYPE
+end
+
+function get_bound_type(limiter::ZhangShuLimiter)
+    return PositivityBound()
+end
+
+function get_bound_type(limiter::SubcellLimiter)
+    return limiter.bound_type
+end
 
 abstract type ApproxBasisType end
 struct GaussCollocation   <: ApproxBasisType end
@@ -381,6 +398,9 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # TODO: unnecessary
+    s_modified       ::Array{Float64,2}
+    var_s_modified   ::Array{Float64,2}
+    lbound_s_modified::Array{Float64,2}
 end
 
 SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
@@ -388,7 +408,10 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
                                 zeros(SVector{Nc,Float64},Nq,Nthread),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
-                                tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...))
+                                tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
+                                zeros(Float64,Nq,K),
+                                zeros(Float64,Nq,K),
+                                zeros(Float64,Nq,K))
 
 # TODO: hardcoded for Compressible Euler
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
