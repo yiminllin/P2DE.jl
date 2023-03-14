@@ -513,15 +513,55 @@ function Base.show(io::IO,::MIME"text/plain",param::Param)
 end
 
 function Base.show(io::IO,rhs_type::ESLimitedLowOrderPos)
-    text = print(io,"ESLimitedLowOrderPos(FBL=",get_low_order_surface_flux(rhs_type),",FBH=",get_high_order_surface_flux(rhs_type))
+    text = print(io,"ESLimitedLowOrderPos(FBL=",get_low_order_surface_flux(rhs_type),",FBH=",get_high_order_surface_flux(rhs_type),")")
 end
 
 function Base.show(io::IO,rhs_type::LowOrderPositivity)
-    text = print(io,"LowOrderPositivity(FBL=",get_low_order_surface_flux(rhs_type))
+    text = print(io,"LowOrderPositivity(FBL=",get_low_order_surface_flux(rhs_type),")")
 end
 
 function Base.show(io::IO,rhs_type::EntropyStable)
-    text = print(io,"EntropyStable(FBL=",get_high_order_surface_flux(rhs_type))
+    text = print(io,"EntropyStable(FBL=",get_high_order_surface_flux(rhs_type),")")
+end
+
+function Base.show(io::IO,flux_type::LaxFriedrichsOnNodalVal)
+    text = print(io,"LFNodal")
+end
+
+function Base.show(io::IO,flux_type::LaxFriedrichsOnProjectedVal)
+    text = print(io,"LFProjected")
+end
+
+function Base.show(io::IO,flux_type::ChandrashekarOnProjectedVal)
+    text = print(io,"ECProjected")
+end
+
+function Base.show(io::IO,entropyproj_limiter_type::NoEntropyProjectionLimiter)
+    text = print(io,"None")
+end
+
+function Base.show(io::IO,entropyproj_limiter_type::NodewiseScaledExtrapolation)
+    text = print(io,"NodeOpBlend")
+end
+
+function Base.show(io::IO,entropyproj_limiter_type::ElementwiseScaledExtrapolation)
+    text = print(io,"ElemOpBlend")
+end
+
+function Base.show(io::IO,bound_type::PositivityBound)
+    text = print(io,"PosBound")
+end
+
+function Base.show(io::IO,bound_type::PositivityAndMinEntropyBound)
+    text = print(io,"PosMinEntropyBound")
+end
+
+function Base.show(io::IO,limiter_type::SubcellLimiter)
+    text = print(io,"Subcell(",get_bound_type(limiter_type),")")
+end
+
+function Base.show(io::IO,limiter_type::ZhangShuLimiter)
+    text = print(io,"ZhangShu(",get_bound_type(limiter_type),")")
 end
 
 ###################
