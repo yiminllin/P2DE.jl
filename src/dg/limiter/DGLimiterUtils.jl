@@ -156,7 +156,7 @@ end
 # TODO: refactor
 function quad_index_to_quad_index_P(idx,k,N1D,Nfp,q2fq,fq2q,mapP,dim::Dim1)
     i = idx
-    iface = q2fq[i]
+    iface = q2fq[i][1]
     iP    = mod1(mapP[iface,k],Nfp)
     iP    = fq2q[iP]
     kP    = div(mapP[iface,k]-1,Nfp)+1
@@ -179,8 +179,9 @@ end
 function get_low_order_stencil(idx,k,N1D,Nfp,discrete_data,bcdata,dim::Dim1)
     @unpack q2fq,fq2q = discrete_data.ops
     @unpack mapP      = bcdata
-    sl = i-1 >= 1  ? (i-1,k) : quad_index_to_quad_index_P(i,k,Nfp,q2fq,fq2q,mapP,dim)
-    sr = i+1 <= Nq ? (i+1,k) : quad_index_to_quad_index_P(i,k,Nfp,q2fq,fq2q,mapP,dim)
+    i = idx
+    sl = i-1 >= 1   ? (i-1,k) : quad_index_to_quad_index_P(i,k,N1D,Nfp,q2fq,fq2q,mapP,dim)
+    sr = i+1 <= N1D ? (i+1,k) : quad_index_to_quad_index_P(i,k,N1D,Nfp,q2fq,fq2q,mapP,dim)
     return (sl,sr)
 end
 
