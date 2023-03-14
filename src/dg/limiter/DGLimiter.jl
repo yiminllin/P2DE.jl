@@ -2,10 +2,10 @@ include("./DGLimiterUtils.jl")
 include("./ZhangShuLimiter.jl")
 include("./SubcellLimiter.jl")
 
-############################################
-### Appy positivity limiter to limit RHS ###
-############################################
-function apply_positivity_limiter!(prealloc,param,discrete_data,bcdata,cache,dt,nstage,positivity_limiter_type::ZhangShuLimiter,timer)
+########################
+### Appy RHS limiter ###
+########################
+function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,cache,dt,nstage,rhs_limiter_type::ZhangShuLimiter,timer)
     @unpack Uq,rhsL,rhsH,rhsU = prealloc
     @unpack uL_k,P_k          = cache
     
@@ -25,9 +25,9 @@ function apply_positivity_limiter!(prealloc,param,discrete_data,bcdata,cache,dt,
     end
 end
 
-function apply_positivity_limiter!(prealloc,param,discrete_data,bcdata,cache,dt,nstage,positivity_limiter_type::SubcellLimiter,timer)
+function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,cache,dt,nstage,rhs_limiter_type::SubcellLimiter,timer)
     dim = get_dim_type(param.equation)
-    bound_type = get_bound_type(param.positivity_limiter_type)
+    bound_type = get_bound_type(param.rhs_limiter_type)
     @timeit_debug timer "Precompute bounds" begin
     initialize_bounds!(cache,prealloc,bound_type,param,discrete_data,bcdata,dim)
     end

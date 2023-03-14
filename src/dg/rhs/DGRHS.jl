@@ -60,7 +60,7 @@ function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data,bcdata,prea
     rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,false)
     end
     @timeit_debug timer "apply positivity limiter" begin
-    apply_positivity_limiter!(prealloc,param,discrete_data,bcdata,limiter_cache,dt,nstage,param.positivity_limiter_type,timer)
+    apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,limiter_cache,dt,nstage,param.rhs_limiter_type,timer)
     end
     return dt
 end
@@ -117,23 +117,6 @@ function entropy_projection!(prealloc,param,entropyproj_limiter_type::NoEntropyP
         u_tilde_k = view(u_tilde,:,k)
         Uq_k      = view(Uq,:,k)
         l_k       = 1.0
-        # TODO: we can skip LGL instead of applying identity
-        entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data,prealloc)
-    end
-end
-
-# TODO: ugly dispatch
-function entropy_projection!(prealloc,param,entropyproj_limiter_type::ElementwiseScaledExtrapolation,discrete_data,nstage,timer)
-    @unpack Uq,vq,v_tilde,u_tilde = prealloc
-    @unpack Nh,Nq,Nfp             = discrete_data.sizes
-    K = get_num_elements(param)
-    
-    @batch for k = 1:K
-        vq_k      = view(vq,:,k)
-        v_tilde_k = view(v_tilde,:,k)
-        u_tilde_k = view(u_tilde,:,k)
-        Uq_k      = view(Uq,:,k)
-        l_k       = prealloc.θ_arr[k,nstage]
         # TODO: we can skip LGL instead of applying identity
         entropy_projection_element!(vq_k,v_tilde_k,u_tilde_k,Uq_k,l_k,param,discrete_data,prealloc)
     end

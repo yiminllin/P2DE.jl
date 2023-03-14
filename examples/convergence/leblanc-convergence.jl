@@ -74,7 +74,7 @@ for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()
 for N in [2;5]
 for K in [50;100;200;400]
 
-entropyproj_type,low_order_flux_type,pos_lim_type,discretization_type = limiter_type
+entropyproj_type,low_order_flux_type,rhs_lim_type,discretization_type = limiter_type
 γ = 5/3
 CFL = 0.5
 param = Param(N=N, K=K, xL=0.0, xR=1.0,
@@ -87,7 +87,7 @@ param = Param(N=N, K=K, xL=0.0, xR=1.0,
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=discretization_type,
               entropyproj_limiter_type=entropyproj_type,
-              positivity_limiter_type=pos_lim_type)
+              rhs_limiter_type=rhs_lim_type)
 
 T = param.timestepping_param.T
 N = param.N
@@ -100,9 +100,9 @@ data_hist = SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
 err_data = calculate_error(prealloc.Uq,param,discrete_data,md,prealloc,exact_sol)
 
-plot_path     = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
-plotzoom_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
-gif_path      = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.positivity_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.gif"
+plot_path     = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
+plotzoom_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
+gif_path      = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.gif"
 
 plot_component(param,discrete_data,md,prealloc,
                [u[1] for u in prealloc.Uq],1,K,0,1.2,

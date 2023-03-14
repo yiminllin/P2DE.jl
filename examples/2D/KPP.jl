@@ -49,7 +49,7 @@ param = Param(N=3, K=(80,80), xL=(-2.0,-2.0), xR=(2.0,2.0),
               rhs_type=LowOrderPositivity(surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=NoEntropyProjectionLimiter(),
-              positivity_limiter_type=ZhangShuLimiter())
+              rhs_limiter_type=ZhangShuLimiter())
 
 T = param.timestepping_param.T
 N = param.N

@@ -16,11 +16,6 @@ function compute_entropyproj_limiting_param!(param,discrete_data,prealloc,cache,
 end
 
 # TODO: unnecessary?
-function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::ElementwiseScaledExtrapolation,nstage)
-    view(prealloc.θ_arr,:,nstage) .= 1.0
-end
-
-# TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc,entropyproj_limiter_type::NodewiseScaledExtrapolation,nstage)
     view(prealloc.θ_local_arr,:,:,nstage) .= 1.0
 end
@@ -51,11 +46,6 @@ end
 # TODO: do nothing for KPP now
 function calc_face_values!(prealloc,cache,param,equation::KPP,discrete_data)
     return nothing
-end
-
-function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation,equation::CompressibleIdealGas,param,discrete_data,tid)
-    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data,tid)
-    prealloc.θ_arr[k,nstage] = bisection(f,0.0,1.0)
 end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation,equation::CompressibleIdealGas,param,discrete_data,tid)

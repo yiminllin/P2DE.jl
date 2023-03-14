@@ -33,14 +33,14 @@ function initialize_preallocations(param,md,sizes)
 end
 
 function initialize_cache(param,md,sizes)
-    @unpack rhs_type,positivity_limiter_type,entropyproj_limiter_type = param
+    @unpack rhs_type,rhs_limiter_type,entropyproj_limiter_type = param
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     dim = get_dim_type(param.equation)
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
     rhs_cache                 = get_rhs_cache(rhs_type,param,sizes)
-    limiter_cache             = get_limiter_cache(positivity_limiter_type,param,sizes)
+    limiter_cache             = get_limiter_cache(rhs_limiter_type,param,sizes)
     entropyproj_limiter_cache = get_entropyproj_limiter_cache(entropyproj_limiter_type,param,sizes)
     postprocessing_cache      = get_postprocessing_cache(param,md,dim)
 
