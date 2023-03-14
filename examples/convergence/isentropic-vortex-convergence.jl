@@ -48,12 +48,12 @@ end
 # TODO: refactor convergence
 jld_path = "/data/yl184/outputs/jld2/isentropic-vortex.jld2"
 
-for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter(),LobattoCollocation());
-                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter() ,LobattoCollocation());
-                     (ElementwiseScaledExtrapolation(),LaxFriedrichsOnNodalVal()    ,SubcellLimiter() ,GaussCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter() ,GaussCollocation());
-                     (ElementwiseScaledExtrapolation(),LaxFriedrichsOnProjectedVal(),ZhangShuLimiter(),GaussCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter(),GaussCollocation());]
+for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter()                             ,LobattoCollocation());
+                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityBound())             ,LobattoCollocation());
+                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityAndMinEntropyBound()),LobattoCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityBound())             ,GaussCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityAndMinEntropyBound()),GaussCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter()                             ,GaussCollocation());]
 for N in [1;2;3;4]
 for K in [(5,5),(10,10),(20,20),(40,40),(80,80)]
 

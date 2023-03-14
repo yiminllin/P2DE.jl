@@ -78,7 +78,7 @@ end
 end
 
 @inline function s_modified_ufun(equation::CompressibleIdealGas,U)
-    rho,rhou,rhov,E = U
+    rho = U[1]
     γ = get_γ(equation)
     rhoe = rhoe_ufun(equation,U)
     return rhoe*rho^(-γ)
