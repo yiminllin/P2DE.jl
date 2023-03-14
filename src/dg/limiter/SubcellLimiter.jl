@@ -150,8 +150,8 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
     @unpack Uq,L_local_arr,rhsL  = prealloc
     @unpack wq = discrete_data.ops
     @unpack Jq = discrete_data.geom
-    @unpack positivity_limiter_type = param
-    bound_type = get_bound_type(positivity_limiter_type)
+    @unpack rhs_limiter_type = param
+    bound_type = get_bound_type(rhs_limiter_type)
     
     K  = get_num_elements(param)
     Nq = size(Uq,1)
@@ -171,13 +171,13 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
             wJq_i = (wq[i]*Jq[i,k])
             Lphi_i = lbound_s_modified[i,k]
             bound = (Lrho(uL_k[i,tid]),Lrhoe(uL_k[i,tid]),Lphi_i,Urho,Urhoe)
-            L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(positivity_limiter_type,bound_type,param,uL_k[i,tid],-2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_i,bound))
+            L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k[i,tid],-2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_i,bound))
         end
         for i = 2:Nq+1
             wJq_im1 = (wq[i-1]*Jq[i-1,k])
             Lphi_i = lbound_s_modified[i-1,k]
             bound = (Lrho(uL_k[i-1,tid]),Lrhoe(uL_k[i-1,tid]),Lphi_i,Urho,Urhoe)
-            L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(positivity_limiter_type,bound_type,param,uL_k[i-1,tid],2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_im1,bound))
+            L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k[i-1,tid],2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_im1,bound))
         end
     end
 end
@@ -189,8 +189,8 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
     @unpack mapP = bcdata
     @unpack wq = discrete_data.ops
     @unpack Jq = discrete_data.geom
-    @unpack positivity_limiter_type = param
-    bound_type = get_bound_type(positivity_limiter_type)
+    @unpack rhs_limiter_type = param
+    bound_type = get_bound_type(rhs_limiter_type)
 
     K  = get_num_elements(param)
     Nq = size(Uq,1)
@@ -238,7 +238,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
                 bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
-                Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(positivity_limiter_type,bound_type,param,uL_k_i,-4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,bound))
+                Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,-4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,bound))
             end
             # For each right subcell face
             for si = 2:N1Dp1
@@ -249,7 +249,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
                 bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
-                Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(positivity_limiter_type,bound_type,param,uL_k_i,4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,bound))
+                Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,bound))
             end
         end
 
@@ -264,7 +264,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
                 bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
-                Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(positivity_limiter_type,bound_type,param,uL_k_i,-4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,bound))
+                Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,-4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,bound))
             end
             # For each top subcell face
             for sj = 2:N1Dp1
@@ -275,7 +275,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
                 bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
-                Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(positivity_limiter_type,bound_type,param,uL_k_i,4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,bound))
+                Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,bound))
             end
         end
     end

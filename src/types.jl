@@ -1,4 +1,3 @@
-# TODO: better display of types
 abstract type RHSType end
 Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE}   <: RHSType
     surface_flux_type::SURFACEFLUXTYPE
@@ -146,17 +145,16 @@ abstract type ScaledExtrapolation     <: EntropyProjectionLimiterType end
 struct NoEntropyProjectionLimiter     <: EntropyProjectionLimiterType end
 struct NodewiseScaledExtrapolation    <: ScaledExtrapolation end
 
-# TODO: rename, shouldn't called positivity limiter. RHS limiter instead?
-abstract type PositivityLimiterType end
-struct NoPositivityLimiter <: PositivityLimiterType end
-struct ZhangShuLimiter     <: PositivityLimiterType end
+abstract type RHSLimiterType end
+struct NoRHSLimiter    <: RHSLimiterType end
+struct ZhangShuLimiter <: RHSLimiterType end
 
 # TODO: It should depend on Equation type... Hardcode for CompressibleIdealGas for now
 abstract type LimiterBoundType end
 struct PositivityBound              <: LimiterBoundType end
 struct PositivityAndMinEntropyBound <: LimiterBoundType end
 
-Base.@kwdef struct SubcellLimiter{BOUNDTYPE<:LimiterBoundType} <: PositivityLimiterType
+Base.@kwdef struct SubcellLimiter{BOUNDTYPE<:LimiterBoundType} <: RHSLimiterType
     bound_type::BOUNDTYPE
 end
 
@@ -266,7 +264,7 @@ Base.@kwdef struct LimitingParameter
     η::Float64           # Bound relaxation parameter ρ,ρe ∈ [(1-ζ)min, (1+ζ)max]
 end
 
-Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROPYPROJECTIONLIMITERTYPE,POSITIVITYLIMITERTYPE}
+Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROPYPROJECTIONLIMITERTYPE,RHSLIMITERTYPE}
     N::Int64
     K::KTYPE      # Number of elements in 1D.
                   # In 2D, it is a tuple (Kx,Ky), number of elements along
@@ -284,7 +282,7 @@ Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROP
     approximation_basis_type::APPROXBASISTYPE
     rhs_type                ::RHSTYPE
     entropyproj_limiter_type::ENTROPYPROJECTIONLIMITERTYPE
-    positivity_limiter_type ::POSITIVITYLIMITERTYPE
+    rhs_limiter_type        ::RHSLIMITERTYPE
 end
 
 # TODO: refactor
@@ -381,7 +379,7 @@ struct Preallocation{Nc,DIM}
 end
 
 abstract type LimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
-struct NoPositivityLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
+struct NoRHSLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
 struct ZhangShuLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     uL_k     ::Array{SVector{Nc,Float64},2}
     P_k      ::Array{SVector{Nc,Float64},2}
@@ -438,11 +436,11 @@ EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) wher
                                           zeros(SVector{Nc,Float64},Nfp,K),
                                           zeros(Float64,Nfp,K))
 
-function get_limiter_cache(limiter_type::NoPositivityLimiter,param,sizes)
+function get_limiter_cache(limiter_type::NoRHSLimiter,param,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     Nd = get_dim(param.equation)
 
-    return NoPositivityLimiterCache{Nd,Nc}()
+    return NoRHSLimiterCache{Nd,Nc}()
 end
 
 function get_limiter_cache(limiter_type::ZhangShuLimiter,param,sizes)
@@ -508,7 +506,7 @@ function Base.show(io::IO,::MIME"text/plain",param::Param)
     println(io,"basis                      type: ", param.approximation_basis_type)
     println(io,"rhs                        type: ", param.rhs_type)
     println(io,"entropy projection limiter type: ", param.entropyproj_limiter_type)
-    println(io,"positivity limiter         type: ", param.positivity_limiter_type)
+    println(io,"rhs limiter                type: ", param.rhs_limiter_type)
 end
 
 function Base.show(io::IO,rhs_type::ESLimitedLowOrderPos)

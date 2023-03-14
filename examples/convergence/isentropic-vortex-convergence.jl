@@ -57,7 +57,7 @@ for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()
 for N in [1;2;3;4]
 for K in [(5,5),(10,10),(20,20),(40,40),(80,80)]
 
-entropyproj_type,low_order_flux_type,pos_lim_type,discretization_type = limiter_type
+entropyproj_type,low_order_flux_type,rhs_lim_type,discretization_type = limiter_type
 γ = 1.4
 param = Param(N=N, K=K, xL=(0.0,0.0), xR=(10.0,10.0),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
@@ -69,7 +69,7 @@ param = Param(N=N, K=K, xL=(0.0,0.0), xR=(10.0,10.0),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=discretization_type,
               entropyproj_limiter_type=entropyproj_type,
-              positivity_limiter_type=pos_lim_type)
+              rhs_limiter_type=rhs_lim_type)
 
 T = param.timestepping_param.T
 N = param.N

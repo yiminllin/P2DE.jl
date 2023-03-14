@@ -54,7 +54,7 @@ param = Param(N=3, K=(80,80), xL=(-1.5,-1.5), xR=(1.5,1.5),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-              positivity_limiter_type=ZhangShuLimiter())
+              rhs_limiter_type=ZhangShuLimiter())
 
 T = param.timestepping_param.T
 N = param.N

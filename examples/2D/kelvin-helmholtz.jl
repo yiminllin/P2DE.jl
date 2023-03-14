@@ -52,7 +52,7 @@ param = Param(N=3, K=(80,80), xL=(-1.0,-1.0), xR=(1.0,1.0),
                                             high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-              positivity_limiter_type=SubcellLimiter(PositivityBound()))
+              rhs_limiter_type=SubcellLimiter(PositivityBound()))
 
 T = param.timestepping_param.T
 N = param.N
