@@ -57,6 +57,7 @@ export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjec
 export NoEntropyProjectionLimiter,
        ElementwiseScaledExtrapolation,NodewiseScaledExtrapolation
 export NoPositivityLimiter,ZhangShuLimiter,SubcellLimiter
+export PositivityBound,PositivityAndMinEntropyBound
 export GaussCollocation,LobattoCollocation
 export Dim1,Dim2,Dim3
 export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas,KPP

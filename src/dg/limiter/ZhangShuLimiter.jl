@@ -12,19 +12,25 @@
 # TODO: generalize to any equation
 # TODO: pack bounds as a struct
 function zhang_shu_bound_limiter!(L,param,uL,P,k,Lrho::Function,Lrhoe::Function,Urho,Urhoe,nstage)
+    @unpack positivity_limiter_type = param
+    bound_type = get_bound_type(positivity_limiter_type)
     l = 1.0
     for i = 1:size(uL,1)
         uL_i = uL[i]
-        l = min(l, get_limiting_param(param,uL[i],P[i],Lrho(uL_i),Lrhoe(uL_i),Urho,Urhoe))
+        bound = (Lrho(uL_i),Lrhoe(uL_i),Urho,Urhoe)
+        l = min(l, get_limiting_param(positivity_limiter_type,bound_type,param,uL[i],P[i],bound))
     end
     L[k,nstage] = l
 end
 
 function zhang_shu_bound_limiter!(L,param,uL,P,k,Lrho::Real,Lrhoe::Real,Urho,Urhoe,nstage)
+    @unpack positivity_limiter_type = param
+    bound_type = get_bound_type(positivity_limiter_type)
     l = 1.0
     for i = 1:size(uL,1)
         uL_i = uL[i]
-        l = min(l, get_limiting_param(param,uL[i],P[i],Lrho,Lrhoe,Urho,Urhoe))
+        bound = (Lrho,Lrhoe,Urho,Urhoe)
+        l = min(l, get_limiting_param(positivity_limiter_type,bound_type,param,uL[i],P[i],bound))
     end
     L[k,nstage] = l
 end

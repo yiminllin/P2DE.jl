@@ -27,6 +27,10 @@ end
 
 function apply_positivity_limiter!(prealloc,param,discrete_data,bcdata,cache,dt,nstage,positivity_limiter_type::SubcellLimiter,timer)
     dim = get_dim_type(param.equation)
+    bound_type = get_bound_type(param.positivity_limiter_type)
+    @timeit_debug timer "Precompute bounds" begin
+    initialize_bounds!(cache,prealloc,bound_type,param,discrete_data,bcdata,dim)
+    end
     @timeit_debug timer "Accumulate low and high order subcell fluxes" begin
     accumulate_f_bar!(cache,prealloc,param,discrete_data,dim)
     end
