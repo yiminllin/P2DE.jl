@@ -42,3 +42,41 @@ end
 function is_Vf_limited(prealloc,k,nstage,entropyproj_limiter_type::ElementwiseScaledExtrapolation)
     return prealloc.θ_arr[k,nstage] < 1.0
 end
+
+function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data,tid)
+    try
+        update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,param.entropyproj_limiter_type,param,discrete_data,tid)
+        return check_bound_on_element(k,cache,param,discrete_data.sizes,tid)
+    catch err
+        if isa(err, DomainError)
+            return false
+        else
+            throw(err)
+        end
+    end
+    return false
+end
+
+function update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data,tid)
+    @unpack Uq    = prealloc
+    @unpack v_tilde_k,u_tilde_k,vq_k = cache
+    
+    entropy_projection_element!(view(vq_k,:,tid),view(v_tilde_k,:,tid),view(u_tilde_k,:,tid),view(Uq,:,k),θ,param,discrete_data,prealloc)
+    calculate_limited_entropyproj_vars_on_element!(cache,param,tid)
+end
+
+# TODO: hardcoded for 1D
+function calculate_limited_entropyproj_vars_on_element!(cache,param,tid)
+    for i = 1:size(cache.v3tilde,1)
+        calculate_limited_entropyproj_vars_on_node!(cache,i,param,tid)
+    end
+end
+
+function check_bound_on_element(k,cache,param,sizes,tid) 
+    for i = 1:sizes.Nfp
+        if !check_bound_on_face_node(i,k,cache,param,sizes,tid)
+            return false
+        end
+    end
+    return true
+end
