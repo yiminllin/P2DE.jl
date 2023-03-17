@@ -49,9 +49,6 @@ function calc_face_values!(prealloc,cache,param,equation::KPP,discrete_data)
 end
 
 function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type::NodewiseScaledExtrapolation,equation::CompressibleIdealGas,param,discrete_data,tid)
-    @unpack vq_k = cache
-
-    calculate_entropy_var!(view(vq_k,:,tid),view(prealloc.Uq,:,k),param,discrete_data)    # TODO: calculation of vq seems duplicate with entropy projection step
     for i = 1:discrete_data.sizes.Nfp
         f(θ_i) = update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,cache,θ_i,i,k,param,discrete_data,tid)
         prealloc.θ_local_arr[i,k,nstage] = bisection(f,0.0,1.0)
@@ -69,37 +66,8 @@ function solve_theta!(prealloc,cache,k,nstage,entropyproj_limiter_type,equation:
     return nothing
 end
 
-function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc,cache,θ,k,param,discrete_data,tid)
-    try
-        update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,param.entropyproj_limiter_type,param,discrete_data,tid)
-        return check_bound_on_element(k,cache,param,discrete_data.sizes,tid)
-    catch err
-        if isa(err, DomainError)
-            return false
-        else
-            throw(err)
-        end
-    end
-    return false
-end
-
-function update_limited_entropyproj_vars_on_element!(prealloc,cache,θ,k,entropyproj_limiter_type::ScaledExtrapolation,param,discrete_data,tid)
-    @unpack Uq    = prealloc
-    @unpack v_tilde_k,u_tilde_k,vq_k = cache
-    
-    entropy_projection_element!(view(vq_k,:,tid),view(v_tilde_k,:,tid),view(u_tilde_k,:,tid),view(Uq,:,k),θ,param,discrete_data,prealloc)
-    calculate_limited_entropyproj_vars_on_element!(cache,param,tid)
-end
-
 function update_limited_entropyproj_vars!(prealloc,cache,θ,k,entropyproj_limiter_type::NoEntropyProjectionLimiter,param,discrete_data,tid)
     # Do nothing
-end
-
-# TODO: hardcoded for 1D
-function calculate_limited_entropyproj_vars_on_element!(cache,param,tid)
-    for i = 1:size(cache.v3tilde,1)
-        calculate_limited_entropyproj_vars_on_node!(cache,i,param,tid)
-    end
 end
 
 # TODO: better to define custom index type for hybridized, quad, and surface nodes...
@@ -113,15 +81,6 @@ end
 function calculate_limited_entropyproj_vars_on_face_node!(cache,i,param,tid)
     Nq = size(cache.vq_k,1)
     calculate_limited_entropyproj_vars_on_node!(cache,i+Nq,param,tid)
-end
-
-function check_bound_on_element(k,cache,param,sizes,tid) 
-    for i = 1:sizes.Nfp
-        if !check_bound_on_face_node(i,k,cache,param,sizes,tid)
-            return false
-        end
-    end
-    return true
 end
 
 # TODO: skip volume quadrature points
@@ -140,32 +99,32 @@ end
 
 # TODO: Refactor. element versus. node - use multiple dispatch
 function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc,cache,θ_i,i,k,param,discrete_data,tid)
-    try
-        update_limited_entropyproj_vars_on_face_node!(prealloc,cache,θ_i,i,k,param.entropyproj_limiter_type,param,discrete_data,tid)
+    if update_limited_entropyproj_vars_on_face_node!(prealloc,cache,θ_i,i,k,param.entropyproj_limiter_type,param,discrete_data,tid)
         return check_bound_on_face_node(i,k,cache,param,discrete_data.sizes,tid)
-    catch err
-        if isa(err, DomainError)
-            return false
-        else
-            throw(err)
-        end
+    else
+        return false
     end
-    return false
 end
 
 function update_limited_entropyproj_vars_on_face_node!(prealloc,cache,θ_i,i,k,entropyproj_limiter_type::NodewiseScaledExtrapolation,param,discrete_data,tid)
-    @unpack Uq = prealloc
-    @unpack v_tilde_k,u_tilde_k,vq_k = cache
+    @unpack Uq,vq = prealloc
+    @unpack v_tilde_k,u_tilde_k = cache
     @unpack Nh,Nq     = discrete_data.sizes
     @unpack Vf,Vf_low = discrete_data.ops
+    ϵ = param.global_constants.POSTOL
     
     # TODO: applying the function directly results in allocations
     # entropy_projection_face_node!(view(v_tilde_k,:,tid),view(u_tilde_k,:,tid),view(vq_k,:,tid),i,θ_i,param,discrete_data,prealloc)
     v_tilde_k[i+Nq,tid] = zero(v_tilde_k[i+Nq,tid])
     for j = 1:Nq
-        v_tilde_k[i+Nq,tid] += (θ_i*Vf[i,j]+(1-θ_i)*Vf_low[i,j])*vq_k[j,tid]
+        v_tilde_k[i+Nq,tid] += (θ_i*Vf[i,j]+(1-θ_i)*Vf_low[i,j])*vq[j,k]
     end
-    u_tilde_k[i+Nq,tid] = u_vfun(param.equation,v_tilde_k[i+Nq,tid])
-
-    calculate_limited_entropyproj_vars_on_face_node!(cache,i,param,tid)
+    # Check well-definedness
+    if v_tilde_k[i+Nq,tid][end] < -ϵ
+        u_tilde_k[i+Nq,tid] = u_vfun(param.equation,v_tilde_k[i+Nq,tid])
+        calculate_limited_entropyproj_vars_on_face_node!(cache,i,param,tid)
+        return true
+    else
+        return false
+    end
 end

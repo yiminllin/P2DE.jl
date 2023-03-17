@@ -4,11 +4,11 @@ function SSP33!(param,discrete_data,bcdata,prealloc,caches)
     @unpack θ_arr,Larr,rhsU,resW,resZ = prealloc
     @unpack Uq = prealloc
 
-    # TODO: very ugly hack... otherwise allocation in each iteration due to @batch?
-    @batch for k = 1:size(Uq,2)
-        tid = Threads.threadid()
-        solve_theta!(prealloc,caches.entropyproj_limiter_cache,k,1,param.entropyproj_limiter_type,param.equation,param,discrete_data,tid)
-    end
+    # TODO: very ugly hack... seems like I need to warm up the threads to avoid allocations?
+    timer_dummy = TimerOutput()
+    dt_dummy = dt0
+    t_dummy  = 0.0
+    @benchmark rhs!($param,$discrete_data,$bcdata,$prealloc,$caches,$t_dummy,$dt_dummy,1,$timer_dummy)
 
     Nc = get_num_components(param.equation)
     Uhist      = []
@@ -24,7 +24,6 @@ function SSP33!(param,discrete_data,bcdata,prealloc,caches)
 
     i = 1
     dt = CFL*dt0
-    # @btime rhs!($param,$discrete_data,$bcdata,$prealloc,$caches,$t,$dt,1)
     @time while t < T
         @timeit_debug timer "SSP stages" begin
         dt = min(CFL*dt0,T-t)

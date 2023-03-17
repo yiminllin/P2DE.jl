@@ -414,7 +414,7 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoEntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc} end
 struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
-    vq_k     ::Array{SVector{Nc,Float64},2}
+    vq_k     ::Array{SVector{Nc,Float64},2}   # TODO: unnecessary? Clean up
     v_tilde_k::Array{SVector{Nc,Float64},2}   # TODO: refactor with v_tilde, u_tilde
     u_tilde_k::Array{SVector{Nc,Float64},2}
     v3tilde  ::Array{Float64,2}

@@ -199,8 +199,9 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
     ζ = param.limiting_param.ζ
     Lrho(uL_i)  = ζ*uL_i[1]
     Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
-    Lx_local = reshape(view(L_local_arr,:,1,:,nstage),N1Dp1,N1D,K)
-    Ly_local = reshape(view(L_local_arr,:,2,:,nstage),N1D,N1Dp1,K)
+    # TODO: why these two lines result in allocations?
+    # Lx_local = reshape(view(L_local_arr,:,1,:,nstage),N1Dp1,N1D,K)
+    # Ly_local = reshape(view(L_local_arr,:,2,:,nstage),N1D,N1Dp1,K)
 
     @views @. L_local_arr[:,:,:,nstage] = 1.0
 
