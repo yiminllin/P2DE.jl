@@ -27,7 +27,7 @@ end
     psiyR = sin(uR)
 
     # TODO: hardcoded
-    if abs(uR-uL) < 1e-2
+    if abs(uR-uL) < 1e-12
         return (SVector(.5*(sin(uL)+sin(uR))),SVector(.5*(cos(uL)+cos(uR))))
     else
         return (SVector((psixR-psixL)/(uR-uL)),SVector((psiyR-psiyL)/(uR-uL)))
