@@ -24,11 +24,15 @@ function initialize_preallocations(param,md,sizes)
     θ_local_arr = zeros(Float64,Nfp,K,Ns)
     resW        = zeros(SVector{Nc,Float64},Nq,K)
     resZ        = zeros(SVector{Nc,Float64},Nq,K)
+    indicator        = zeros(Float64,Nq,K)
+    indicator_modal  = zeros(Float64,Np,K)
+    smooth_indicator = zeros(Float64,K,Ns)
 
     prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,
                                     rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,
                                     Larr,L_local_arr,θ_arr,θ_local_arr,
-                                    resW,resZ)
+                                    resW,resZ,
+                                    indicator,indicator_modal,smooth_indicator)
     return prealloc
 end
 
@@ -41,10 +45,11 @@ function initialize_cache(param,md,sizes)
 
     rhs_cache                 = get_rhs_cache(rhs_type,param,sizes)
     limiter_cache             = get_limiter_cache(rhs_limiter_type,param,sizes)
+    shockcapture_cache        = get_shockcapture_cache(rhs_limiter_type.shockcapture_type,param,sizes)
     entropyproj_limiter_cache = get_entropyproj_limiter_cache(entropyproj_limiter_type,param,sizes)
     postprocessing_cache      = get_postprocessing_cache(param,md,dim)
 
-    return Caches(rhs_cache,limiter_cache,entropyproj_limiter_cache,postprocessing_cache)
+    return Caches(rhs_cache,limiter_cache,shockcapture_cache,entropyproj_limiter_cache,postprocessing_cache)
 end
 
 function initialize_DG(param,initial_condition,initial_boundary_conditions)

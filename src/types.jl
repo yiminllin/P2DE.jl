@@ -147,16 +147,35 @@ struct NodewiseScaledExtrapolation    <: ScaledExtrapolation end
 
 abstract type RHSLimiterType end
 struct NoRHSLimiter    <: RHSLimiterType end
-struct ZhangShuLimiter <: RHSLimiterType end
 
 # TODO: It should depend on Equation type... Hardcode for CompressibleIdealGas for now
 abstract type LimiterBoundType end
 struct PositivityBound              <: LimiterBoundType end
 struct PositivityAndMinEntropyBound <: LimiterBoundType end
 
-Base.@kwdef struct SubcellLimiter{BOUNDTYPE<:LimiterBoundType} <: RHSLimiterType
-    bound_type::BOUNDTYPE
+abstract type ShockCaptureType end
+struct NoShockCapture        <: ShockCaptureType end
+# Equation (41) on https://www.sciencedirect.com/science/article/pii/S0021999120307099
+struct HennemannShockCapture <: ShockCaptureType
+    a::Float64
+    c::Float64
 end
+
+# Equation (42) on https://www.sciencedirect.com/science/article/pii/S0021999120307099
+HennemannShockCapture(;a=0.5,c=1.8) = HennemannShockCapture(a,c)
+
+struct ZhangShuLimiter{SHOCKCAPTURETYPE<:ShockCaptureType} <: RHSLimiterType
+    shockcapture_type::SHOCKCAPTURETYPE
+end
+
+struct SubcellLimiter{BOUNDTYPE<:LimiterBoundType,SHOCKCAPTURETYPE<:ShockCaptureType} <: RHSLimiterType
+    bound_type::BOUNDTYPE
+    shockcapture_type::SHOCKCAPTURETYPE
+end
+
+ZhangShuLimiter(; shockcapture_type=NoShockCapture()) = ZhangShuLimiter(shockcapture_type)
+SubcellLimiter(; bound_type=PositivityBound(),
+                 shockcapture_type=NoShockCapture()) = SubcellLimiter(bound_type,shockcapture_type)
 
 function get_bound_type(limiter::ZhangShuLimiter)
     return PositivityBound()
@@ -164,6 +183,10 @@ end
 
 function get_bound_type(limiter::SubcellLimiter)
     return limiter.bound_type
+end
+
+function get_shockcapture_type(limiter::RHSLimiterType)
+    return limiter.shockcapture_type
 end
 
 abstract type ApproxBasisType end
@@ -376,7 +399,19 @@ struct Preallocation{Nc,DIM}
     θ_local_arr::Array{Float64,3}
     resW       ::Array{SVector{Nc,Float64},2}
     resZ       ::Array{SVector{Nc,Float64},2}
+    indicator       ::Array{Float64,2}
+    indicator_modal ::Array{Float64,2}
+    smooth_indicator::Array{Float64,2}     # modal energyN/total_energy
 end
+
+abstract type ShockCaptureCache{DIM,Nc} <: Cache{DIM,Nc} end
+struct NoShockCaptureCache{DIM,Nc} <: ShockCaptureCache{DIM,Nc} end
+struct HennemannShockCaptureCache{DIM,Nc} <: ShockCaptureCache{DIM,Nc}
+    blending_factor::Array{Float64,2}
+end
+
+HennemannShockCaptureCache{DIM,Nc}(; K=0,Ns=0) where {DIM,Nc} =
+    HennemannShockCaptureCache{DIM,Nc}(zeros(K,Ns))
 
 abstract type LimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoRHSLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
@@ -436,6 +471,21 @@ EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) wher
                                           zeros(SVector{Nc,Float64},Nfp,K),
                                           zeros(Float64,Nfp,K))
 
+function get_shockcapture_cache(shockcapture_type::NoShockCapture,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    Nd = get_dim(param.equation)
+
+    return NoShockCaptureCache{Nd,Nc}()
+end
+
+function get_shockcapture_cache(shockcapture_type::HennemannShockCapture,param,sizes)
+    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
+    Nd = get_dim(param.equation)
+    K  = get_num_elements(param)
+
+    return HennemannShockCaptureCache{Nd,Nc}(K=K,Ns=Ns)
+end
+
 function get_limiter_cache(limiter_type::NoRHSLimiter,param,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     Nd = get_dim(param.equation)
@@ -476,9 +526,10 @@ function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapola
 end
 
 
-struct Caches{RHSCACHE,LIMITERCACHE,ENTROPYPROJCACHE,POSTPROCESSCACHE}
+struct Caches{RHSCACHE,LIMITERCACHE,SHOCKCAPTURECACHE,ENTROPYPROJCACHE,POSTPROCESSCACHE}
     rhs_cache                ::RHSCACHE
     limiter_cache            ::LIMITERCACHE
+    shockcapture_cache       ::SHOCKCAPTURECACHE
     entropyproj_limiter_cache::ENTROPYPROJCACHE
     postprocessing_cache     ::POSTPROCESSCACHE
 end
