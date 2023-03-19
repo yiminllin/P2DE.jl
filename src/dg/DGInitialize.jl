@@ -26,7 +26,7 @@ function initialize_preallocations(param,md,sizes)
     resZ        = zeros(SVector{Nc,Float64},Nq,K)
     indicator        = zeros(Float64,Nq,K)
     indicator_modal  = zeros(Float64,Np,K)
-    smooth_indicator = zeros(Float64,K,Ns)
+    smooth_indicator = zeros(Float64,K)
 
     prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,
                                     rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,

@@ -401,7 +401,7 @@ struct Preallocation{Nc,DIM}
     resZ       ::Array{SVector{Nc,Float64},2}
     indicator       ::Array{Float64,2}
     indicator_modal ::Array{Float64,2}
-    smooth_indicator::Array{Float64,2}     # modal energyN/total_energy
+    smooth_indicator::Array{Float64,1}     # modal energyN/total_energy
 end
 
 abstract type ShockCaptureCache{DIM,Nc} <: Cache{DIM,Nc} end
