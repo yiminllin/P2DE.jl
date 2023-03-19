@@ -144,10 +144,11 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
     end
 end
 
-function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim1)
-    @unpack uL_k,f_bar_H,f_bar_L = cache
-    @unpack lbound_s_modified    = cache
+function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim1)
+    @unpack uL_k,f_bar_H,f_bar_L = limiter_cache
+    @unpack lbound_s_modified    = limiter_cache
     @unpack Uq,L_local_arr,rhsL  = prealloc
+    @unpack blending_factor      = shockcapture_cache
     @unpack wq = discrete_data.ops
     @unpack Jq = discrete_data.geom
     @unpack rhs_limiter_type = param
@@ -179,6 +180,10 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
             bound = (Lrho(uL_k[i-1,tid]),Lrhoe(uL_k[i-1,tid]),Lphi_i,Urho,Urhoe)
             L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k[i-1,tid],2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_im1,bound))
         end
+
+        # Apply shock capturing
+        l_shock = blending_factor[k,nstage]
+        @. L_local_arr[:,1,k,nstage] = min(L_local_arr[:,1,k,nstage], l_shock)
     end
 end
 

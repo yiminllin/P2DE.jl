@@ -412,14 +412,12 @@ struct Preallocation{Nc,DIM}
     smooth_indicator::Array{Float64,1}     # modal energyN/total_energy
 end
 
-abstract type ShockCaptureCache{DIM,Nc} <: Cache{DIM,Nc} end
-struct NoShockCaptureCache{DIM,Nc} <: ShockCaptureCache{DIM,Nc} end
-struct HennemannShockCaptureCache{DIM,Nc} <: ShockCaptureCache{DIM,Nc}
+struct ShockCaptureCache{DIM,Nc} <: Cache{DIM,Nc}
     blending_factor::Array{Float64,2}
 end
 
-HennemannShockCaptureCache{DIM,Nc}(; K=0,Ns=0) where {DIM,Nc} =
-    HennemannShockCaptureCache{DIM,Nc}(zeros(K,Ns))
+ShockCaptureCache{DIM,Nc}(; K=0,Ns=0) where {DIM,Nc} =
+    ShockCaptureCache{DIM,Nc}(zeros(K,Ns))
 
 abstract type LimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
 struct NoRHSLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc} end
@@ -479,19 +477,12 @@ EntropyProjectionLimiterCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) wher
                                           zeros(SVector{Nc,Float64},Nfp,K),
                                           zeros(Float64,Nfp,K))
 
-function get_shockcapture_cache(shockcapture_type::NoShockCapture,param,sizes)
-    @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
-    Nd = get_dim(param.equation)
-
-    return NoShockCaptureCache{Nd,Nc}()
-end
-
-function get_shockcapture_cache(shockcapture_type::HennemannShockCapture,param,sizes)
+function get_shockcapture_cache(shockcapture_type,param,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     Nd = get_dim(param.equation)
     K  = get_num_elements(param)
 
-    return HennemannShockCaptureCache{Nd,Nc}(K=K,Ns=Ns)
+    return ShockCaptureCache{Nd,Nc}(K=K,Ns=Ns)
 end
 
 function get_limiter_cache(limiter_type::NoRHSLimiter,param,sizes)
@@ -608,12 +599,20 @@ function Base.show(io::IO,bound_type::PositivityAndMinEntropyBound)
     text = print(io,"PosMinEntropyBound")
 end
 
+function Base.show(io::IO,shockcapture_type::NoShockCapture)
+    text = print(io,"None")
+end
+
+function Base.show(io::IO,shockcapture_type::HennemannShockCapture)
+    text = print(io,"Modal")
+end
+
 function Base.show(io::IO,limiter_type::SubcellLimiter)
-    text = print(io,"Subcell(",get_bound_type(limiter_type),")")
+    text = print(io,"Subcell(bound=",get_bound_type(limiter_type),",shockcapture=",get_shockcapture_type(limiter_type),")")
 end
 
 function Base.show(io::IO,limiter_type::ZhangShuLimiter)
-    text = print(io,"ZhangShu(",get_bound_type(limiter_type),")")
+    text = print(io,"ZhangShu(bound=",get_bound_type(limiter_type),",shockcapture=",get_shockcapture_type(limiter_type),")")
 end
 
 ###################

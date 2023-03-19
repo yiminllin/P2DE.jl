@@ -84,7 +84,7 @@ end
 #############################
 function update_blending_factor!(shockcapture::NoShockCapture,cache,prealloc,param,discrete_data,nstage)
     # No blending by default
-    @views cache.blending_factor[:,nstage] = 1.0
+    @views @. cache.blending_factor[:,nstage] = 1.0
 end
 
 # (46) in https://www.sciencedirect.com/science/article/pii/S0021999120307099
