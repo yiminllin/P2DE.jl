@@ -150,8 +150,9 @@ struct NoRHSLimiter    <: RHSLimiterType end
 
 # TODO: It should depend on Equation type... Hardcode for CompressibleIdealGas for now
 abstract type LimiterBoundType end
-struct PositivityBound              <: LimiterBoundType end
-struct PositivityAndMinEntropyBound <: LimiterBoundType end
+struct PositivityBound                     <: LimiterBoundType end
+struct PositivityAndMinEntropyBound        <: LimiterBoundType end
+struct PositivityAndRelaxedMinEntropyBound <: LimiterBoundType end
 
 abstract type ShockCaptureType end
 struct NoShockCapture        <: ShockCaptureType end
@@ -439,9 +440,12 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     s_modified       ::Array{Float64,2}
     var_s_modified   ::Array{Float64,2}
     lbound_s_modified::Array{Float64,2}
+    # TODO: use array so the value could be mutated... not a clean solution
+    s_modified_min   ::Array{Float64,1}              # Global s_modified minimum
+    smooth_factor    ::Array{Float64,2}
 end
 
-SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
+SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Ns=Ns,Nthread=1,s_modified_min=0) where {DIM,Nc} =
     SubcellLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nq,Nthread),
                                 zeros(SVector{Nc,Float64},Nq,Nthread),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
@@ -449,7 +453,9 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Nthread=1) where {DIM,Nc} =
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 zeros(Float64,Nq,K),
                                 zeros(Float64,Nq,K),
-                                zeros(Float64,Nq,K))
+                                zeros(Float64,Nq,K),
+                                zeros(Float64,1),
+                                zeros(Float64,K,Ns))
 
 # TODO: hardcoded for Compressible Euler
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
@@ -506,7 +512,7 @@ function get_limiter_cache(limiter_type::SubcellLimiter,param,sizes)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
 
-    return SubcellLimiterCache{Nd,Nc}(K=K,Nq=Nq,N1D=N1D,Nthread=Threads.nthreads())
+    return SubcellLimiterCache{Nd,Nc}(K=K,Nq=Nq,N1D=N1D,Ns=Ns,Nthread=Threads.nthreads())
 end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter,param,sizes)
@@ -597,6 +603,10 @@ end
 
 function Base.show(io::IO,bound_type::PositivityAndMinEntropyBound)
     text = print(io,"PosMinEntropyBound")
+end
+
+function Base.show(io::IO,bound_type::PositivityAndRelaxedMinEntropyBound)
+    text = print(io,"PosRelaxMinEntropyBound")
 end
 
 function Base.show(io::IO,shockcapture_type::NoShockCapture)
