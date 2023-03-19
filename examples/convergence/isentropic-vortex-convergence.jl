@@ -48,14 +48,15 @@ end
 # TODO: refactor convergence
 jld_path = "/data/yl184/outputs/jld2/isentropic-vortex.jld2"
 
-for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter()                             ,LobattoCollocation());
-                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityBound())             ,LobattoCollocation());
-                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityAndMinEntropyBound()),LobattoCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityBound())             ,GaussCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityAndMinEntropyBound()),GaussCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter()                             ,GaussCollocation());]
+for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter()                                        ,LobattoCollocation());
+                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityBound())             ,LobattoCollocation());
+                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityAndMinEntropyBound()),LobattoCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityBound())             ,GaussCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityAndMinEntropyBound()),GaussCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter()                                        ,GaussCollocation());]
 for N in [1;2;3;4]
 for K in [(5,5),(10,10),(20,20),(40,40),(80,80)]
+
 
 entropyproj_type,low_order_flux_type,rhs_lim_type,discretization_type = limiter_type
 γ = 1.4
