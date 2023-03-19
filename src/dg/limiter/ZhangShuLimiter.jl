@@ -34,7 +34,7 @@ end
 # TODO: pack bounds as a struct
 function zhang_shu_bound_limiter!(equation::CompressibleIdealGas,L,param,uL,P,k,Lrho::Function,Lrhoe::Function,Urho,Urhoe,nstage)
     @unpack rhs_limiter_type = param
-    bound_type = get_bound_type(rhs_limiter_type)
+    bound_type = get_bound_type(param)
     l = 1.0
     for i = 1:size(uL,1)
         uL_i = uL[i]
@@ -46,7 +46,7 @@ end
 
 function zhang_shu_bound_limiter!(equation::CompressibleIdealGas,L,param,uL,P,k,Lrho::Real,Lrhoe::Real,Urho,Urhoe,nstage)
     @unpack rhs_limiter_type = param
-    bound_type = get_bound_type(rhs_limiter_type)
+    bound_type = get_bound_type(param)
     l = 1.0
     for i = 1:size(uL,1)
         uL_i = uL[i]

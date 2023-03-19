@@ -7,8 +7,8 @@ include("./SubcellLimiter.jl")
 ########################
 function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage,rhs_limiter_type::ZhangShuLimiter,timer)
     @unpack limiter_cache,shockcapture_cache = caches
-    shockcapture_type = get_shockcapture_type(rhs_limiter_type)
-    bound_type = get_bound_type(rhs_limiter_type)
+    shockcapture_type = get_shockcapture_type(param)
+    bound_type        = get_bound_type(param)
     @timeit_debug timer "Initialize smoothness indicator" begin
     initialize_smoothness_indicator!(shockcapture_type,bound_type,prealloc,param,discrete_data,nstage)
     end
@@ -23,8 +23,8 @@ end
 function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage,rhs_limiter_type::SubcellLimiter,timer)
     @unpack limiter_cache,shockcapture_cache = caches
     dim = get_dim_type(param.equation)
-    shockcapture_type = get_shockcapture_type(param.rhs_limiter_type)
-    bound_type = get_bound_type(param.rhs_limiter_type)
+    shockcapture_type = get_shockcapture_type(param)
+    bound_type        = get_bound_type(param)
     @timeit_debug timer "Initialize smoothness indicator" begin
     initialize_smoothness_indicator!(shockcapture_type,bound_type,prealloc,param,discrete_data,nstage)
     end

@@ -322,6 +322,14 @@ function get_num_elements(param,equation::EquationType{Dim2})
     return param.K[1]*param.K[2]
 end
 
+function get_bound_type(param::Param)
+    return get_bound_type(param.rhs_limiter_type)
+end
+
+function get_shockcapture_type(param::Param)
+    return get_shockcapture_type(param.rhs_limiter_type)
+end
+
 struct BCData{Nc}
     mapP::Array{Int64,2}
     mapI::Array{Int64,1}

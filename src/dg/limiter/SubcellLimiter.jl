@@ -151,7 +151,7 @@ function subcell_bound_limiter!(cache,prealloc,param,discrete_data,bcdata,dt,nst
     @unpack wq = discrete_data.ops
     @unpack Jq = discrete_data.geom
     @unpack rhs_limiter_type = param
-    bound_type = get_bound_type(rhs_limiter_type)
+    bound_type = get_bound_type(param)
     
     K  = get_num_elements(param)
     Nq = size(Uq,1)
@@ -191,7 +191,7 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,param,
     @unpack wq = discrete_data.ops
     @unpack Jq = discrete_data.geom
     @unpack rhs_limiter_type = param
-    bound_type = get_bound_type(rhs_limiter_type)
+    bound_type = get_bound_type(param)
 
     K  = get_num_elements(param)
     Nq = size(Uq,1)
