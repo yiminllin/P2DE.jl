@@ -5,7 +5,7 @@ include("./SubcellLimiter.jl")
 ########################
 ### Appy RHS limiter ###
 ########################
-function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage,rhs_limiter_type::ZhangShuLimiter,timer)
+function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nstage,rhs_limiter_type::ZhangShuLimiter,timer)
     @unpack limiter_cache,shockcapture_cache = caches
     shockcapture_type = get_shockcapture_type(param)
     bound_type        = get_bound_type(param)
@@ -20,7 +20,7 @@ function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage
     end
 end
 
-function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage,rhs_limiter_type::SubcellLimiter,timer)
+function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nstage,rhs_limiter_type::SubcellLimiter,timer)
     @unpack limiter_cache,shockcapture_cache = caches
     dim = get_dim_type(param.equation)
     shockcapture_type = get_shockcapture_type(param)
@@ -31,8 +31,11 @@ function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage
     @timeit_debug timer "calculate blending factor" begin
     update_blending_factor!(shockcapture_type,shockcapture_cache,prealloc,param,discrete_data,nstage)
     end
+    @timeit_debug timer "calculate smoothness factor" begin
+    update_smoothness_factor!(bound_type,limiter_cache,prealloc,param,nstage)
+    end
     @timeit_debug timer "Precompute bounds" begin
-    initialize_bounds!(limiter_cache,prealloc,bound_type,param,discrete_data,bcdata,dim)
+    initialize_bounds!(limiter_cache,prealloc,bound_type,param,discrete_data,bcdata,t,nstage,dim)
     end
     @timeit_debug timer "Accumulate low and high order subcell fluxes" begin
     accumulate_f_bar!(limiter_cache,prealloc,param,discrete_data,dim)

@@ -16,7 +16,7 @@ end
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
 #             phi(UL + lP)  ∈ [Lphi, inf),    phi = rhoe rho^{-\gamma}, modified specific entropy
-function get_limiting_param(rhs_limiter_type::SubcellLimiter,bound_type::PositivityAndMinEntropyBound,param,UL,P,bound)
+function get_limiting_param(rhs_limiter_type::SubcellLimiter,bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,UL,P,bound)
     Lrho,Lrhoe,Lphi,Urho,Urhoe = bound
     lpos = get_limiting_param_bound_rho_rhoe(param,UL,P,Lrho,Lrhoe,Urho,Urhoe)
     l = get_limiting_param_bound_phi(param,UL,P,Lphi,lpos)   # TODO: assume for l \in [0,lpos] gives positive quantities

@@ -1,20 +1,22 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_bounds!(cache,prealloc,bound_type::PositivityBound,param,discrete_data,bcdata,dim)
+function initialize_bounds!(cache,prealloc,bound_type::PositivityBound,param,discrete_data,bcdata,t,dim)
     cache.lbound_s_modified .= 0.0
 end
 
 # TODO: only precompute s_modified now, unnecessary to precompute bound for
 #       density and internal energy?
-function initialize_bounds!(cache,prealloc,bound_type::PositivityAndMinEntropyBound,param,discrete_data,bcdata,dim)
-    initialize_s_modified!(cache,prealloc,param)
-    initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,dim)
+function initialize_bounds!(cache,prealloc,bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
+    initialize_s_modified!(cache,prealloc,param,t,nstage)
+    initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
 end
 
-function initialize_s_modified!(cache,prealloc,param)
+function initialize_s_modified!(cache,prealloc,param,t,nstage)
     @unpack equation   = param
+    @unpack t0         = param.timestepping_param
     @unpack s_modified = cache
+    @unpack s_modified_min = cache
     @unpack Uq         = prealloc
 
     N1D = param.N+1
@@ -26,36 +28,43 @@ function initialize_s_modified!(cache,prealloc,param)
             s_modified[i,k] = s_modified_ufun(equation,Uq[i,k])
         end
     end
+    # If at the first time step, initialize minimum s_modified of the initial condition
+    if t == t0 && nstage == 1
+        s_modified_min[1] = minimum(s_modified)
+    end
 end
 
-function initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,dim::Dim1)
+function initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim1)
     @unpack equation   = param
     @unpack Uq         = prealloc
     @unpack mapP       = bcdata
     @unpack q2fq,fq2q  = discrete_data.ops
-    @unpack s_modified,lbound_s_modified = cache
+    @unpack s_modified,s_modified_min,lbound_s_modified,smooth_factor = cache
 
     N1D = param.N+1
     K  = get_num_elements(param)
     Nq = size(Uq,1)
     Nfp = size(mapP,1)
     @batch for k = 1:K
+        epsk = smooth_factor[k,nstage]
         for i = 1:N1D
             stencil = get_low_order_stencil(i,k,N1D,Nfp,discrete_data,bcdata,dim)
             lbound_s_modified[i,k] = s_modified[i,k]
             for s in stencil
                 lbound_s_modified[i,k]  = min(lbound_s_modified[i,k],s_modified[s...])
             end
+            # (70) in https://arxiv.org/pdf/2004.08503.pdf
+            lbound_s_modified[i,k] = epsk*lbound_s_modified[i,k]+(1-epsk)*s_modified_min[1]
         end
     end
 end
 
-function initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,dim::Dim2)
+function initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
     @unpack equation   = param
     @unpack Uq         = prealloc
     @unpack mapP       = bcdata
     @unpack q2fq,fq2q  = discrete_data.ops
-    @unpack s_modified,lbound_s_modified = cache
+    @unpack s_modified,s_modified_min,lbound_s_modified,smooth_factor = cache
 
     N1D = param.N+1
     K  = get_num_elements(param)
@@ -64,6 +73,7 @@ function initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,dim::
     s_modified = reshape(s_modified,N1D,N1D,K)
     @batch for k = 1:K
         lbound_s_modified_k = reshape(view(lbound_s_modified,:,k),N1D,N1D)
+        epsk = smooth_factor[k,nstage]
         for j = 1:N1D
             for i = 1:N1D
                 stencil = get_low_order_stencil((i,j),k,N1D,Nfp,discrete_data,bcdata,dim)
@@ -71,6 +81,8 @@ function initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,dim::
                 for s in stencil
                     lbound_s_modified_k[i,j]  = min(lbound_s_modified_k[i,j],s_modified[s...])
                 end
+                # (70) in https://arxiv.org/pdf/2004.08503.pdf
+                lbound_s_modified_k[i,j] = epsk*lbound_s_modified_k[i,j]+(1-epsk)*s_modified_min[1]
             end
         end
     end
@@ -451,3 +463,36 @@ function apply_subcell_limiter!(prealloc,cache,param,discrete_data,dim::Dim2)
     end
 end
 
+#########################
+### Smoothness factor ###
+#########################
+# (69) in https://arxiv.org/pdf/2004.08503.pdf
+function update_smoothness_factor!(bound_type::PositivityBound,cache,prealloc,param,nstage)
+    # Use global minimum bound by default
+    @views @. cache.smooth_factor[:,nstage] = 0.0
+end
+
+function update_smoothness_factor!(bound_type::PositivityAndMinEntropyBound,cache,prealloc,param,nstage)
+    # Use global minimum bound by default
+    @views @. cache.smooth_factor[:,nstage] = 1.0
+end
+
+function update_smoothness_factor!(bound_type::PositivityAndRelaxedMinEntropyBound,cache,prealloc,param,nstage)
+    @unpack N                = param
+    @unpack smooth_factor    = cache
+    @unpack smooth_indicator = prealloc
+
+    K = get_num_elements(param)
+    kappa = 1.0
+    s0    = log(10,N^-4)
+    @batch for k = 1:K
+        sk = log(10,smooth_indicator[k])
+        if sk < s0-kappa
+            smooth_factor[k,nstage] = 0.0
+        elseif sk > s0+kappa
+            smooth_factor[k,nstage] = 1.0
+        else
+            smooth_factor[k,nstage] = .5-.5*sin(pi*(sk-s0)/(2*kappa))
+        end
+    end
+end

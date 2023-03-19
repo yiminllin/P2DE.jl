@@ -60,7 +60,7 @@ function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data,bcdata,prea
     rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,false)
     end
     @timeit_debug timer "apply positivity limiter" begin
-    apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage,param.rhs_limiter_type,timer)
+    apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nstage,param.rhs_limiter_type,timer)
     end
     return dt
 end
