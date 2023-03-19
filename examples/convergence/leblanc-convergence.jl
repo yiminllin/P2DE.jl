@@ -65,12 +65,12 @@ end
 # TODO: refactor convergence
 jld_path = "/data/yl184/outputs/jld2/leblanc.jld2"
 
-for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter()                             ,LobattoCollocation());
-                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityBound())             ,LobattoCollocation());
-                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityAndMinEntropyBound()),LobattoCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityBound())             ,GaussCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(PositivityAndMinEntropyBound()),GaussCollocation());
-                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter()                             ,GaussCollocation());]
+for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,ZhangShuLimiter()                                        ,LobattoCollocation());
+                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityBound())             ,LobattoCollocation());
+                     (NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityAndMinEntropyBound()),LobattoCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityBound())             ,GaussCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityAndMinEntropyBound()),GaussCollocation());
+                     (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter()                                        ,GaussCollocation());]
 for N in [2;5]
 for K in [50;100;200;400]
 

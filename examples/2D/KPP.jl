@@ -40,16 +40,17 @@ function initial_condition(param,x,y)
 end
 
 γ = 1.4
-param = Param(N=3, K=(80,80), xL=(-2.0,-2.0), xR=(2.0,2.0),
+param = Param(N=3, K=(128,128), xL=(-2.0,-2.0), xR=(2.0,2.0),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=1.0, CFL=0.5, dt0=1e-3, t0=0.0),
               limiting_param=LimitingParameter(ζ=0.1, η=1.0),
               postprocessing_param=PostprocessingParameter(output_interval=100),
               equation=KPP{Dim2}(),
-              rhs_type=LowOrderPositivity(surface_flux_type=LaxFriedrichsOnProjectedVal()),
+              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
+                                            high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
               approximation_basis_type=GaussCollocation(),
               entropyproj_limiter_type=NoEntropyProjectionLimiter(),
-              rhs_limiter_type=ZhangShuLimiter())
+              rhs_limiter_type=ZhangShuLimiter(shockcapture_type=HennemannShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N

@@ -48,7 +48,7 @@ function get_rhs!(rhs_type::EntropyStable,param,discrete_data,bcdata,prealloc,ca
 end
 
 function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
-    @unpack rhs_cache,limiter_cache = caches
+    @unpack rhs_cache = caches
 
     @timeit_debug timer "entropy projection" begin
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data,nstage,timer)
@@ -60,7 +60,7 @@ function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data,bcdata,prea
     rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,false)
     end
     @timeit_debug timer "apply positivity limiter" begin
-    apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,limiter_cache,dt,nstage,param.rhs_limiter_type,timer)
+    apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,dt,nstage,param.rhs_limiter_type,timer)
     end
     return dt
 end

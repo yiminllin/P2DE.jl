@@ -42,6 +42,7 @@ include("./dg/DGInitialize.jl")
 include("./dg/DGPostProcessing.jl")
 include("./dg/DGFilter.jl")
 include("./dg/limiter/DGLimiter.jl")
+include("./dg/limiter/DGShockCapture.jl")
 include("./dg/rhs/DGRHS.jl")
 include("./dg/DGUtils.jl")
 include("./timestepping/TimeStepping.jl")
@@ -57,6 +58,7 @@ export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjec
 export NoEntropyProjectionLimiter,NodewiseScaledExtrapolation
 export NoRHSLimiter,ZhangShuLimiter,SubcellLimiter
 export PositivityBound,PositivityAndMinEntropyBound
+export NoShockCapture,HennemannShockCapture
 export GaussCollocation,LobattoCollocation
 export Dim1,Dim2,Dim3
 export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas,KPP
