@@ -21,6 +21,7 @@ function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nsta
 end
 
 function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nstage,rhs_limiter_type::SubcellLimiter,timer)
+    @unpack equation = param
     @unpack limiter_cache,shockcapture_cache = caches
     dim = get_dim_type(param.equation)
     shockcapture_type = get_shockcapture_type(param)
@@ -35,13 +36,13 @@ function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nsta
     update_smoothness_factor!(bound_type,limiter_cache,prealloc,param,nstage)
     end
     @timeit_debug timer "Precompute bounds" begin
-    initialize_bounds!(limiter_cache,prealloc,bound_type,param,discrete_data,bcdata,t,nstage,dim)
+    initialize_bounds!(limiter_cache,prealloc,equation,bound_type,param,discrete_data,bcdata,t,nstage,dim)
     end
     @timeit_debug timer "Accumulate low and high order subcell fluxes" begin
     accumulate_f_bar!(limiter_cache,prealloc,param,discrete_data,dim)
     end
     @timeit_debug timer "Find subcell limiting parameters" begin
-    subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim)
+    subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equation,param,discrete_data,bcdata,dt,nstage,dim)
     end
     @timeit_debug timer "Symmetrize subcell limiting parameters" begin
     symmetrize_limiting_parameters!(prealloc,param,bcdata,nstage,dim)

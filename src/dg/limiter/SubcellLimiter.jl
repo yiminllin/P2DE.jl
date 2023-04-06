@@ -1,13 +1,17 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_bounds!(cache,prealloc,bound_type::PositivityBound,param,discrete_data,bcdata,t,nstage,dim)
+function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::PositivityBound,param,discrete_data,bcdata,t,nstage,dim)
     cache.lbound_s_modified .= 0.0
+end
+
+function initialize_bounds!(cache,prealloc,equation::KPP,bound_type,param,discrete_data,bcdata,t,nstage,dim)
+    # Do nothing
 end
 
 # TODO: only precompute s_modified now, unnecessary to precompute bound for
 #       density and internal energy?
-function initialize_bounds!(cache,prealloc,bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
+function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
     initialize_s_modified!(cache,prealloc,param,t,nstage)
     initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
 end
@@ -156,7 +160,7 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
     end
 end
 
-function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim1)
+function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equation::CompressibleIdealGas,param,discrete_data,bcdata,dt,nstage,dim::Dim1)
     @unpack uL_k,f_bar_H,f_bar_L = limiter_cache
     @unpack lbound_s_modified    = limiter_cache
     @unpack Uq,L_local_arr,rhsL  = prealloc
@@ -199,7 +203,7 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,param,
     end
 end
 
-function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim2)
+function subcell_bound_limiter!(limiter_cache,shockcapture_cache,equation::CompressibleIdealGas,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim2)
     @unpack uL_k,f_bar_H,f_bar_L = limiter_cache
     @unpack lbound_s_modified    = limiter_cache
     @unpack Uq,rhsL,L_local_arr  = prealloc
@@ -302,6 +306,24 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,param,
         l_shock = blending_factor[k,nstage]
         @. Lx_local_k = min(Lx_local_k, l_shock)
         @. Ly_local_k = min(Ly_local_k, l_shock)
+    end
+end
+
+function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equation::KPP,param,discrete_data,bcdata,dt,nstage,dim)
+    @unpack L_local_arr     = prealloc
+    @unpack blending_factor = shockcapture_cache
+
+    K  = get_num_elements(param)
+
+    @views @. L_local_arr[:,:,:,nstage] = 1.0
+    @batch for k = 1:K
+        tid = Threads.threadid()
+
+        L_local_k = view(L_local_arr,:,:,k,nstage)
+
+        # Apply shock capturing
+        l_shock = blending_factor[k,nstage]
+        @. L_local_k = min(L_local_k, l_shock)
     end
 end
 
