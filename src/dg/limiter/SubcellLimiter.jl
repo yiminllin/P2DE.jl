@@ -1,7 +1,7 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_bounds!(cache,prealloc,bound_type::PositivityBound,param,discrete_data,bcdata,t,dim)
+function initialize_bounds!(cache,prealloc,bound_type::PositivityBound,param,discrete_data,bcdata,t,nstage,dim)
     cache.lbound_s_modified .= 0.0
 end
 
