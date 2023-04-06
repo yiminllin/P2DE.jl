@@ -17,14 +17,17 @@ end
     return (SVector(fx1),SVector(fy1))
 end
 
+@inline function psi_ufun(equation::KPP{Dim2},U)
+    u = U[1]
+    return SVector(-cos(u),sin(u))
+end
+
 @inline function fS(equation::KPP{Dim2},UL,UR)
     uL = UL[1]
     uR = UR[1]
 
-    psixL = -cos(uL)
-    psixR = -cos(uR)
-    psiyL = sin(uL)
-    psiyR = sin(uR)
+    psixL,psiyL = psi_ufun(equation,UL)
+    psixR,psiyR = psi_ufun(equation,UR)
 
     # TODO: hardcoded
     if abs(uR-uL) < 1e-12
