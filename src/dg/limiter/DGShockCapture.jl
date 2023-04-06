@@ -96,7 +96,7 @@ function update_blending_factor!(shockcapture::HennemannShockCapture,cache,preal
     
     K  = get_num_elements(param)
     TN = a*10^(-c*(N+1)^0.25)
-    alphamax = 0.0
+    alphamax = 0.5
     alphaE0  = 0.0001
     s_factor = log((1-alphaE0)/alphaE0)
     @batch for k = 1:K
