@@ -1,5 +1,5 @@
 include("./DGRHSUtils.jl")
-include("./EntropyStableRHS.jl")
+include("./FluxDiffRHS.jl")
 include("./LowOrderPositivityRHS.jl")
 
 function rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
@@ -36,18 +36,18 @@ function get_rhs!(rhs_type::LowOrderPositivity,param,discrete_data,bcdata,preall
     return dt
 end
 
-function get_rhs!(rhs_type::EntropyStable,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
+function get_rhs!(rhs_type::FluxDiffRHS,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
     @unpack rhsH,rhsU = prealloc
     @unpack rhs_cache = caches
 
     @timeit_debug timer "high order ESDG" begin
-    rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,true)
+    rhs_fluxdiff!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,true)
     end
     copyto!(rhsU,rhsH)
     return dt
 end
 
-function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
+function get_rhs!(rhs_type::LimitedDG,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
     @unpack rhs_cache = caches
 
     @timeit_debug timer "entropy projection" begin
@@ -57,7 +57,7 @@ function get_rhs!(rhs_type::ESLimitedLowOrderPos,param,discrete_data,bcdata,prea
     dt = rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data,bcdata,t,dt,nstage,timer,false)
     end
     @timeit_debug timer "high order ESDG" begin
-    rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,false)
+    rhs_fluxdiff!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,false)
     end
     @timeit_debug timer "apply positivity limiter" begin
     apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nstage,param.rhs_limiter_type,timer)
