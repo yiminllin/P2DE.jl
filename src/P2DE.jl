@@ -52,7 +52,7 @@ include("./timestepping/TimeStepping.jl")
 export Param,BCData,DataHistory,ErrorData
 export GlobalConstant,TimesteppingParameter,PostprocessingParameter,
        LimitingParameter
-export LowOrderPositivity,EntropyStable,ESLimitedLowOrderPos
+export LowOrderPositivity,EntropyStable,StandardDG,ESLimitedLowOrderPos,StdDGLimitedLowOrderPos
 export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjectedVal
 export NoEntropyProjectionLimiter,NodewiseScaledExtrapolation
 export NoRHSLimiter,ZhangShuLimiter,SubcellLimiter
@@ -78,6 +78,6 @@ export get_num_elements,get_num_components
 #####################
 # TODO: for testing #
 #####################
-export rhs!,rhs_pos_Gauss!,rhs_modalESDG!,compute_entropyproj_limiting_param!
+export rhs!,rhs_pos_Gauss!,rhs_fluxdiff!,compute_entropyproj_limiting_param!
 
 end

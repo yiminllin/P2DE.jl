@@ -1,7 +1,7 @@
 #########################
 ### RHS of modal ESDG ###
 #########################
-function rhs_modalESDG!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,need_proj=true)
+function rhs_fluxdiff!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,need_proj=true)
     @unpack entropyproj_limiter_type,equation = param
 
     cache = get_high_order_cache(rhs_cache)
@@ -173,60 +173,46 @@ function clear_flux_differencing_cache!(cache)
     @. QF1 = zero(QF1)
 end
 
-function flux_differencing_volume!(cache,prealloc,param,equation::CompressibleIdealGas,discrete_data)
+function flux_differencing_volume!(cache,prealloc,param,equation,discrete_data)
     @unpack equation = param
     @unpack QF1      = cache
     @unpack Srsh_nnz = discrete_data.ops
 
     dim = get_dim_type(equation)
+    vol_flux_type = get_high_order_volume_flux(param.rhs_type)
     K  = get_num_elements(param)
     Nq = discrete_data.sizes.Nq
     Nh = size(QF1,1)
-    Ui = zero(SVector{5,Float64})
-    Uj = zero(SVector{5,Float64})
     @batch for k = 1:K
         for (i,j) in Srsh_nnz
-            Ui = get_U_beta!(i,k,cache,prealloc,param.equation,dim)
-            Uj = get_U_beta!(j,k,cache,prealloc,param.equation,dim)
-            accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
-        end
-    end
-end
-
-function flux_differencing_volume!(cache,prealloc,param,equation::KPP{Dim2},discrete_data)
-    @unpack equation = param
-    @unpack QF1      = cache
-    @unpack Srsh_nnz = discrete_data.ops
-    @unpack u_tilde  = prealloc
-
-    dim = get_dim_type(equation)
-    K  = get_num_elements(param)
-    Nq = discrete_data.sizes.Nq
-    Nh = size(QF1,1)
-    Ui = zero(SVector{1,Float64})
-    Uj = zero(SVector{1,Float64})
-    @batch for k = 1:K
-        for (i,j) in Srsh_nnz
-            Ui = u_tilde[i,k]
-            Uj = u_tilde[j,k]
+            Ui = get_U(vol_flux_type,i,k,cache,prealloc,param.equation,dim)
+            Uj = get_U(vol_flux_type,j,k,cache,prealloc,param.equation,dim)
             accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
         end
     end
 end
 
 # Get (utilde, beta, log(rho), log(beta)) at index i,element k
-function get_U_beta!(idx,k,cache,prealloc,equation,dim::Dim1)
+function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleIdealGas,dim::Dim1)
     @unpack u_tilde             = prealloc
     @unpack beta,rholog,betalog = cache
 
     return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k])
 end
 
-function get_U_beta!(idx,k,cache,prealloc,equation,dim::Dim2)
+function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleIdealGas,dim::Dim2)
     @unpack u_tilde             = prealloc
     @unpack beta,rholog,betalog = cache
 
     return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],u_tilde[idx,k][3]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k])
+end
+
+function get_U(vol_flux_type::CentralFlux,idx,k,cache,prealloc,equation::CompressibleIdealGas,dim)
+    return prealloc.u_tilde[idx,k]
+end
+
+function get_U(vol_flux_type,idx,k,cache,prealloc,equation::KPP,dim)
+    return prealloc.u_tilde[idx,k]
 end
 
 function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
@@ -235,11 +221,21 @@ function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
     # TODO: assume Sxyh_db_ij = -Sxyh_db_ji
     #              Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
-    fxy = fS(equation,Ui,Uj)
+    fxy = get_high_order_volume_flux(get_high_order_volume_flux(param.rhs_type),equation,Ui,Uj)
     Sfxy_ij = Sxyh_db_ij .* fxy
     Sfxy_ji = -Sfxy_ij
     QF1[i,k] += Sfxy_ij
     QF1[j,k] += Sfxy_ji
+end
+
+function get_high_order_volume_flux(vol_flux_type::ChandrashekarFlux,equation,Ui,Uj)
+    return fS(equation,Ui,Uj)
+end
+
+function get_high_order_volume_flux(vol_flux_type::CentralFlux,equation,Ui,Uj)
+    fi = fluxes(equation,Ui)
+    fj = fluxes(equation,Uj)
+    return (.5*(fi[1]+fj[1]), .5*(fi[2]+fj[2]))
 end
 
 function flux_differencing_surface!(cache,prealloc,param,discrete_data)

@@ -2,34 +2,64 @@ abstract type RHSType end
 Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE}   <: RHSType
     surface_flux_type::SURFACEFLUXTYPE
 end
-Base.@kwdef struct EntropyStable{SURFACEFLUXTYPE}        <: RHSType
+struct FluxDiffRHS{VOLUMEFLUXTYPE,SURFACEFLUXTYPE} <: RHSType
+    volume_flux_type ::VOLUMEFLUXTYPE
     surface_flux_type::SURFACEFLUXTYPE
 end
-Base.@kwdef struct ESLimitedLowOrderPos{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE} <: RHSType
+struct LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,HIGHVOLUMEFLUXTYPE} <: RHSType
     low_order_surface_flux_type ::LOWSURFACEFLUXTYPE
     high_order_surface_flux_type::HIGHSURFACEFLUXTYPE
+    high_order_volume_flux_type ::HIGHVOLUMEFLUXTYPE
 end
 
-function get_low_order_surface_flux(rhs_type::LowOrderPositivity)
-    return rhs_type.surface_flux_type
-end
-
-function get_low_order_surface_flux(rhs_type::ESLimitedLowOrderPos)
-    return rhs_type.low_order_surface_flux_type
-end
-
-function get_high_order_surface_flux(rhs_type::EntropyStable)
-    return rhs_type.surface_flux_type
-end
-
-function get_high_order_surface_flux(rhs_type::ESLimitedLowOrderPos)
-    return rhs_type.high_order_surface_flux_type
-end
+abstract type VolumeFluxType end
+struct ChandrashekarFlux <: VolumeFluxType end
+struct CentralFlux       <: VolumeFluxType end
 
 abstract type SurfaceFluxType end
 struct ChandrashekarOnProjectedVal <: SurfaceFluxType end
 struct LaxFriedrichsOnNodalVal     <: SurfaceFluxType end
 struct LaxFriedrichsOnProjectedVal <: SurfaceFluxType end
+
+const EntropyStable{SURFACEFLUXTYPE} = FluxDiffRHS{ChandrashekarFlux,SURFACEFLUXTYPE}
+const StandardDG                     = FluxDiffRHS{CentralFlux,LaxFriedrichsOnProjectedVal}
+const ESLimitedLowOrderPos{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE} = LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,ChandrashekarFlux}
+const StdDGLimitedLowOrderPos{LOWSURFACEFLUXTYPE}                  = LimitedDG{LOWSURFACEFLUXTYPE,LaxFriedrichsOnProjectedVal,CentralFlux}
+
+EntropyStable(;surface_flux_type=LaxFriedrichsOnProjectedVal()) =
+    FluxDiffRHS(ChandrashekarFlux(), surface_flux_type)
+StandardDG() =
+    FluxDiffRHS(CentralFlux(), LaxFriedrichsOnProjectedVal())
+ESLimitedLowOrderPos(; low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
+                       high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()) =
+    LimitedDG(low_order_surface_flux_type, high_order_surface_flux_type, ChandrashekarFlux())
+StdDGLimitedLowOrderPos(; low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
+                          high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()) =
+    LimitedDG(low_order_surface_flux_type, high_order_surface_flux_type, CentralFlux())
+
+function get_low_order_surface_flux(rhs_type::LowOrderPositivity)
+    return rhs_type.surface_flux_type
+end
+
+function get_low_order_surface_flux(rhs_type::LimitedDG)
+    return rhs_type.low_order_surface_flux_type
+end
+
+function get_high_order_surface_flux(rhs_type::FluxDiffRHS)
+    return rhs_type.surface_flux_type
+end
+
+function get_high_order_surface_flux(rhs_type::LimitedDG)
+    return rhs_type.high_order_surface_flux_type
+end
+
+function get_high_order_volume_flux(rhs_type::FluxDiffRHS)
+    return rhs_type.volume_flux_type
+end
+
+function get_high_order_volume_flux(rhs_type::LimitedDG)
+    return rhs_type.high_order_volume_flux_type
+end
 
 abstract type Cache{DIM,Nc} end
 struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
@@ -57,7 +87,7 @@ LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM
                             zeros(Float64,Nfp,K),
                             zeros(Float64,Nthread))
 
-struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
+struct FluxDiffCache{DIM,Nc} <: Cache{DIM,Nc}
     beta       ::Array{Float64,2}
     rholog     ::Array{Float64,2}
     betalog    ::Array{Float64,2}
@@ -75,8 +105,8 @@ struct EntropyStableCache{DIM,Nc} <: Cache{DIM,Nc}
     MinvVfTBF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
 end
 
-EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
-    EntropyStableCache(zeros(Float64,Nh,K),
+FluxDiffCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
+         FluxDiffCache(zeros(Float64,Nh,K),
                        zeros(Float64,Nh,K),
                        zeros(Float64,Nh,K),
                        zeros(SVector{Nc,Float64},Nfp,K),
@@ -92,7 +122,7 @@ EntropyStableCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} 
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K))
 
-Base.@kwdef struct ESLimitedLowOrderPosCache{CACHEHTYPE,CACHELTYPE}
+Base.@kwdef struct LimitedDGCache{CACHEHTYPE,CACHELTYPE}
     cacheH  ::CACHEHTYPE
     cacheL  ::CACHELTYPE
 end
@@ -106,37 +136,37 @@ function get_rhs_cache(rhs_type::LowOrderPositivity,param,sizes)
     return LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
-function get_rhs_cache(rhs_type::EntropyStable,param,sizes)
+function get_rhs_cache(rhs_type::FluxDiffRHS,param,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    return EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
+    return FluxDiffCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
 end
 
-function get_rhs_cache(rhs_type::ESLimitedLowOrderPos,param,sizes)
+function get_rhs_cache(rhs_type::LimitedDG,param,sizes)
     @unpack Np,Nh,Nq,Nfp,Nc,Ns = sizes
     K  = get_num_elements(param)
     Nd = get_dim(param.equation)
 
-    cacheH = EntropyStableCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
+    cacheH = FluxDiffCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
     cacheL = LowOrderPositivityCache{Nd,Nc}(K=K,Np=Np,Nq=Nq,Nh=Nh,Nfp=Nfp,Nthread=Threads.nthreads())
-    return ESLimitedLowOrderPosCache(cacheH = cacheH, cacheL = cacheL)
+    return LimitedDGCache(cacheH = cacheH, cacheL = cacheL)
 end
 
 function get_low_order_cache(rhs_cache::LowOrderPositivityCache)
     return rhs_cache
 end
 
-function get_low_order_cache(rhs_cache::ESLimitedLowOrderPosCache)
+function get_low_order_cache(rhs_cache::LimitedDGCache)
     return rhs_cache.cacheL
 end
 
-function get_high_order_cache(rhs_cache::EntropyStableCache)
+function get_high_order_cache(rhs_cache::FluxDiffCache)
     return rhs_cache
 end
 
-function get_high_order_cache(rhs_cache::ESLimitedLowOrderPosCache)
+function get_high_order_cache(rhs_cache::LimitedDGCache)
     return rhs_cache.cacheH
 end
 
@@ -186,7 +216,11 @@ function get_bound_type(limiter::SubcellLimiter)
     return limiter.bound_type
 end
 
-function get_shockcapture_type(limiter::RHSLimiterType)
+function get_shockcapture_type(limiter::NoRHSLimiter)
+    return NoShockCapture()
+end
+
+function get_shockcapture_type(limiter::Union{ZhangShuLimiter,SubcellLimiter})
     return limiter.shockcapture_type
 end
 
@@ -569,12 +603,20 @@ function Base.show(io::IO,rhs_type::ESLimitedLowOrderPos)
     text = print(io,"ESLimitedLowOrderPos(FBL=",get_low_order_surface_flux(rhs_type),",FBH=",get_high_order_surface_flux(rhs_type),")")
 end
 
+function Base.show(io::IO,rhs_type::StdDGLimitedLowOrderPos)
+    text = print(io,"StdDGLimitedLowOrderPos(FBL=",get_low_order_surface_flux(rhs_type),")")
+end
+
 function Base.show(io::IO,rhs_type::LowOrderPositivity)
     text = print(io,"LowOrderPositivity(FBL=",get_low_order_surface_flux(rhs_type),")")
 end
 
 function Base.show(io::IO,rhs_type::EntropyStable)
     text = print(io,"EntropyStable(FBL=",get_high_order_surface_flux(rhs_type),")")
+end
+
+function Base.show(io::IO,rhs_type::StandardDG)
+    text = print(io,"StandardDG()")
 end
 
 function Base.show(io::IO,flux_type::LaxFriedrichsOnNodalVal)
