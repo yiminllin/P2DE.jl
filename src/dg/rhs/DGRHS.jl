@@ -1,5 +1,5 @@
 include("./DGRHSUtils.jl")
-include("./EntropyStableRHS.jl")
+include("./FluxDiffRHS.jl")
 include("./LowOrderPositivityRHS.jl")
 
 function rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
