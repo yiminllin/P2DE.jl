@@ -203,7 +203,7 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
     end
 end
 
-function subcell_bound_limiter!(limiter_cache,shockcapture_cache,equation::CompressibleIdealGas,prealloc,param,discrete_data,bcdata,dt,nstage,dim::Dim2)
+function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equation::CompressibleIdealGas,param,discrete_data,bcdata,dt,nstage,dim::Dim2)
     @unpack uL_k,f_bar_H,f_bar_L = limiter_cache
     @unpack lbound_s_modified    = limiter_cache
     @unpack Uq,rhsL,L_local_arr  = prealloc
