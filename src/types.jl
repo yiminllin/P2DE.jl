@@ -428,6 +428,7 @@ struct Preallocation{Nc,DIM}
     vq         ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
     u_tilde    ::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
     v_tilde    ::Array{SVector{Nc,Float64},2}       # projected entropy variables
+    psi_tilde  ::Array{SVector{DIM,Float64},2}
     rhsH       ::Array{SVector{Nc,Float64},2}
     rhsL       ::Array{SVector{Nc,Float64},2}
     rhsU       ::Array{SVector{Nc,Float64},2}
@@ -436,6 +437,8 @@ struct Preallocation{Nc,DIM}
     rhsxyU     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF_H       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF_L       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    fstar_H    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    fstar_L    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Larr       ::Array{Float64,2}
     L_local_arr::Array{Float64,4}
     θ_arr      ::Array{Float64,2}

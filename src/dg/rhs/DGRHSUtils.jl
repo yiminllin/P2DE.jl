@@ -88,6 +88,15 @@ function apply_LF_dissipation_to_BF(BF,param,i,k,lf,dim::Dim2)
     end
 end
 
+function apply_LF_dissipation_to_fstar(fstar,param,i,k,Bxy_i,lf,dim::Dim2)
+    N1D = param.N+1
+    if i <= 2*N1D
+        fstar[i,k] = SVector(fstar[i,k][1]-lf/Bxy_i[1],fstar[i,k][2])
+    else
+        fstar[i,k] = SVector(fstar[i,k][1],fstar[i,k][2]-lf/Bxy_i[2])
+    end
+end
+
 # TODO: hardcoded
 function get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim::Dim1)
     @unpack λarr = cache
