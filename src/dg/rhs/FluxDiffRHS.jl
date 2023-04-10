@@ -36,18 +36,22 @@ function rhs_fluxdiff!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,time
     @timeit_debug timer "assemble rhs" begin
     assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
     end
+
+    # check_flux_diff_entropy_stability(cache,prealloc,param,discrete_data,get_dim_type(equation))
 end
 
 function calculate_primitive_variables!(cache,prealloc,param,equation::CompressibleIdealGas,bcdata)
     @unpack equation   = param
     @unpack mapP       = bcdata
     @unpack u_tilde    = prealloc
+    @unpack psi_tilde  = prealloc
     @unpack beta,rholog,betalog,uP,betaP,rhologP,betalogP = cache
     K = get_num_elements(param)
     Nfp = size(mapP,1)
 
     @batch for k = 1:K
         for i = 1:size(beta,1)
+            psi_tilde[i,k] = psi_ufun(equation,u_tilde[i,k])
             beta[i,k]    = betafun(equation,u_tilde[i,k])
             rholog[i,k]  = log(u_tilde[i,k][1])
             betalog[i,k] = log(beta[i,k])
@@ -248,7 +252,7 @@ function flux_differencing_surface!(cache,prealloc,param,discrete_data)
 end
 
 function accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equation)
-    @unpack BF_H,u_tilde = prealloc
+    @unpack BF_H,fstar_H,u_tilde = prealloc
     @unpack uP,LFc       = cache
     
     # Boundary contributions (B F)1
@@ -258,12 +262,13 @@ function accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equatio
     dim = get_dim_type(equation)
     uf = @view u_tilde[Nq+1:Nh,:]
     for i = 1:Nfp
-        fxy = evaluate_high_order_surface_flux(prealloc,cache,param,i,k,get_high_order_surface_flux(param.rhs_type))
+        fstar_H[i,k] = evaluate_high_order_surface_flux(prealloc,cache,param,i,k,get_high_order_surface_flux(param.rhs_type))
         Bxy_i = get_Bx(i,k,discrete_data,dim)
-        BF_H[i,k] = Bxy_i.*fxy
+        BF_H[i,k] = Bxy_i.*fstar_H[i,k]
         # Apply LF dissipation
         lf = LFc[i,k]*(uP[i,k]-uf[i,k])
         apply_LF_dissipation_to_BF(BF_H,param,i,k,lf,dim)
+        apply_LF_dissipation_to_fstar(fstar_H,param,i,k,Bxy_i,lf,dim)
     end
 end
 
@@ -385,3 +390,42 @@ function assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
     end
 end
 
+function check_flux_diff_entropy_stability(cache,prealloc,param,discrete_data,dim::Dim2)
+    @unpack equation                  = param
+    @unpack v_tilde,psi_tilde,Uq,vq   = prealloc
+    @unpack fstar_H,rhsxyH            = prealloc
+    @unpack QF1,MinvVhTQF1,MinvVfTBF1 = cache
+    @unpack wq                        = discrete_data.ops
+    @unpack Jq                        = discrete_data.geom
+    @unpack Nq,Nh,Nfp                 = discrete_data.sizes 
+
+    # Check entropy stability
+    K  = get_num_elements(param)
+    Nd = get_dim(equation)
+    dim = get_dim_type(equation)
+    @batch for k = 1:K
+        entropy_estimate_vol  = zero(SVector{Nd,Float64})   # vT rhs_vol
+        entropy_estimate_surf = zero(SVector{Nd,Float64})   # vT rhs_surf
+        entropy_estimate      = zero(SVector{Nd,Float64})   # vT rhs
+        for i = 1:Nq
+            m_i = wq[i]
+            entropy_estimate_vol  += -m_i*SVector(sum(vq[i,k].*MinvVhTQF1[i,k][1]), sum(vq[i,k].*MinvVhTQF1[i,k][2]))
+            entropy_estimate_surf += -m_i*SVector(sum(vq[i,k].*MinvVfTBF1[i,k][1]), sum(vq[i,k].*MinvVfTBF1[i,k][2]))
+            entropy_estimate      +=  m_i*Jq[i,k]*SVector(sum(vq[i,k].*rhsxyH[i,k][1]), sum(vq[i,k].*rhsxyH[i,k][2]))
+        end
+        sum_Bpsi = zero(SVector{Nd,Float64})   # 1T B psi
+        vTBfstar = zero(SVector{Nd,Float64})   # vT B f*
+        for i = 1:Nfp
+            Bxy_i = get_Bx(i,k,discrete_data,dim)
+            sum_Bpsi += Bxy_i .* psi_tilde[Nq+i,k]
+            vTBfstar += Bxy_i .* SVector(sum(v_tilde[i+Nq,k].*fstar_H[i,k][1]), sum(v_tilde[i+Nq,k].*fstar_H[i,k][2]))
+        end
+        diff_vol  = entropy_estimate_vol-sum_Bpsi
+        diff_surf = entropy_estimate_surf+vTBfstar
+        diff      = entropy_estimate-sum_Bpsi+vTBfstar
+        tol = 1e-12
+        if max(abs(diff_vol[1]),abs(diff_vol[2]),abs(diff_surf[1]),abs(diff_surf[2]),abs(diff[1]),abs(diff[2])) > tol 
+            @show k,diff_vol,diff_surf,diff
+        end
+    end
+end

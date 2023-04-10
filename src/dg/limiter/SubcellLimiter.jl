@@ -485,6 +485,172 @@ function apply_subcell_limiter!(prealloc,cache,param,discrete_data,dim::Dim2)
     end
 end
 
+function check_subcell_entropy_stability(cache,prealloc,param,discrete_data,dim::Dim2)
+    @unpack equation                  = param
+    @unpack rhsxyU,rhsxyH,rhsxyL      = prealloc
+    @unpack Uq,vq,u_tilde,v_tilde     = prealloc
+    @unpack fstar_H,fstar_L           = prealloc
+    @unpack f_bar_H,f_bar_L,f_bar_lim = cache
+    @unpack dfH_vol,dfL_vol,df_vol    = cache
+    @unpack dfH_surf,dfL_surf,df_surf = cache
+    @unpack fq2q,wq = discrete_data.ops
+    @unpack Jq      = discrete_data.geom
+    @unpack Nq,Nfp  = discrete_data.sizes
+
+    K  = get_num_elements(param)
+    N1D = param.N+1    # TODO: hardcoded
+    N1Dp1 = N1D+1
+    Nd = get_dim(equation)
+    dim = get_dim_type(equation)
+    
+    # Accumulate volume and surface subcell part
+    @batch for k = 1:K
+        # TODO: hardcoding views
+        rhsxyU_k = reshape(view(rhsxyU,:,k),N1D,N1D)
+        rhsxyH_k = reshape(view(rhsxyH,:,k),N1D,N1D)
+        rhsxyL_k = reshape(view(rhsxyL,:,k),N1D,N1D)
+        wq_k     = reshape(view(wq,:),N1D,N1D)
+        Jq_k     = reshape(view(Jq,:,k),N1D,N1D)
+
+        fx_bar_H_k   = reshape(view(f_bar_H[1],:,k),N1Dp1,N1D)
+        fx_bar_L_k   = reshape(view(f_bar_L[1],:,k),N1Dp1,N1D)
+        fy_bar_H_k   = reshape(view(f_bar_H[2],:,k),N1D,N1Dp1)
+        fy_bar_L_k   = reshape(view(f_bar_L[2],:,k),N1D,N1Dp1)
+        fx_bar_lim_k = reshape(view(f_bar_lim[1],:,k),N1Dp1,N1D)
+        fy_bar_lim_k = reshape(view(f_bar_lim[2],:,k),N1D,N1Dp1)
+        
+        dfxH_vol = reshape(view(dfH_vol[1],:,k),N1D,N1D)
+        dfyH_vol = reshape(view(dfH_vol[2],:,k),N1D,N1D)
+        dfxL_vol = reshape(view(dfL_vol[1],:,k),N1D,N1D)
+        dfyL_vol = reshape(view(dfL_vol[2],:,k),N1D,N1D)
+        dfx_vol  = reshape(view(df_vol[1],:,k),N1D,N1D)
+        dfy_vol  = reshape(view(df_vol[2],:,k),N1D,N1D)
+
+        dfxH_surf = reshape(view(dfH_surf[1],:,k),N1D,N1D)
+        dfyH_surf = reshape(view(dfH_surf[2],:,k),N1D,N1D)
+        dfxL_surf = reshape(view(dfL_surf[1],:,k),N1D,N1D)
+        dfyL_surf = reshape(view(dfL_surf[2],:,k),N1D,N1D)
+        dfx_surf  = reshape(view(df_surf[1],:,k),N1D,N1D)
+        dfy_surf  = reshape(view(df_surf[2],:,k),N1D,N1D)
+
+        for j = 1:N1D
+            dfx_vol[1,j]   =  fx_bar_lim_k[2,j]
+            dfxH_vol[1,j]  =  fx_bar_H_k[2,j]
+            dfxL_vol[1,j]  =  fx_bar_L_k[2,j]
+            dfx_surf[1,j]  = -fx_bar_lim_k[1,j]
+            dfxH_surf[1,j] = -fx_bar_H_k[1,j]
+            dfxL_surf[1,j] = -fx_bar_L_k[1,j]
+            for i = 2:N1D-1
+                dfx_vol[i,j]  = fx_bar_lim_k[i+1,j]-fx_bar_lim_k[i,j]
+                dfxH_vol[i,j] = fx_bar_H_k[i+1,j]-fx_bar_H_k[i,j]
+                dfxL_vol[i,j] = fx_bar_L_k[i+1,j]-fx_bar_L_k[i,j]
+                # surf contribution is zero
+            end
+            dfx_vol[N1D,j]   = -fx_bar_lim_k[N1D,j]
+            dfxH_vol[N1D,j]  = -fx_bar_H_k[N1D,j]
+            dfxL_vol[N1D,j]  = -fx_bar_L_k[N1D,j]
+            dfx_surf[N1D,j]  =  fx_bar_lim_k[N1D+1,j]
+            dfxH_surf[N1D,j] =  fx_bar_H_k[N1D+1,j]
+            dfxL_surf[N1D,j] =  fx_bar_L_k[N1D+1,j]
+        end
+
+        for i = 1:N1D
+            dfy_vol[i,1]   =  fy_bar_lim_k[i,2]
+            dfyH_vol[i,1]  =  fy_bar_H_k[i,2]
+            dfyL_vol[i,1]  =  fy_bar_L_k[i,2]
+            dfy_surf[i,1]  = -fy_bar_lim_k[i,1]
+            dfyH_surf[i,1] = -fy_bar_H_k[i,1]
+            dfyL_surf[i,1] = -fy_bar_L_k[i,1]
+            for j = 2:N1D-1
+                dfy_vol[i,j]  = fy_bar_lim_k[i,j+1]-fy_bar_lim_k[i,j]
+                dfyH_vol[i,j] = fy_bar_H_k[i,j+1]-fy_bar_H_k[i,j]
+                dfyL_vol[i,j] = fy_bar_L_k[i,j+1]-fy_bar_L_k[i,j]
+            end
+            dfy_vol[i,N1D]   = -fy_bar_lim_k[i,N1D]
+            dfyH_vol[i,N1D]  = -fy_bar_H_k[i,N1D]
+            dfyL_vol[i,N1D]  = -fy_bar_L_k[i,N1D]
+            dfy_surf[i,N1D]  =  fy_bar_lim_k[i,N1D+1]
+            dfyH_surf[i,N1D] =  fy_bar_H_k[i,N1D+1]
+            dfyL_surf[i,N1D] =  fy_bar_L_k[i,N1D+1]
+        end
+
+        # Check dfxy_vol + dfxy_surf = M rhsxy
+        for j = 1:N1D
+            for i = 1:N1D
+                wJq_i = Jq_k[i,j]*wq_k[i,j]
+                diffx   = wJq_i*rhsxyU_k[i,j][1]-dfx_vol[i,j]-dfx_surf[i,j]
+                diffx_H = wJq_i*rhsxyH_k[i,j][1]-dfxH_vol[i,j]-dfxH_surf[i,j]
+                diffx_L = wJq_i*rhsxyL_k[i,j][1]-dfxL_vol[i,j]-dfxL_surf[i,j]
+                diffy   = wJq_i*rhsxyU_k[i,j][2]-dfy_vol[i,j]-dfy_surf[i,j]
+                diffy_H = wJq_i*rhsxyH_k[i,j][2]-dfyH_vol[i,j]-dfyH_surf[i,j]
+                diffy_L = wJq_i*rhsxyL_k[i,j][2]-dfyL_vol[i,j]-dfyL_surf[i,j]
+                tol = 1e-12
+                if (norm(diffx) > tol || norm(diffx_H) > tol || norm(diffx_L) > tol ||
+                    norm(diffy) > tol || norm(diffy_H) > tol || norm(diffy_L) > tol)
+                    @show k,i,j,diffx,diffx_H,diffx_L,diffy,diffy_H,diffy_L
+                end
+            end
+        end
+
+        # Calculate low, high, limited solution entropy estimate
+        entropy_estimate_vol_L  = zero(SVector{Nd,Float64})   # vT \Delta_vol f^L
+        entropy_estimate_surf_L = zero(SVector{Nd,Float64})   # vT \Delta_surf f^L
+        entropy_estimate_L      = zero(SVector{Nd,Float64})   # vT \Delta f^L
+        entropy_estimate_vol_H  = zero(SVector{Nd,Float64})   # vT \Delta_vol f^H
+        entropy_estimate_surf_H = zero(SVector{Nd,Float64})   # vT \Delta_surf f^H
+        entropy_estimate_H      = zero(SVector{Nd,Float64})   # vT \Delta f^H
+        entropy_estimate_vol    = zero(SVector{Nd,Float64})   # vT \Delta_vol f
+        entropy_estimate_surf   = zero(SVector{Nd,Float64})   # vT \Delta_surf f
+        entropy_estimate        = zero(SVector{Nd,Float64})   # vT \Delta f
+        for i = 1:Nq
+            wJq_i = wq[i]*Jq[i,k]
+            entropy_estimate_vol_L  += SVector(sum(vq[i,k].*dfL_vol[1][i,k]),sum(vq[i,k].*dfL_vol[2][i,k]))
+            entropy_estimate_surf_L += SVector(sum(vq[i,k].*dfL_surf[1][i,k]),sum(vq[i,k].*dfL_surf[2][i,k]))
+            entropy_estimate_L      += wJq_i*SVector(sum(vq[i,k].*rhsxyL[i,k][1]),sum(vq[i,k].*rhsxyL[i,k][2]))
+            entropy_estimate_vol_H  += SVector(sum(vq[i,k].*dfH_vol[1][i,k]),sum(vq[i,k].*dfH_vol[2][i,k]))
+            entropy_estimate_surf_H += SVector(sum(vq[i,k].*dfH_surf[1][i,k]),sum(vq[i,k].*dfH_surf[2][i,k]))
+            entropy_estimate_H      += wJq_i*SVector(sum(vq[i,k].*rhsxyH[i,k][1]),sum(vq[i,k].*rhsxyH[i,k][2]))
+            entropy_estimate_vol    += SVector(sum(vq[i,k].*df_vol[1][i,k]),sum(vq[i,k].*df_vol[2][i,k]))
+            entropy_estimate_surf   += SVector(sum(vq[i,k].*df_surf[1][i,k]),sum(vq[i,k].*df_surf[2][i,k]))
+            entropy_estimate        += wJq_i*SVector(sum(vq[i,k].*rhsxyU[i,k][1]),sum(vq[i,k].*rhsxyU[i,k][2]))
+        end
+
+        # Calculate theory entropy estimates
+        sum_Bpsi      = zero(SVector{Nd,Float64})   # 1T B psi
+        sum_Bpsitilde = zero(SVector{Nd,Float64})   # 1T B psi_tilde
+        vftildeBfH    = zero(SVector{Nd,Float64})   # vf_tilde^T B fH
+        vfBfH         = zero(SVector{Nd,Float64})   # vf^T B fH
+        vfBfL         = zero(SVector{Nd,Float64})   # vf^T B fL
+        for i = 1:Nfp
+            iq = fq2q[i]
+            uf = Uq[iq,k]
+            vf = v_ufun(equation,uf)
+            Bxy_i = get_Bx(i,k,discrete_data,dim)
+            sum_Bpsi      += Bxy_i .* psi_ufun(equation,uf)
+            sum_Bpsitilde += Bxy_i .* psi_ufun(equation,u_tilde[Nq+i,k])
+            vftildeBfH    += Bxy_i .* SVector(sum(v_tilde[Nq+i,k].*fstar_H[i,k][1]), sum(v_tilde[Nq+i,k].*fstar_H[i,k][2]))
+            vfBfH         += Bxy_i .* SVector(sum(vf.*fstar_H[i,k][1]), sum(vf.*fstar_H[i,k][2]))
+            vfBfL         += Bxy_i .* SVector(sum(vf.*fstar_L[i,k][1]), sum(vf.*fstar_L[i,k][2]))
+        end
+
+        diff_vol_L  = entropy_estimate_vol_L-sum_Bpsi
+        diff_surf_L = entropy_estimate_surf_L+vfBfL
+        diff_L      = entropy_estimate_L-sum_Bpsi+vfBfL
+        diff_vol_H  = entropy_estimate_vol_H-sum_Bpsitilde+(vftildeBfH-vfBfH)
+        diff_surf_H = entropy_estimate_surf_H+vfBfH
+        diff_H      = entropy_estimate_H-sum_Bpsitilde+vftildeBfH
+        tol = 1e-12
+        if diff_vol_L[1] > tol       || diff_vol_L[2] > tol ||
+           abs(diff_surf_L[1]) > tol || abs(diff_surf_L[2]) > tol ||
+           diff_L[1] > tol           || diff_L[2] > tol ||
+           abs(diff_vol_H[1]) > tol  || abs(diff_vol_H[2]) > tol ||
+           abs(diff_surf_H[1]) > tol || abs(diff_surf_H[2]) > tol ||
+           abs(diff_H[1]) > tol      || abs(diff_H[2]) > tol
+            println("Violates entropy at element $k, $diff_L, $diff_H")
+        end
+    end
+end
+
 #########################
 ### Smoothness factor ###
 #########################

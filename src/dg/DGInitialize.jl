@@ -10,6 +10,7 @@ function initialize_preallocations(param,md,sizes)
     vq          = zeros(SVector{Nc,Float64},Nq,K)
     u_tilde     = zeros(SVector{Nc,Float64},Nh,K)
     v_tilde     = zeros(SVector{Nc,Float64},Nh,K)
+    psi_tilde   = zeros(SVector{Nd,Float64},Nh,K)
     rhsH        = zeros(SVector{Nc,Float64},Nq,K)
     rhsL        = zeros(SVector{Nc,Float64},Nq,K)
     rhsU        = zeros(SVector{Nc,Float64},Nq,K)
@@ -18,6 +19,8 @@ function initialize_preallocations(param,md,sizes)
     rhsxyU      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
     BF_H        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     BF_L        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
+    fstar_H     = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
+    fstar_L     = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     Larr        = zeros(Float64,K,Ns)
     L_local_arr = zeros(Float64,Nq+N1D,Nd,K,Ns)
     θ_arr       = zeros(Float64,K,Ns)                # TODO: rename F, eta to theta
@@ -28,8 +31,8 @@ function initialize_preallocations(param,md,sizes)
     indicator_modal  = zeros(Float64,Np,K)
     smooth_indicator = zeros(Float64,K)
 
-    prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,
-                                    rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,
+    prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,psi_tilde,
+                                    rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,fstar_H,fstar_L,
                                     Larr,L_local_arr,θ_arr,θ_local_arr,
                                     resW,resZ,
                                     indicator,indicator_modal,smooth_indicator)

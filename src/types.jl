@@ -428,6 +428,7 @@ struct Preallocation{Nc,DIM}
     vq         ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
     u_tilde    ::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
     v_tilde    ::Array{SVector{Nc,Float64},2}       # projected entropy variables
+    psi_tilde  ::Array{SVector{DIM,Float64},2}
     rhsH       ::Array{SVector{Nc,Float64},2}
     rhsL       ::Array{SVector{Nc,Float64},2}
     rhsU       ::Array{SVector{Nc,Float64},2}
@@ -436,6 +437,8 @@ struct Preallocation{Nc,DIM}
     rhsxyU     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF_H       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF_L       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    fstar_H    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    fstar_L    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Larr       ::Array{Float64,2}
     L_local_arr::Array{Float64,4}
     θ_arr      ::Array{Float64,2}
@@ -471,6 +474,12 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # TODO: unnecessary
+    dfH_vol  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # \Delta^vol fbarH
+    dfL_vol  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    df_vol   ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    dfH_surf ::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # \Delta^surf fbarH
+    dfL_surf ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    df_surf  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     s_modified       ::Array{Float64,2}
     var_s_modified   ::Array{Float64,2}
     lbound_s_modified::Array{Float64,2}
@@ -485,6 +494,12 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,N1D=0,Ns=Ns,Nthread=1,s_modified_min=0) w
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
                                 zeros(Float64,Nq,K),
                                 zeros(Float64,Nq,K),
                                 zeros(Float64,Nq,K),

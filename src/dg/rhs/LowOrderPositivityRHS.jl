@@ -38,6 +38,8 @@ function rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data,bcdata,t,dt,nstag
     end
     end
 
+    # check_low_order_entropy_stability(cache,prealloc,param,discrete_data,get_dim_type(equation))
+
     return dt
 end
 
@@ -196,7 +198,7 @@ end
 
 function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bcdata)
     @unpack equation = param
-    @unpack rhsxyL,BF_L               = prealloc
+    @unpack rhsxyL,BF_L,fstar_L       = prealloc
     @unpack Uf,uP,flux,wavespeed_f,λBarr = cache
     @unpack mapP                      = bcdata
     @unpack fq2q                      = discrete_data.ops
@@ -218,11 +220,12 @@ function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bc
             λBarr[i,k] = .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
 
             flux_xy_P = fluxes(equation,uP[i,k])
-            fxy = .5 .*(flux[i+Nq,k].+flux_xy_P)
-            BF_L[i,k] = Bxy_i.*fxy
+            fstar_L[i,k] = .5 .*(flux[i+Nq,k].+flux_xy_P)
+            BF_L[i,k] = Bxy_i.*fstar_L[i,k]
             
             lf = λBarr[i,k]*(uP[i,k]-Uf[i,k])
             apply_LF_dissipation_to_BF(BF_L,param,i,k,lf,get_dim_type(param.equation))
+            apply_LF_dissipation_to_fstar(fstar_L,param,i,k,Bxy_i,lf,get_dim_type(param.equation))
 
             iq = fq2q[i]
             rhsxyL[iq,k] -= BF_L[i,k]
@@ -366,4 +369,39 @@ end
 # TODO: hardcoded
 function find_alpha(equation::KPP,param,ui,uitilde)
     return 1.0
+end
+
+function check_low_order_entropy_stability(cache,prealloc,param,discrete_data,dim::Dim2)
+    @unpack equation          = param
+    @unpack rhsxyL,fstar_L,vq = prealloc
+    @unpack Uf                = cache
+    @unpack Jq                = discrete_data.geom
+    @unpack wq                = discrete_data.ops
+    @unpack Nq,Nfp            = discrete_data.sizes
+    
+    K  = get_num_elements(param)
+    Nd = get_dim(equation)
+    dim = get_dim_type(equation)
+    @batch for k = 1:K
+        entropy_estimate = zero(SVector{Nd,Float64})   # vT rhs
+        # TODO: hardcoded
+        update_face_values!(cache,prealloc,k,discrete_data,LaxFriedrichsOnNodalVal())
+        for i = 1:Nq
+            m_i = wq[i]
+            entropy_estimate += m_i*Jq[i,k]*SVector(sum(vq[i,k].*rhsxyL[i,k][1]), sum(vq[i,k].*rhsxyL[i,k][2]))
+        end
+        sum_Bpsi = zero(SVector{Nd,Float64})   # 1T B psi
+        vTBfstar = zero(SVector{Nd,Float64})   # vT B f*
+        for i = 1:Nfp
+            Bxy_i = get_Bx(i,k,discrete_data,dim)
+            sum_Bpsi += Bxy_i .* psi_ufun(equation,Uf[i,k])
+            vi = v_ufun(equation,Uf[i,k])
+            vTBfstar += Bxy_i .* SVector(sum(vi.*fstar_L[i,k][1]), sum(vi.*fstar_L[i,k][2]))
+        end
+        diff = entropy_estimate-sum_Bpsi+vTBfstar
+        tol = 1e-12
+        if diff[1] > tol || diff[2] > tol
+            @show k,diff
+        end
+    end
 end

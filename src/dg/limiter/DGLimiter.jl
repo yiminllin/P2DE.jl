@@ -53,4 +53,6 @@ function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nsta
     @timeit_debug timer "Apply subcell limiter, accumulate limited rhs" begin
     apply_subcell_limiter!(prealloc,limiter_cache,param,discrete_data,dim)
     end
+    
+    # check_subcell_entropy_stability(limiter_cache,prealloc,param,discrete_data,dim)
 end
