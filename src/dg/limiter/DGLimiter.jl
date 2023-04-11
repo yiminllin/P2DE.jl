@@ -44,6 +44,9 @@ function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nsta
     @timeit_debug timer "Find subcell limiting parameters" begin
     subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equation,param,discrete_data,bcdata,dt,nstage,dim)
     end
+    @timeit_debug timer "Find subcell limiting parameters for entropy stability" begin
+    enforce_ES_subcell!(limiter_cache,prealloc,param,discrete_data,bcdata,nstage,bound_type,dim)
+    end
     @timeit_debug timer "Symmetrize subcell limiting parameters" begin
     symmetrize_limiting_parameters!(prealloc,param,bcdata,nstage,dim)
     end

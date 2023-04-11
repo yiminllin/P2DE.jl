@@ -17,6 +17,10 @@ using SparseArrays
 using StartUpDG
 using NodesAndModes
 
+# Packages for optimization
+using JuMP
+using HiGHS
+
 # Packages for benchmark
 using BenchmarkTools
 using TimerOutputs
@@ -56,7 +60,7 @@ export LowOrderPositivity,EntropyStable,StandardDG,ESLimitedLowOrderPos,StdDGLim
 export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjectedVal
 export NoEntropyProjectionLimiter,NodewiseScaledExtrapolation
 export NoRHSLimiter,ZhangShuLimiter,SubcellLimiter
-export PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound
+export PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,PositivityAndCellEntropyBound
 export NoShockCapture,HennemannShockCapture
 export GaussCollocation,LobattoCollocation
 export Dim1,Dim2,Dim3

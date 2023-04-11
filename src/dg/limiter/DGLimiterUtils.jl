@@ -7,7 +7,7 @@ function get_limiting_param(rhs_limiter_type::ZhangShuLimiter,bound_type,param,U
     return l
 end
 
-function get_limiting_param(rhs_limiter_type::SubcellLimiter,bound_type::PositivityBound,param,UL,P,bound)
+function get_limiting_param(rhs_limiter_type::SubcellLimiter,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound},param,UL,P,bound)
     Lrho,Lrhoe,Lphi,Urho,Urhoe = bound
     l = get_limiting_param_bound_rho_rhoe(param,UL,P,Lrho,Lrhoe,Urho,Urhoe)
     return l
@@ -94,6 +94,30 @@ end
 #############################
 ### Subcell limiter Utils ###
 #############################
+# TODO: refactor
+function subcell_face_idx_to_quad_face_index_x(si,sj,k,N1D)
+    iface = 0
+    if (si == 1)
+        iface = sj
+    elseif (si == N1D+1)
+        iface = sj+N1D
+    end
+
+    return iface
+end
+
+# TODO: refactor
+function subcell_face_idx_to_quad_face_index_y(si,sj,k,N1D)
+    iface = 0
+    if (sj == 1)
+        iface = si+2*N1D
+    elseif (sj == N1D+1)
+        iface = si+3*N1D
+    end
+
+    return iface
+end
+
 # TODO: refactor
 function get_subcell_index_P_x(si,sj,k,N1Dp1,bcdata)
     @unpack mapP = bcdata
