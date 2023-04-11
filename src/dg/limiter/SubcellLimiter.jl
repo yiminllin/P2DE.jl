@@ -1,7 +1,7 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::PositivityBound,param,discrete_data,bcdata,t,nstage,dim)
+function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
     cache.lbound_s_modified .= 0.0
 end
 
@@ -379,6 +379,230 @@ function symmetrize_limiting_parameters!(prealloc,param,bcdata,nstage,dim::Dim2)
     end
 end
 
+function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},dim)
+    # Do nothing
+end
+
+function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound},dim)
+    initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
+    enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
+    enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
+end
+
+function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
+    @unpack equation = param
+    @unpack Uq,vq    = prealloc
+    @unpack fq2q     = discrete_data.ops
+    @unpack Nfp,Nq   = discrete_data.sizes
+    @unpack vf,psif,dvdf,f_bar_H,f_bar_L,sum_Bpsi,sum_dvfbarL = cache
+
+    K     = get_num_elements(param)
+    N1D   = param.N+1
+    N1Dm1 = N1D-1
+    N1Dp1 = N1D+1
+    @batch for k = 1:K
+        # TODO: redundant
+        for i = 1:Nq
+            vq[i,k] = v_ufun(equation,Uq[i,k])
+        end
+        sum_Bpsi[k] = zero(sum_Bpsi[k])
+        for i = 1:Nfp
+            iq = fq2q[i]
+            uf = Uq[iq,k]
+            vf[i,k]   = v_ufun(equation,uf)
+            psif[i,k] = psi_ufun(equation,uf)
+            Bxy_i        = get_Bx(i,k,discrete_data,dim)
+            sum_Bpsi[k] += Bxy_i.*psif[i,k]
+        end
+
+        # TODO: hardcoding views
+        dvdfx_k    = reshape(view(dvdf[1],:,k),N1Dm1,N1D)
+        dvdfy_k    = reshape(view(dvdf[2],:,k),N1D,N1Dm1)
+        vq_k       = reshape(view(vq,:,k),N1D,N1D)
+        fx_bar_H_k = reshape(view(f_bar_H[1],:,k),N1Dp1,N1D)
+        fx_bar_L_k = reshape(view(f_bar_L[1],:,k),N1Dp1,N1D)
+        fy_bar_H_k = reshape(view(f_bar_H[2],:,k),N1D,N1Dp1)
+        fy_bar_L_k = reshape(view(f_bar_L[2],:,k),N1D,N1Dp1)
+        
+        sum_dvfxbarL = 0.0
+        for sj = 1:N1D
+            for si = 2:N1D
+                fxL = fx_bar_L_k[si,sj]
+                fxH = fx_bar_H_k[si,sj]
+                dfx = fxH-fxL
+                dv  = vq_k[si-1,sj]-vq_k[si,sj]
+                dvdfx_k[si-1,sj] = sum(dv.*dfx)
+                sum_dvfxbarL    += sum(dv.*fxL)
+            end
+        end
+        sum_dvfybarL = 0.0
+        for si = 1:N1D
+            for sj = 2:N1D
+                fyL = fy_bar_L_k[si,sj]
+                fyH = fy_bar_H_k[si,sj]
+                dfy = fyH-fyL
+                dv  = vq_k[si,sj-1]-vq_k[si,sj]
+                dvdfy_k[si,sj-1] = sum(dv.*dfy)
+                sum_dvfybarL    += sum(dv.*fyL)
+            end
+        end
+        sum_dvfbarL[k] = SVector(sum_dvfxbarL, sum_dvfybarL)
+    end
+end
+
+function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
+    @unpack LPmodels,L_local_arr      = prealloc
+    @unpack dvdf,sum_Bpsi,sum_dvfbarL = cache
+
+    K  = get_num_elements(param)
+    N1D = param.N+1
+    N1Dp1 = N1D+1
+    N1Dm1 = N1D-1
+    @batch for k = 1:K
+        tid = Threads.threadid()
+        model_x = LPmodels[1][tid]
+        model_y = LPmodels[2][tid]
+
+        # TODO: hardcoding views
+        Lx_local_k = reshape(view(L_local_arr,:,1,k,nstage),N1Dp1,N1D)
+        Ly_local_k = reshape(view(L_local_arr,:,2,k,nstage),N1D,N1Dp1)
+        dvdfx_k    = reshape(view(dvdf[1],:,k),N1Dm1,N1D)
+        dvdfy_k    = reshape(view(dvdf[2],:,k),N1D,N1Dm1)
+
+        # TODO: refactor
+        # Check if current positive limiting factor already satisfies entropy bound
+        sum_dvdfx_k_poslim = 0.0
+        for sj = 1:N1D
+            for si = 2:N1D
+                lij = Lx_local_k[si,sj]
+                sum_dvdfx_k_poslim += lij*dvdfx_k[si-1,sj]
+            end
+        end
+        entropy_estimate_poslim_x = sum_dvdfx_k_poslim + sum_dvfbarL[k][1] - sum_Bpsi[k][1]
+        
+        sum_dvdfy_k_poslim = 0.0
+        for si = 1:N1D
+            for sj = 2:N1D
+                lij = Ly_local_k[si,sj]
+                sum_dvdfy_k_poslim += lij*dvdfy_k[si,sj-1]
+            end
+        end
+        entropy_estimate_poslim_y = sum_dvdfy_k_poslim + sum_dvfbarL[k][2] - sum_Bpsi[k][2]
+
+        need_es_limiting_x = entropy_estimate_poslim_x > 0.0
+        need_es_limiting_y = entropy_estimate_poslim_y > 0.0
+
+        # Enforce entropy stability on subcell volume faces
+        if need_es_limiting_x
+            # Modify the entropy stability bound and
+            # Modify the limiting factor bound (only need to modify the upper bounds):
+            for sj = 1:N1D
+                for si = 2:N1D
+                    set_normalized_coefficient(model_x[:con_es], model_x[:lx][si-1,sj], dvdfx_k[si-1,sj])
+                    set_normalized_rhs(model_x[:con_ubound][si-1,sj], Lx_local_k[si,sj])
+                end
+            end
+            set_normalized_rhs(model_x[:con_es], sum_Bpsi[k][1] - sum_dvfbarL[k][1])
+
+            # Optimize
+            optimize!(model_x)
+
+            # Update interior subcell limiting factors
+            for sj = 1:N1D
+                for si = 2:N1D
+                    Lx_local_k[si,sj] = value(model_x[:lx][si-1,sj])
+                end
+            end
+        end
+
+        if need_es_limiting_y
+            for si = 1:N1D
+                for sj = 2:N1D
+                    set_normalized_coefficient(model_y[:con_es], model_y[:ly][si,sj-1], dvdfy_k[si,sj-1])
+                    set_normalized_rhs(model_y[:con_ubound][si,sj-1], Ly_local_k[si,sj])
+                end
+            end
+            set_normalized_rhs(model_y[:con_es], sum_Bpsi[k][2] - sum_dvfbarL[k][2])
+
+            # Optimize
+            optimize!(model_y)
+
+            # Update interior subcell limiting factors
+            for si = 1:N1D
+                for sj = 2:N1D
+                    Ly_local_k[si,sj] = value(model_y[:ly][si,sj-1])
+                end
+            end
+        end
+    end
+end
+
+function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
+    @unpack fstar_H,fstar_L,L_local_arr = prealloc
+    @unpack vf,psif                     = cache
+    @unpack mapP                        = bcdata
+
+    Lx_local = view(L_local_arr,:,1,:,nstage)
+    Ly_local = view(L_local_arr,:,2,:,nstage)
+
+    K  = get_num_elements(param)
+    N1D = param.N+1
+    N1Dp1 = N1D+1
+    @batch for k = 1:K
+        # Enforce entropy stability on subcell interfaces
+        # For each stride in x direction
+        for sj = 1:N1D
+            # For each subcell index on boundary
+            # TODO: calculation of limiting param, redundant across subcell faces
+            for si = 1:N1D:N1Dp1
+                siP,sjP,kP = get_subcell_index_P_x(si,sj,k,N1Dp1,bcdata)
+                idx        = si+(sj-1)*N1Dp1
+                idxP       = siP+(sjP-1)*N1Dp1 
+                ifq        = subcell_face_idx_to_quad_face_index_x(si,sj,k,N1D)
+                fxstar_H_i = fstar_H[ifq,k][1]
+                fxstar_L_i = fstar_L[ifq,k][1]
+                dv    = vf[ifq,k]-vf[mapP[ifq,k]]
+                dpsix = psif[ifq,k][1]-psif[mapP[ifq,k]][1]
+                dvfxH = sum(dv.*fxstar_H_i)
+                dvfxL = sum(dv.*fxstar_L_i)
+                solve_l_es_interface!(Lx_local,idx,k,idxP,kP,dvfxH,dvfxL,dpsix)
+            end
+        end
+
+        # For each stride in y direction
+        for si = 1:N1D
+            # For each subcell index on boundary
+            # TODO: calculation of limiting param, redundant across subcell faces
+            for sj = 1:N1D:N1Dp1
+                siP,sjP,kP = get_subcell_index_P_y(si,sj,k,N1Dp1,bcdata)
+                idx        = si+(sj-1)*N1D
+                idxP       = siP+(sjP-1)*N1D 
+                ifq        = subcell_face_idx_to_quad_face_index_y(si,sj,k,N1D)
+                fystar_H_i = fstar_H[ifq,k][2]
+                fystar_L_i = fstar_L[ifq,k][2]
+                dv    = vf[ifq,k]-vf[mapP[ifq,k]]
+                dpsiy = psif[ifq,k][2]-psif[mapP[ifq,k]][2]
+                dvfyH = sum(dv.*fystar_H_i)
+                dvfyL = sum(dv.*fystar_L_i)
+                solve_l_es_interface!(Ly_local,idx,k,idxP,kP,dvfyH,dvfyL,dpsiy)
+            end
+        end
+    end
+end
+
+function check_limited_flux_satisfies_entropy_stability(l,dvfH,dvfL,dpsi)
+    return l*dvfH+(1-l)*dvfL <= dpsi
+end
+
+# Solve entropy stable limiting parameter l_es on element k, idx
+#                                             and element kP, idxP
+function solve_l_es_interface!(L_local,idx,k,idxP,kP,dvfH,dvfL,dpsi)
+    l = min(L_local[idx,k],L_local[idxP,kP])
+    f(l_i) = check_limited_flux_satisfies_entropy_stability(l_i,dvfH,dvfL,dpsi)
+    les = bisection(f,0.0,l)
+    L_local[idx,k] = les
+end
+
 # TODO: not necessary
 function accumulate_f_bar_limited!(cache,prealloc,param,nstage,dim::Dim1)
     @unpack f_bar_H,f_bar_L,f_bar_lim = cache
@@ -639,14 +863,17 @@ function check_subcell_entropy_stability(cache,prealloc,param,discrete_data,dim:
         diff_vol_H  = entropy_estimate_vol_H-sum_Bpsitilde+(vftildeBfH-vfBfH)
         diff_surf_H = entropy_estimate_surf_H+vfBfH
         diff_H      = entropy_estimate_H-sum_Bpsitilde+vftildeBfH
-        tol = 1e-12
+        diff_vol    = entropy_estimate_vol-sum_Bpsi
+        diff_surf   = entropy_estimate_surf+vfBfL
+        diff        = entropy_estimate-sum_Bpsi+vfBfL
+        tol = 1e-10
         if diff_vol_L[1] > tol       || diff_vol_L[2] > tol ||
            abs(diff_surf_L[1]) > tol || abs(diff_surf_L[2]) > tol ||
            diff_L[1] > tol           || diff_L[2] > tol ||
-           abs(diff_vol_H[1]) > tol  || abs(diff_vol_H[2]) > tol ||
-           abs(diff_surf_H[1]) > tol || abs(diff_surf_H[2]) > tol ||
-           abs(diff_H[1]) > tol      || abs(diff_H[2]) > tol
-            println("Violates entropy at element $k, $diff_L, $diff_H")
+           diff_vol[1] > tol         || diff_vol[2] > tol ||
+           abs(diff_surf[1]) > tol   || abs(diff_surf[2]) > tol ||
+           diff[1] > tol             || diff[2] > tol
+            println("Violates entropy at element $k, $diff_L, $diff")
         end
     end
 end
@@ -655,7 +882,7 @@ end
 ### Smoothness factor ###
 #########################
 # (69) in https://arxiv.org/pdf/2004.08503.pdf
-function update_smoothness_factor!(bound_type::PositivityBound,cache,prealloc,param,nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound},cache,prealloc,param,nstage)
     # Use global minimum bound by default
     @views @. cache.smooth_factor[:,nstage] = 0.0
 end
