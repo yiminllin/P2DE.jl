@@ -386,7 +386,7 @@ end
 function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound},dim)
     initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
     enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
-    enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
+    enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,param.approximation_basis_type,dim)
 end
 
 function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
@@ -537,7 +537,11 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
     end
 end
 
-function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
+function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,basis_type::LobattoCollocation,dim::Dim2)
+    # Do nothing for Lobatto, since interface flux coincide
+end
+
+function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,basis_type::GaussCollocation,dim::Dim2)
     @unpack fstar_H,fstar_L,L_local_arr = prealloc
     @unpack vf,psif                     = cache
     @unpack mapP                        = bcdata
