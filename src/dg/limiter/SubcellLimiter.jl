@@ -1,7 +1,7 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
+function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
     cache.lbound_s_modified .= 0.0
 end
 
@@ -383,7 +383,7 @@ function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bo
     # Do nothing
 end
 
-function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound},dim)
+function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound},dim)
     initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
     enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
     enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,param.approximation_basis_type,dim)
@@ -453,8 +453,9 @@ end
 function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
     @unpack L_local_arr               = prealloc
     @unpack dvdf,sum_Bpsi,sum_dvfbarL = cache
-    @unpack dvdf_order                = cache
+    @unpack dvdf_order,smooth_factor  = cache
     @unpack Nq                        = discrete_data.sizes
+    bound_type = get_bound_type(param)
 
     K  = get_num_elements(param)
     N1D = param.N+1
@@ -471,6 +472,8 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
         dvdfx_k_vec  = view(dvdf[1],:,k)
         dvdfy_k_vec  = view(dvdf[2],:,k)
         dvdf_order_k = view(dvdf_order,:,tid)
+
+        epsk = smooth_factor[k,nstage]
 
         # TODO: refactor
         # Check if current positive limiting factor already satisfies entropy bound
@@ -506,7 +509,7 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
             sort!(dvdf_order_k,alg=QuickSort,rev=true)
             curr_idx = 1
             lhs = sum_dvdfx_k_poslim
-            rhs = sum_Bpsi[k][1] - sum_dvfbarL[k][1]
+            rhs = get_rhs_es(bound_type,sum_Bpsi[k][1],sum_dvfbarL[k][1],epsk)
             tol = 1e-14
             # Greedy update
             # TODO: refactor
@@ -536,7 +539,7 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
             sort!(dvdf_order_k,alg=QuickSort,rev=true)
             curr_idx = 1
             lhs = sum_dvdfy_k_poslim
-            rhs = sum_Bpsi[k][2] - sum_dvfbarL[k][2]
+            rhs = get_rhs_es(bound_type,sum_Bpsi[k][2],sum_dvfbarL[k][2],epsk)
             tol = 1e-14
             # Greedy update
             # TODO: refactor
@@ -556,6 +559,14 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
             end
         end
     end
+end
+
+function get_rhs_es(bound_type::PositivityAndCellEntropyBound,sum_Bpsi_k,sum_dvfbarL_k,epsk)
+    return sum_Bpsi_k - sum_dvfbarL_k
+end
+
+function get_rhs_es(bound_type::PositivityAndRelaxedCellEntropyBound,sum_Bpsi_k,sum_dvfbarL_k,epsk)
+    return (1-epsk)*(sum_Bpsi_k - sum_dvfbarL_k)
 end
 
 function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,basis_type::LobattoCollocation,dim::Dim2)
@@ -917,7 +928,7 @@ function update_smoothness_factor!(bound_type::PositivityAndMinEntropyBound,cach
     @views @. cache.smooth_factor[:,nstage] = 1.0
 end
 
-function update_smoothness_factor!(bound_type::PositivityAndRelaxedMinEntropyBound,cache,prealloc,param,nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound},cache,prealloc,param,nstage)
     @unpack N                = param
     @unpack smooth_factor    = cache
     @unpack smooth_indicator = prealloc

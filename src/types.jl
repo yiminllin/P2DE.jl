@@ -184,6 +184,7 @@ struct PositivityBound                     <: LimiterBoundType end
 struct PositivityAndMinEntropyBound        <: LimiterBoundType end
 struct PositivityAndRelaxedMinEntropyBound <: LimiterBoundType end
 struct PositivityAndCellEntropyBound       <: LimiterBoundType end
+struct PositivityAndRelaxedCellEntropyBound <: LimiterBoundType end
 
 abstract type ShockCaptureType end
 struct NoShockCapture        <: ShockCaptureType end
@@ -681,6 +682,10 @@ end
 
 function Base.show(io::IO,bound_type::PositivityAndCellEntropyBound)
     text = print(io,"PosCellEntropyBound")
+end
+
+function Base.show(io::IO,bound_type::PositivityAndRelaxedCellEntropyBound)
+    text = print(io,"PosRelaxCellEntropyBound")
 end
 
 function Base.show(io::IO,shockcapture_type::NoShockCapture)
