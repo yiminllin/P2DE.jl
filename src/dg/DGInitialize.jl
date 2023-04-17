@@ -6,7 +6,6 @@ function initialize_preallocations(param,md,sizes)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N+1      # TODO: hardcoded
 
-    LPmodels    = initialize_LP_models(N1D)
     Uq          = zeros(SVector{Nc,Float64},Nq,K)
     vq          = zeros(SVector{Nc,Float64},Nq,K)
     u_tilde     = zeros(SVector{Nc,Float64},Nh,K)
@@ -32,58 +31,12 @@ function initialize_preallocations(param,md,sizes)
     indicator_modal  = zeros(Float64,Np,K)
     smooth_indicator = zeros(Float64,K)
 
-    prealloc = Preallocation{Nc,Nd}(LPmodels,Uq,vq,u_tilde,v_tilde,psi_tilde,
+    prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,psi_tilde,
                                     rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,fstar_H,fstar_L,
                                     Larr,L_local_arr,θ_arr,θ_local_arr,
                                     resW,resZ,
                                     indicator,indicator_modal,smooth_indicator)
     return prealloc
-end
-
-function initialize_LP_models(N1D)
-    N1Dm1 = N1D-1
-
-    modelx = Model(HiGHS.Optimizer; add_bridges=false)
-    set_silent(modelx)
-    # set_string_names_on_creation(modelx, false)
-    @variable(modelx,lx[1:N1Dm1,1:N1D])
-    # Entropy stability constraint
-    @constraint(modelx,con_es, sum(lx) <= 0.0)
-    # Lower bound of limiting factors
-    @constraint(modelx,con_lbound, lx .>= 0.0)
-    # Upper bound (positivity) of limiting factors
-    @constraint(modelx,con_ubound, lx .<= 1.0)
-    # Objective
-    @objective(modelx, Max, sum(lx))
-    # @objective(modelx, Min, sum(lx.^2))
-
-    modely = Model(HiGHS.Optimizer; add_bridges=false)
-    set_silent(modely)
-    # set_string_names_on_creation(modely, false)
-    @variable(modely,ly[1:N1D,1:N1Dm1])
-    # Entropy stability constraint
-    @constraint(modely,con_es, sum(ly) <= 0.0)
-    # Lower bound of limiting factors
-    @constraint(modely,con_lbound, ly .>= 0.0)
-    # Upper bound (positivity) of limiting factors
-    @constraint(modely,con_ubound, ly .<= 1.0)
-    # Objective
-    @objective(modely, Max, sum(ly))
-    # @objective(modely, Min, sum(ly.^2))
-
-    LPmodels = ([copy(modelx) for _ in 1:Threads.nthreads()],
-                [copy(modely) for _ in 1:Threads.nthreads()])
-    
-    for i = 1:2
-        for t = 1:1:Threads.nthreads()
-            set_optimizer(LPmodels[i][t], HiGHS.Optimizer; add_bridges=false)
-            set_optimizer_attribute(LPmodels[i][t], "primal_feasibility_tolerance", 1e-10)
-            set_optimizer_attribute(LPmodels[i][t], "dual_feasibility_tolerance", 1e-10)
-            set_silent(LPmodels[i][t])
-        end
-    end
-
-    return LPmodels
 end
 
 function initialize_cache(param,md,sizes)
