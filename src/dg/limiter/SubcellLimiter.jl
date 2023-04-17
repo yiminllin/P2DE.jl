@@ -1,7 +1,7 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
+function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
     cache.lbound_s_modified .= 0.0
 end
 
@@ -383,10 +383,10 @@ function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bo
     # Do nothing
 end
 
-function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound},dim)
+function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound},dim)
     initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
     enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
-    enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
+    enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,param.approximation_basis_type,dim)
 end
 
 function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
@@ -451,8 +451,11 @@ function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcda
 end
 
 function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
-    @unpack LPmodels,L_local_arr      = prealloc
+    @unpack L_local_arr               = prealloc
     @unpack dvdf,sum_Bpsi,sum_dvfbarL = cache
+    @unpack dvdf_order,smooth_factor  = cache
+    @unpack Nq                        = discrete_data.sizes
+    bound_type = get_bound_type(param)
 
     K  = get_num_elements(param)
     N1D = param.N+1
@@ -460,14 +463,17 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
     N1Dm1 = N1D-1
     @batch for k = 1:K
         tid = Threads.threadid()
-        model_x = LPmodels[1][tid]
-        model_y = LPmodels[2][tid]
 
         # TODO: hardcoding views
         Lx_local_k = reshape(view(L_local_arr,:,1,k,nstage),N1Dp1,N1D)
         Ly_local_k = reshape(view(L_local_arr,:,2,k,nstage),N1D,N1Dp1)
         dvdfx_k    = reshape(view(dvdf[1],:,k),N1Dm1,N1D)
         dvdfy_k    = reshape(view(dvdf[2],:,k),N1D,N1Dm1)
+        dvdfx_k_vec  = view(dvdf[1],:,k)
+        dvdfy_k_vec  = view(dvdf[2],:,k)
+        dvdf_order_k = view(dvdf_order,:,tid)
+
+        epsk = smooth_factor[k,nstage]
 
         # TODO: refactor
         # Check if current positive limiting factor already satisfies entropy bound
@@ -494,50 +500,80 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
 
         # Enforce entropy stability on subcell volume faces
         if need_es_limiting_x
-            # Modify the entropy stability bound and
-            # Modify the limiting factor bound (only need to modify the upper bounds):
-            for sj = 1:N1D
-                for si = 2:N1D
-                    set_normalized_coefficient(model_x[:con_es], model_x[:lx][si-1,sj], dvdfx_k[si-1,sj])
-                    set_normalized_rhs(model_x[:con_ubound][si-1,sj], Lx_local_k[si,sj])
-                end
+            # Sort dvdfx_k
+            # TODO: this results in allocation...
+            # sortperm!(dvdf_order_k,dvdfx_k_vec,rev=true)
+            for i = 1:Nq-N1D
+                dvdf_order_k[i] = (dvdfx_k_vec[i],i)
             end
-            set_normalized_rhs(model_x[:con_es], sum_Bpsi[k][1] - sum_dvfbarL[k][1])
-
-            # Optimize
-            optimize!(model_x)
-
-            # Update interior subcell limiting factors
-            for sj = 1:N1D
-                for si = 2:N1D
-                    Lx_local_k[si,sj] = value(model_x[:lx][si-1,sj])
-                end
+            sort!(dvdf_order_k,alg=QuickSort,rev=true)
+            curr_idx = 1
+            lhs = sum_dvdfx_k_poslim
+            rhs = get_rhs_es(bound_type,sum_Bpsi[k][1],sum_dvfbarL[k][1],epsk)
+            tol = 1e-14
+            # Greedy update
+            # TODO: refactor
+            while lhs > rhs+tol
+                idx = dvdf_order_k[curr_idx][2]
+                si  = mod1(idx,N1Dm1)+1
+                sj  = div(idx-1,N1Dm1)+1
+                lhs = lhs - Lx_local_k[si,sj]*dvdfx_k[si-1,sj]
+                curr_idx += 1
+            end
+            # Update limiting factors
+            for i = 1:curr_idx-1
+                idx = dvdf_order_k[i][2]
+                si  = mod1(idx,N1Dm1)+1
+                sj  = div(idx-1,N1Dm1)+1
+                Lx_local_k[si,sj] = i==curr_idx-1 ? (rhs+tol-lhs)/dvdfx_k[si-1,sj] : 0.0
             end
         end
 
         if need_es_limiting_y
-            for si = 1:N1D
-                for sj = 2:N1D
-                    set_normalized_coefficient(model_y[:con_es], model_y[:ly][si,sj-1], dvdfy_k[si,sj-1])
-                    set_normalized_rhs(model_y[:con_ubound][si,sj-1], Ly_local_k[si,sj])
-                end
+            # Sort dvdfy_k
+            # TODO: this results in allocation...
+            # sortperm!(dvdf_order_k,dvdfy_k_vec,rev=true)
+            for i = 1:Nq-N1D
+                dvdf_order_k[i] = (dvdfy_k_vec[i],i)
             end
-            set_normalized_rhs(model_y[:con_es], sum_Bpsi[k][2] - sum_dvfbarL[k][2])
-
-            # Optimize
-            optimize!(model_y)
-
-            # Update interior subcell limiting factors
-            for si = 1:N1D
-                for sj = 2:N1D
-                    Ly_local_k[si,sj] = value(model_y[:ly][si,sj-1])
-                end
+            sort!(dvdf_order_k,alg=QuickSort,rev=true)
+            curr_idx = 1
+            lhs = sum_dvdfy_k_poslim
+            rhs = get_rhs_es(bound_type,sum_Bpsi[k][2],sum_dvfbarL[k][2],epsk)
+            tol = 1e-14
+            # Greedy update
+            # TODO: refactor
+            while lhs > rhs+tol
+                idx = dvdf_order_k[curr_idx][2]
+                si  = mod1(idx,N1D)
+                sj  = div(idx-1,N1D)+2
+                lhs = lhs - Ly_local_k[si,sj]*dvdfy_k[si,sj-1]
+                curr_idx += 1
+            end
+            # Update limiting factors
+            for i = 1:curr_idx-1
+                idx = dvdf_order_k[i][2]
+                si  = mod1(idx,N1D)
+                sj  = div(idx-1,N1D)+2
+                Ly_local_k[si,sj] = i==curr_idx-1 ? (rhs+tol-lhs)/dvdfy_k[si,sj-1] : 0.0
             end
         end
     end
 end
 
-function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
+function get_rhs_es(bound_type::PositivityAndCellEntropyBound,sum_Bpsi_k,sum_dvfbarL_k,epsk)
+    return sum_Bpsi_k - sum_dvfbarL_k
+end
+
+function get_rhs_es(bound_type::PositivityAndRelaxedCellEntropyBound,sum_Bpsi_k,sum_dvfbarL_k,epsk)
+    return (1-epsk)*(sum_Bpsi_k - sum_dvfbarL_k)
+end
+
+function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,basis_type::LobattoCollocation,dim::Dim2)
+    # Do nothing for Lobatto, since interface flux coincide
+end
+
+function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,basis_type::GaussCollocation,dim::Dim2)
     @unpack fstar_H,fstar_L,L_local_arr = prealloc
     @unpack vf,psif                     = cache
     @unpack mapP                        = bcdata
@@ -892,7 +928,7 @@ function update_smoothness_factor!(bound_type::PositivityAndMinEntropyBound,cach
     @views @. cache.smooth_factor[:,nstage] = 1.0
 end
 
-function update_smoothness_factor!(bound_type::PositivityAndRelaxedMinEntropyBound,cache,prealloc,param,nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound},cache,prealloc,param,nstage)
     @unpack N                = param
     @unpack smooth_factor    = cache
     @unpack smooth_indicator = prealloc

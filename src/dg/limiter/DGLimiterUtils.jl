@@ -7,7 +7,7 @@ function get_limiting_param(rhs_limiter_type::ZhangShuLimiter,bound_type,param,U
     return l
 end
 
-function get_limiting_param(rhs_limiter_type::SubcellLimiter,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound},param,UL,P,bound)
+function get_limiting_param(rhs_limiter_type::SubcellLimiter,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound},param,UL,P,bound)
     Lrho,Lrhoe,Lphi,Urho,Urhoe = bound
     l = get_limiting_param_bound_rho_rhoe(param,UL,P,Lrho,Lrhoe,Urho,Urhoe)
     return l

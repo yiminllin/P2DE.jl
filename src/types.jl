@@ -184,6 +184,7 @@ struct PositivityBound                     <: LimiterBoundType end
 struct PositivityAndMinEntropyBound        <: LimiterBoundType end
 struct PositivityAndRelaxedMinEntropyBound <: LimiterBoundType end
 struct PositivityAndCellEntropyBound       <: LimiterBoundType end
+struct PositivityAndRelaxedCellEntropyBound <: LimiterBoundType end
 
 abstract type ShockCaptureType end
 struct NoShockCapture        <: ShockCaptureType end
@@ -425,7 +426,6 @@ struct DiscretizationData{DIM,NGEO}
 end
 
 struct Preallocation{Nc,DIM}
-    LPmodels   ::NTuple{DIM,Array{Model,1}}
     Uq         ::Array{SVector{Nc,Float64},2}
     vq         ::Array{SVector{Nc,Float64},2}       # entropy variables at quad points
     u_tilde    ::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
@@ -493,6 +493,7 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     sum_Bpsi         ::Array{SVector{DIM,Float64},1}   # 1T B_k psi_k
     sum_dvfbarL      ::Array{SVector{DIM,Float64},1}   # 1T (Dv)^T fbar_H
     dvdf             ::NTuple{DIM,Array{Float64,2}}    # (Dv)^T (fbar_H-fbar_L)
+    dvdf_order       ::Array{Tuple{Float64,Int64},2}
 end
 
 SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,Nfp=0,N1D=0,Ns=Ns,Nthread=1,s_modified_min=0) where {DIM,Nc} =
@@ -516,7 +517,8 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,Nfp=0,N1D=0,Ns=Ns,Nthread=1,s_modified_mi
                                 zeros(Float64,K,Ns),
                                 zeros(SVector{DIM,Float64},K),
                                 zeros(SVector{DIM,Float64},K),
-                                tuple([zeros(Float64,Nq-N1D,K) for _ in 1:DIM]...))
+                                tuple([zeros(Float64,Nq-N1D,K) for _ in 1:DIM]...),
+                                [(0.0,0) for _ = 1:Nq-N1D, _ = 1:Nthread])
 
 # TODO: hardcoded for Compressible Euler
 abstract type EntropyProjLimiterCache{DIM,Nc} <: Cache{DIM,Nc} end
@@ -680,6 +682,10 @@ end
 
 function Base.show(io::IO,bound_type::PositivityAndCellEntropyBound)
     text = print(io,"PosCellEntropyBound")
+end
+
+function Base.show(io::IO,bound_type::PositivityAndRelaxedCellEntropyBound)
+    text = print(io,"PosRelaxCellEntropyBound")
 end
 
 function Base.show(io::IO,shockcapture_type::NoShockCapture)
