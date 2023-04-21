@@ -184,7 +184,9 @@ struct PositivityBound                     <: LimiterBoundType end
 struct PositivityAndMinEntropyBound        <: LimiterBoundType end
 struct PositivityAndRelaxedMinEntropyBound <: LimiterBoundType end
 struct PositivityAndCellEntropyBound       <: LimiterBoundType end
-struct PositivityAndRelaxedCellEntropyBound <: LimiterBoundType end
+Base.@kwdef struct PositivityAndRelaxedCellEntropyBound <: LimiterBoundType
+    beta::Float64
+end
 
 abstract type ShockCaptureType end
 struct NoShockCapture        <: ShockCaptureType end
