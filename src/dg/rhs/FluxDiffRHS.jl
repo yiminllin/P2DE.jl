@@ -174,7 +174,12 @@ end
 
 function clear_flux_differencing_cache!(cache)
     @unpack QF1 = cache
-    @. QF1 = zero(QF1)
+
+    @batch for k = 1:size(QF1,2)
+        for i = 1:size(QF1,1)
+            QF1[i,k] = zero(QF1[i,k])
+        end
+    end
 end
 
 function flux_differencing_volume!(cache,prealloc,param,equation,discrete_data)
