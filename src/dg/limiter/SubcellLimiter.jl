@@ -497,6 +497,7 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
         rhsy = get_rhs_es(bound_type,sum_Bpsi[k][2],sum_dvfbarL[k][2],epsk)
         entropy_estimate_poslim_y = sum_dvdfy_k_poslim - rhsy
 
+        # TODO hardcoded tolerance
         tol = 1e-14
         need_es_limiting_x = entropy_estimate_poslim_x > tol
         need_es_limiting_y = entropy_estimate_poslim_y > tol
