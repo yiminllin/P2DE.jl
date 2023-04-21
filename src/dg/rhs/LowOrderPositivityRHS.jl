@@ -146,15 +146,12 @@ function clear_low_order_rhs!(cache,prealloc,param)
     K  = get_num_elements(param)
     Nc = get_num_components(param.equation)
     Nd = get_dim(param.equation)
-    # TODO: Adding @batch results in a lot of allocations...
-    for k = 1:K
+    @batch for k = 1:K
         for i = 1:size(rhsxyL,1)
-            rhsxyL[i,k] = zero(SVector{Nd,SVector{Nc,Float64}})
-            Q0F1[i,k]   = zero(SVector{Nd,SVector{Nc,Float64}})
+            rhsxyL[i,k] = zero(rhsxyL[i,k])
+            Q0F1[i,k]   = zero(Q0F1[i,k])
         end
     end
-    λarr  .= 0.0
-    λBarr .= 0.0
 end
 
 function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
@@ -244,9 +241,9 @@ function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data)
         for i = 1:size(rhsxyL,1)
             wJq_i    = Jq[i,k]*wq[i]
             rhsxyL[i,k] = rhsxyL[i,k]/wJq_i
+            rhsL[i,k] = sum(rhsxyL[i,k])
         end
     end
-    @. rhsL = sum(rhsxyL)
 end
 
 function calculate_lambda_and_low_order_CFL!(cache,prealloc,param,discrete_data,bcdata,t)
