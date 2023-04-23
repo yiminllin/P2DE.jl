@@ -497,10 +497,10 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
         rhsy = get_rhs_es(bound_type,sum_Bpsi[k][2],sum_dvfbarL[k][2],epsk)
         entropy_estimate_poslim_y = sum_dvdfy_k_poslim - rhsy
 
-        # TODO hardcoded tolerance
-        tol = 1e-14
-        need_es_limiting_x = entropy_estimate_poslim_x > tol
-        need_es_limiting_y = entropy_estimate_poslim_y > tol
+        tolx = max(0.0, sum_dvfbarL[k][1]-sum_Bpsi[k][1])
+        toly = max(0.0, sum_dvfbarL[k][2]-sum_Bpsi[k][2])
+        need_es_limiting_x = entropy_estimate_poslim_x > tolx
+        need_es_limiting_y = entropy_estimate_poslim_y > toly
 
         # Enforce entropy stability on subcell volume faces
         if need_es_limiting_x
@@ -515,10 +515,13 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
             lhs = sum_dvdfx_k_poslim
             # Greedy update
             # TODO: refactor
-            while lhs > rhsx+tol && curr_idx <= Nq-N1D 
+            while lhs > rhsx+tolx && curr_idx <= Nq-N1D 
                 idx = dvdf_order_k[curr_idx][2]
                 si  = mod1(idx,N1Dm1)+1
                 sj  = div(idx-1,N1Dm1)+1
+                if dvdfx_k[si-1,sj] < param.global_constants.ZEROTOL
+                    break
+                end
                 lhs = lhs - Lx_local_k[si,sj]*dvdfx_k[si-1,sj]
                 curr_idx += 1
             end
@@ -527,7 +530,7 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
                 idx = dvdf_order_k[i][2]
                 si  = mod1(idx,N1Dm1)+1
                 sj  = div(idx-1,N1Dm1)+1
-                l_new = (i==curr_idx-1 ? max((rhsx+tol-lhs)/dvdfx_k[si-1,sj], 0.0) : 0.0)
+                l_new = (i==curr_idx-1 ? max((rhsx+tolx-lhs)/dvdfx_k[si-1,sj], 0.0) : 0.0)
                 Lx_local_k[si,sj] = min(Lx_local_k[si,sj], l_new)
             end
         end
@@ -544,10 +547,13 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
             lhs = sum_dvdfy_k_poslim
             # Greedy update
             # TODO: refactor
-            while lhs > rhsy+tol && curr_idx <= Nq-N1D
+            while lhs > rhsy+toly && curr_idx <= Nq-N1D
                 idx = dvdf_order_k[curr_idx][2]
                 si  = mod1(idx,N1D)
                 sj  = div(idx-1,N1D)+2
+                if dvdfy_k[si-1,sj] < param.global_constants.ZEROTOL
+                    break
+                end
                 lhs = lhs - Ly_local_k[si,sj]*dvdfy_k[si,sj-1]
                 curr_idx += 1
             end
@@ -556,7 +562,7 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
                 idx = dvdf_order_k[i][2]
                 si  = mod1(idx,N1D)
                 sj  = div(idx-1,N1D)+2
-                l_new = (i==curr_idx-1 ? min(Ly_local_k[si,sj],max((rhsy+tol-lhs)/dvdfy_k[si,sj-1]), 0.0) : 0.0)
+                l_new = (i==curr_idx-1 ? max((rhsy+toly-lhs)/dvdfy_k[si,sj-1],0.0) : 0.0)
                 Ly_local_k[si,sj] = min(Ly_local_k[si,sj], l_new)
             end
         end
