@@ -8,10 +8,45 @@ end
 # Initialize smoothness indicator when using subcell limiter w/ min entropy bound
 #                              or when using modal shock capture scheme
 function initialize_smoothness_indicator!(shockcapture_type,bound_type,prealloc,param,discrete_data,nstage)
-    initialize_smoothness_indicator!(prealloc,param,discrete_data,nstage)
+    dim = get_dim_type(param.equation)
+    initialize_smoothness_indicator!(prealloc,param,discrete_data,nstage,dim)
 end
 
-function initialize_smoothness_indicator!(prealloc,param,discrete_data,nstage)
+function initialize_smoothness_indicator!(prealloc,param,discrete_data,nstage,dim::Dim1)
+    @unpack indicator,indicator_modal,smooth_indicator = prealloc
+    @unpack N,equation = param
+    @unpack VDM_inv    = discrete_data.ops
+    @unpack Nq,Np      = discrete_data.sizes
+
+    initialize_indicator!(equation,prealloc,param,discrete_data,nstage)
+
+    K = get_num_elements(param)
+    @batch for k = 1:K
+        @views mul!(indicator_modal[:,k],VDM_inv,indicator[:,k])
+    end
+
+    # TODO: hardcoded for quad
+    @batch for k = 1:K
+        count = 1
+        modeN_energy   = 0.0
+        modeNm1_energy = 0.0
+        total_energy   = 0.0
+        for i = 0:N
+            energy = indicator_modal[count,k]^2
+            if i == N
+                modeN_energy += energy
+            end
+            if i == N-1
+                modeNm1_energy += energy
+            end
+            total_energy += energy
+            count += 1
+        end
+        smooth_indicator[k] = max(modeN_energy/total_energy, modeNm1_energy/total_energy)
+    end
+end
+
+function initialize_smoothness_indicator!(prealloc,param,discrete_data,nstage,dim::Dim2)
     @unpack indicator,indicator_modal,smooth_indicator = prealloc
     @unpack N,equation = param
     @unpack VDM_inv    = discrete_data.ops
