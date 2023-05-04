@@ -121,6 +121,11 @@ end
     return SVector{3,Float64}(v1,vu,vE)
 end
 
+@inline function psi_ufun(equation::CompressibleIdealGas{Dim1},U)
+    γm1 = get_γ(equation)-1.0
+    return γm1*SVector(U[2])
+end
+
 @inline function psi_ufun(equation::CompressibleIdealGas{Dim2},U)
     γm1 = get_γ(equation)-1.0
     return γm1*SVector(U[2],U[3])

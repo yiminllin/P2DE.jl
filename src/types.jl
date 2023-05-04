@@ -687,7 +687,7 @@ function Base.show(io::IO,bound_type::PositivityAndCellEntropyBound)
 end
 
 function Base.show(io::IO,bound_type::PositivityAndRelaxedCellEntropyBound)
-    text = print(io,"PosRelaxCellEntropyBound")
+    text = print(io,"PosRelaxCellEntropyBound(beta=",bound_type.beta,")")
 end
 
 function Base.show(io::IO,shockcapture_type::NoShockCapture)

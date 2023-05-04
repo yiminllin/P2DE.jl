@@ -244,7 +244,7 @@ end
 function get_high_order_volume_flux(vol_flux_type::CentralFlux,equation,Ui,Uj)
     fi = fluxes(equation,Ui)
     fj = fluxes(equation,Uj)
-    return (.5*(fi[1]+fj[1]), .5*(fi[2]+fj[2]))
+    return .5 .* (fi.+fj)
 end
 
 function flux_differencing_surface!(cache,prealloc,param,discrete_data)
