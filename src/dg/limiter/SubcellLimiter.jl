@@ -389,6 +389,48 @@ function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bo
     enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,param.approximation_basis_type,dim)
 end
 
+function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim1)
+    @unpack equation = param
+    @unpack Uq,vq    = prealloc
+    @unpack fq2q     = discrete_data.ops
+    @unpack Nfp,Nq   = discrete_data.sizes
+    @unpack vf,psif,dvdf,f_bar_H,f_bar_L,sum_Bpsi,sum_dvfbarL = cache
+
+    K     = get_num_elements(param)
+    @batch for k = 1:K
+        # TODO: redundant
+        for i = 1:Nq
+            vq[i,k] = v_ufun(equation,Uq[i,k])
+        end
+        sum_Bpsi[k] = zero(sum_Bpsi[k])
+        for i = 1:Nfp
+            iq = fq2q[i]
+            uf = Uq[iq,k]
+            vf[i,k]   = v_ufun(equation,uf)
+            psif[i,k] = psi_ufun(equation,uf)
+            Bxy_i        = get_Bx(i,k,discrete_data,dim)
+            sum_Bpsi[k] += Bxy_i.*psif[i,k]
+        end
+
+        # TODO: hardcoding views
+        dvdf_k    = view(dvdf[1],:,k)
+        vq_k      = view(vq,:,k)
+        f_bar_H_k = view(f_bar_H[1],:,k)
+        f_bar_L_k = view(f_bar_L[1],:,k)
+        
+        sum_dvfbarL_k = 0.0
+        for si = 2:param.N+1
+            fxL = f_bar_L_k[si]
+            fxH = f_bar_H_k[si]
+            dfx = fxH-fxL
+            dv  = vq_k[si-1]-vq_k[si]
+            dvdf_k[si-1]   = sum(dv.*dfx)
+            sum_dvfbarL_k += sum(dv.*fxL)
+        end
+        sum_dvfbarL[k] = SVector(sum_dvfbarL_k, )
+    end
+end
+
 function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim2)
     @unpack equation = param
     @unpack Uq,vq    = prealloc
@@ -447,6 +489,71 @@ function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcda
             end
         end
         sum_dvfbarL[k] = SVector(sum_dvfxbarL, sum_dvfybarL)
+    end
+end
+
+function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim::Dim1)
+    @unpack L_local_arr               = prealloc
+    @unpack dvdf,sum_Bpsi,sum_dvfbarL = cache
+    @unpack dvdf_order,smooth_factor  = cache
+    @unpack Nq                        = discrete_data.sizes
+    bound_type = get_bound_type(param)
+
+    K   = get_num_elements(param)
+    @batch for k = 1:K
+        tid = Threads.threadid()
+
+        # TODO: hardcoding views
+        L_local_k    = view(L_local_arr,:,1,k,nstage)
+        dvdf_k       = view(dvdf[1],:,k)
+        dvdf_order_k = view(dvdf_order,:,tid)
+
+        epsk = smooth_factor[k,nstage]
+
+        # TODO: refactor
+        # Check if current positive limiting factor already satisfies entropy bound
+        sum_dvdf_k_poslim = 0.0
+        for si = 2:param.N+1
+            li = L_local_k[si]
+            sum_dvdf_k_poslim += li*dvdf_k[si-1]
+        end
+        rhs = get_rhs_es(bound_type,sum_Bpsi[k][1],sum_dvfbarL[k][1],epsk)
+        entropy_estimate_poslim = sum_dvdf_k_poslim - rhs
+        
+        tol = max(0.0, sum_dvfbarL[k][1]-sum_Bpsi[k][1])
+        need_es_limiting = entropy_estimate_poslim > tol
+
+        # if need_es_limiting
+        # @show k,need_es_limiting
+        # end
+        # Enforce entropy stability on subcell volume faces
+        if need_es_limiting
+            # Sort dvdf_k
+            for i = 1:Nq-1
+                dvdf_order_k[i] = (dvdf_k[i],i)
+            end
+            sort!(dvdf_order_k,alg=QuickSort,rev=true)
+            curr_idx = 1
+            lhs = sum_dvdf_k_poslim
+            # Greedy update
+            # TODO: refactor
+            while lhs > rhs+tol && curr_idx <= Nq-1
+                idx = dvdf_order_k[curr_idx][2]
+                si  = idx+1
+                if dvdf_k[idx] < param.global_constants.ZEROTOL
+                    break
+                end
+                lhs = lhs - L_local_k[si]*dvdf_k[si-1]
+                curr_idx += 1
+            end
+            # Update limiting factors
+            for i = 1:curr_idx-1
+                idx = dvdf_order_k[i][2]
+                si  = idx+1
+                l_new = (i==curr_idx-1 ? max((rhs+tol-lhs)/dvdf_k[si-1], 0.0) : 0.0)
+                L_local_k[si] = min(L_local_k[si], l_new)
+            end
+        end
     end
 end
 
@@ -578,7 +685,7 @@ function get_rhs_es(bound_type::PositivityAndRelaxedCellEntropyBound,sum_Bpsi_k,
     return (1-beta*epsk)*(sum_Bpsi_k - sum_dvfbarL_k)
 end
 
-function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,basis_type::LobattoCollocation,dim::Dim2)
+function enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,basis_type::LobattoCollocation,dim)
     # Do nothing for Lobatto, since interface flux coincide
 end
 
