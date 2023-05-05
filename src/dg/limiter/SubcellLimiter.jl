@@ -1,17 +1,17 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
+function initialize_entropy_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
     cache.lbound_s_modified .= 0.0
 end
 
-function initialize_bounds!(cache,prealloc,equation::KPP,bound_type,param,discrete_data,bcdata,t,nstage,dim)
+function initialize_entropy_bounds!(cache,prealloc,equation::KPP,bound_type,param,discrete_data,bcdata,t,nstage,dim)
     # Do nothing
 end
 
 # TODO: only precompute s_modified now, unnecessary to precompute bound for
 #       density and internal energy?
-function initialize_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
+function initialize_entropy_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,nstage,dim)
     initialize_s_modified!(cache,prealloc,param,t,nstage)
     initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
 end
@@ -87,6 +87,82 @@ function initialize_lower_bound!(cache,prealloc,param,discrete_data,bcdata,nstag
                 end
                 # (70) in https://arxiv.org/pdf/2004.08503.pdf
                 lbound_s_modified_k[i,j] = epsk*lbound_s_modified_k[i,j]+(1-epsk)*s_modified_min[1]
+            end
+        end
+    end
+end
+
+function initialize_TVD_bounds!(cache,prealloc,equation::KPP,bound_type,param,discrete_data,bcdata,t,dt,nstage,dim)
+    # Do nothing
+end
+
+# TODO: refactor... can initialize lbound_rho and ubound_rho for positivity here
+function initialize_TVD_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,dt,nstage,dim)
+    # Do nothing
+end
+
+function initialize_TVD_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,dt,nstage,dim::Dim1)
+    @unpack Uq,rhsL    = prealloc
+    @unpack mapP       = bcdata
+    @unpack rhoL,lbound_rho,ubound_rho = cache
+
+    N1D = param.N+1
+    K  = get_num_elements(param)
+    Nq = size(Uq,1)
+    Nfp = size(mapP,1)
+
+    # Accumulate low order update
+    @batch for k = 1:K
+        for i = 1:Nq
+            rhoL[i,k] = Uq[i,k][1] + dt*rhsL[i,k][1]
+        end
+    end
+
+    # Compute TVD bounds
+    @batch for k = 1:K
+        for i = 1:N1D
+            stencil = get_low_order_stencil(i,k,N1D,Nfp,discrete_data,bcdata,dim)
+            lbound_rho[i,k] = rhoL[i,k]
+            ubound_rho[i,k] = rhoL[i,k]
+            for s in stencil
+                lbound_rho[i,k]  = min(lbound_rho[i,k],rhoL[s...])
+                ubound_rho[i,k]  = max(ubound_rho[i,k],rhoL[s...])
+            end
+        end
+    end
+end
+
+function initialize_TVD_bounds!(cache,prealloc,equation::CompressibleIdealGas,bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound},param,discrete_data,bcdata,t,dt,nstage,dim::Dim2)
+    @unpack Uq,rhsL    = prealloc
+    @unpack mapP       = bcdata
+    @unpack rhoL,lbound_rho,ubound_rho = cache
+
+    N1D = param.N+1
+    K  = get_num_elements(param)
+    Nq = size(Uq,1)
+    Nfp = size(mapP,1)
+    
+    # Accumulate low order update
+    @batch for k = 1:K
+        for i = 1:Nq
+            rhoL[i,k] = Uq[i,k][1] + dt*rhsL[i,k][1]
+        end
+    end
+
+    # Compute TVD bounds
+    rhoL = reshape(rhoL,N1D,N1D,K)
+    @batch for k = 1:K
+        lbound_rho_k = reshape(view(lbound_rho,:,k),N1D,N1D)
+        ubound_rho_k = reshape(view(ubound_rho,:,k),N1D,N1D)
+        for j = 1:N1D
+            for i = 1:N1D
+                stencil = get_low_order_stencil((i,j),k,N1D,Nfp,discrete_data,bcdata,dim)
+                lbound_rho_k[i,j] = rhoL[i,j,k]
+                ubound_rho_k[i,j] = rhoL[i,j,k]
+                for s in stencil
+                    lbound_rho_k[i,j]  = min(lbound_rho_k[i,j],rhoL[s...])
+                    ubound_rho_k[i,j]  = max(ubound_rho_k[i,j],rhoL[s...])
+                end
             end
         end
     end
@@ -173,7 +249,6 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
     K  = get_num_elements(param)
     Nq = size(Uq,1)
     ζ = param.limiting_param.ζ
-    Lrho(uL_i)  = ζ*uL_i[1]
     Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
     @views @. L_local_arr[:,:,:,nstage] = 1.0
     # Calculate limiting parameter
@@ -181,19 +256,20 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
         tid = Threads.threadid()
 
         @views @. uL_k[:,tid] = Uq[:,k] + dt*rhsL[:,k]
-        Urho  = Inf
         Urhoe = Inf
         # TODO: ugly...
         for i = 1:Nq
             wJq_i = (wq[i]*Jq[i,k])
             Lphi_i = lbound_s_modified[i,k]
-            bound = (Lrho(uL_k[i,tid]),Lrhoe(uL_k[i,tid]),Lphi_i,Urho,Urhoe)
+            Lrho_i,Urho_i = get_rho_bound(bound_type,param,limiter_cache,i,k,tid,dim)
+            bound = (Lrho_i,Lrhoe(uL_k[i,tid]),Lphi_i,Urho_i,Urhoe)
             L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k[i,tid],-2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_i,bound))
         end
         for i = 2:Nq+1
             wJq_im1 = (wq[i-1]*Jq[i-1,k])
             Lphi_i = lbound_s_modified[i-1,k]
-            bound = (Lrho(uL_k[i-1,tid]),Lrhoe(uL_k[i-1,tid]),Lphi_i,Urho,Urhoe)
+            Lrho_i,Urho_i = get_rho_bound(bound_type,param,limiter_cache,i-1,k,tid,dim)
+            bound = (Lrho_i,Lrhoe(uL_k[i-1,tid]),Lphi_i,Urho_i,Urhoe)
             L_local_arr[i,1,k,nstage] = min(L_local_arr[i,1,k,nstage], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k[i-1,tid],2*dt*(f_bar_H[1][i,k]-f_bar_L[1][i,k])/wJq_im1,bound))
         end
 
@@ -219,7 +295,6 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
     N1D = param.N+1
     N1Dp1 = N1D+1
     ζ = param.limiting_param.ζ
-    Lrho(uL_i)  = ζ*uL_i[1]
     Lrhoe(uL_i) = ζ*rhoe_ufun(param.equation,uL_i)
     # TODO: why these two lines result in allocations?
     # Lx_local = reshape(view(L_local_arr,:,1,:,nstage),N1Dp1,N1D,K)
@@ -231,7 +306,6 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
         tid = Threads.threadid()
 
         @views @. uL_k[:,tid] = Uq[:,k] + dt*rhsL[:,k]
-        Urho  = Inf
         Urhoe = Inf
 
         # TODO: hardcoding views
@@ -260,7 +334,8 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
                 wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
-                bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
+                Lrho_i,Urho_i = get_rho_bound(bound_type,param,limiter_cache,(iq,jq),k,tid,dim)
+                bound = (Lrho_i,Lrhoe(uL_k_i),Lphi_ij,Urho_i,Urhoe)
                 Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,-4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,bound))
             end
             # For each right subcell face
@@ -271,7 +346,8 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
                 wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
-                bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
+                Lrho_i,Urho_i = get_rho_bound(bound_type,param,limiter_cache,(iq,jq),k,tid,dim)
+                bound = (Lrho_i,Lrhoe(uL_k_i),Lphi_ij,Urho_i,Urhoe)
                 Lx_local_k[si,sj] = min(Lx_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,4*dt*(fx_bar_H_k[si,sj]-fx_bar_L_k[si,sj])/wJq_i,bound))
             end
         end
@@ -286,7 +362,8 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
                 wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
-                bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
+                Lrho_i,Urho_i = get_rho_bound(bound_type,param,limiter_cache,(iq,jq),k,tid,dim)
+                bound = (Lrho_i,Lrhoe(uL_k_i),Lphi_ij,Urho_i,Urhoe)
                 Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,-4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,bound))
             end
             # For each top subcell face
@@ -297,7 +374,8 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
                 wJq_i = wq_k[iq,jq]*Jq_k[iq,jq]
                 uL_k_i = u_L_k[iq,jq]
                 Lphi_ij = lbound_s_modified_k[iq,jq]
-                bound = (Lrho(uL_k_i),Lrhoe(uL_k_i),Lphi_ij,Urho,Urhoe)
+                Lrho_i,Urho_i = get_rho_bound(bound_type,param,limiter_cache,(iq,jq),k,tid,dim)
+                bound = (Lrho_i,Lrhoe(uL_k_i),Lphi_ij,Urho_i,Urhoe)
                 Ly_local_k[si,sj] = min(Ly_local_k[si,sj], get_limiting_param(rhs_limiter_type,bound_type,param,uL_k_i,4*dt*(fy_bar_H_k[si,sj]-fy_bar_L_k[si,sj])/wJq_i,bound))
             end
         end
@@ -307,6 +385,44 @@ function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equati
         @. Lx_local_k = min(Lx_local_k, l_shock)
         @. Ly_local_k = min(Ly_local_k, l_shock)
     end
+end
+
+# TODO: refactor
+function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound},param,cache,i,k,tid,dim::Dim1)
+    @unpack lbound_rho,ubound_rho = cache
+    Lrho = lbound_rho[i,k]
+    Urho = ubound_rho[i,k]
+    return (Lrho,Urho)
+end
+
+function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound},param,cache,i,k,tid,dim::Dim2)
+    @unpack lbound_rho,ubound_rho = cache
+    iq,jq = i
+    N1D = param.N+1
+    lbound_rho_k = reshape(view(lbound_rho,:,k),N1D,N1D)
+    ubound_rho_k = reshape(view(ubound_rho,:,k),N1D,N1D)
+    Lrho = lbound_rho_k[iq,jq]
+    Urho = ubound_rho_k[iq,jq]
+    return (Lrho,Urho)
+end
+
+function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,cache,i,k,tid,dim::Dim1)
+    @unpack uL_k = cache
+    @unpack ζ    = param.limiting_param
+    Lrho = ζ*uL_k[i,tid][1]
+    Urho = Inf
+    return (Lrho,Urho)
+end
+
+function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},param,cache,i,k,tid,dim::Dim2)
+    @unpack uL_k = cache
+    @unpack ζ    = param.limiting_param
+    iq,jq = i
+    N1D = param.N+1
+    u_L_k = reshape(view(uL_k,:,tid),N1D,N1D)
+    Lrho = ζ*u_L_k[iq,jq][1]
+    Urho = Inf
+    return (Lrho,Urho)
 end
 
 function subcell_bound_limiter!(limiter_cache,shockcapture_cache,prealloc,equation::KPP,param,discrete_data,bcdata,dt,nstage,dim)
@@ -379,11 +495,11 @@ function symmetrize_limiting_parameters!(prealloc,param,bcdata,nstage,dim::Dim2)
     end
 end
 
-function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound},dim)
+function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound},dim)
     # Do nothing
 end
 
-function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound},dim)
+function enforce_ES_subcell!(cache,prealloc,param,discrete_data,bcdata,nstage,bound_type::Union{PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound},dim)
     initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
     enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,nstage,dim)
     enforce_ES_subcell_interface!(cache,prealloc,param,discrete_data,bcdata,nstage,param.approximation_basis_type,dim)
@@ -676,11 +792,11 @@ function enforce_ES_subcell_volume!(cache,prealloc,param,discrete_data,bcdata,ns
     end
 end
 
-function get_rhs_es(bound_type::PositivityAndCellEntropyBound,sum_Bpsi_k,sum_dvfbarL_k,epsk)
+function get_rhs_es(bound_type::Union{PositivityAndCellEntropyBound,TVDAndCellEntropyBound},sum_Bpsi_k,sum_dvfbarL_k,epsk)
     return sum_Bpsi_k - sum_dvfbarL_k
 end
 
-function get_rhs_es(bound_type::PositivityAndRelaxedCellEntropyBound,sum_Bpsi_k,sum_dvfbarL_k,epsk)
+function get_rhs_es(bound_type::Union{PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound},sum_Bpsi_k,sum_dvfbarL_k,epsk)
     beta = bound_type.beta
     return (1-beta*epsk)*(sum_Bpsi_k - sum_dvfbarL_k)
 end
@@ -1034,17 +1150,17 @@ end
 ### Smoothness factor ###
 #########################
 # (69) in https://arxiv.org/pdf/2004.08503.pdf
-function update_smoothness_factor!(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound},cache,prealloc,param,nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,TVDBound,TVDAndCellEntropyBound},cache,prealloc,param,nstage)
     # Use global minimum bound by default
     @views @. cache.smooth_factor[:,nstage] = 0.0
 end
 
-function update_smoothness_factor!(bound_type::PositivityAndMinEntropyBound,cache,prealloc,param,nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityAndMinEntropyBound,TVDAndMinEntropyBound},cache,prealloc,param,nstage)
     # Use global minimum bound by default
     @views @. cache.smooth_factor[:,nstage] = 1.0
 end
 
-function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound},cache,prealloc,param,nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndRelaxedMinEntropyBound},cache,prealloc,param,nstage)
     @unpack N                = param
     @unpack smooth_factor    = cache
     @unpack smooth_indicator = prealloc

@@ -35,8 +35,11 @@ function apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nsta
     @timeit_debug timer "calculate smoothness factor" begin
     update_smoothness_factor!(bound_type,limiter_cache,prealloc,param,nstage)
     end
-    @timeit_debug timer "Precompute bounds" begin
-    initialize_bounds!(limiter_cache,prealloc,equation,bound_type,param,discrete_data,bcdata,t,nstage,dim)
+    @timeit_debug timer "Precompute bounds on modified s" begin
+    initialize_entropy_bounds!(limiter_cache,prealloc,equation,bound_type,param,discrete_data,bcdata,t,nstage,dim)
+    end
+    @timeit_debug timer "Precompute TVD bounds" begin
+    initialize_TVD_bounds!(limiter_cache,prealloc,equation,bound_type,param,discrete_data,bcdata,t,dt,nstage,dim)
     end
     @timeit_debug timer "Accumulate low and high order subcell fluxes" begin
     accumulate_f_bar!(limiter_cache,prealloc,param,discrete_data,dim)
