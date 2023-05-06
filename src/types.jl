@@ -188,6 +188,15 @@ Base.@kwdef struct PositivityAndRelaxedCellEntropyBound <: LimiterBoundType
     beta::Float64
 end
 
+# TODO: refactor...
+struct TVDBound                     <: LimiterBoundType end
+struct TVDAndMinEntropyBound        <: LimiterBoundType end
+struct TVDAndRelaxedMinEntropyBound <: LimiterBoundType end
+struct TVDAndCellEntropyBound       <: LimiterBoundType end
+Base.@kwdef struct TVDAndRelaxedCellEntropyBound <: LimiterBoundType
+    beta::Float64
+end
+
 abstract type ShockCaptureType end
 struct NoShockCapture        <: ShockCaptureType end
 # Equation (41) on https://www.sciencedirect.com/science/article/pii/S0021999120307099
@@ -473,6 +482,7 @@ ZhangShuLimiterCache{DIM,Nc}(; Nq=0,Nthread=1) where {DIM,Nc} =
                                  zeros(SVector{Nc,Float64},Nq,Nthread))
 
 struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
+    rhoL     ::Array{Float64,2}                      # Low order density update
     vf       ::Array{SVector{Nc,Float64},2}          # Low order v and psi at interface
     psif     ::Array{SVector{DIM,Float64},2}
     uL_k     ::Array{SVector{Nc,Float64},2}
@@ -486,6 +496,8 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     dfH_surf ::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # \Delta^surf fbarH
     dfL_surf ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     df_surf  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    lbound_rho       ::Array{Float64,2}              # TVD bound
+    ubound_rho       ::Array{Float64,2}
     s_modified       ::Array{Float64,2}
     var_s_modified   ::Array{Float64,2}
     lbound_s_modified::Array{Float64,2}
@@ -499,7 +511,8 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
 end
 
 SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,Nfp=0,N1D=0,Ns=Ns,Nthread=1,s_modified_min=0) where {DIM,Nc} =
-    SubcellLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64},Nfp,K),
+    SubcellLimiterCache{DIM,Nc}(zeros(Float64,Nq,K),
+                                zeros(SVector{Nc,Float64},Nfp,K),
                                 zeros(SVector{DIM,Float64},Nfp,K),
                                 zeros(SVector{Nc,Float64},Nq,Nthread),
                                 zeros(SVector{Nc,Float64},Nq,Nthread),
@@ -512,6 +525,8 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,Nfp=0,N1D=0,Ns=Ns,Nthread=1,s_modified_mi
                                 tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq,K) for _ in 1:DIM]...),
+                                zeros(Float64,Nq,K),
+                                zeros(Float64,Nq,K),
                                 zeros(Float64,Nq,K),
                                 zeros(Float64,Nq,K),
                                 zeros(Float64,Nq,K),
@@ -688,6 +703,26 @@ end
 
 function Base.show(io::IO,bound_type::PositivityAndRelaxedCellEntropyBound)
     text = print(io,"PosRelaxCellEntropyBound(beta=",bound_type.beta,")")
+end
+
+function Base.show(io::IO,bound_type::TVDBound)
+    text = print(io,"TVDBound")
+end
+
+function Base.show(io::IO,bound_type::TVDAndMinEntropyBound)
+    text = print(io,"TVDMinEntropyBound")
+end
+
+function Base.show(io::IO,bound_type::TVDAndRelaxedMinEntropyBound)
+    text = print(io,"TVDRelaxMinEntropyBound")
+end
+
+function Base.show(io::IO,bound_type::TVDAndCellEntropyBound)
+    text = print(io,"TVDCellEntropyBound")
+end
+
+function Base.show(io::IO,bound_type::TVDAndRelaxedCellEntropyBound)
+    text = print(io,"TVDRelaxCellEntropyBound(beta=",bound_type.beta,")")
 end
 
 function Base.show(io::IO,shockcapture_type::NoShockCapture)
