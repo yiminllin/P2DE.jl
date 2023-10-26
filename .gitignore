@@ -2,3 +2,5 @@
 *.png
 *.gif
 *.jld2
+*.out
+docs/build/
