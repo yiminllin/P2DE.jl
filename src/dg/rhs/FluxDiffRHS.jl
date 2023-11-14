@@ -23,13 +23,13 @@ function rhs_fluxdiff!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,time
 
     # Flux differencing
     @timeit_debug timer "clear cache" begin
-    clear_flux_differencing_cache!(cache)
+    clear_flux_differencing_cache!(cache,prealloc)
     end
     @timeit_debug timer "flux differencing volume kernel" begin
     flux_differencing_volume!(cache,prealloc,param,equation,discrete_data)
     end
     @timeit_debug timer "flux differencing surface kernel" begin
-    flux_differencing_surface!(cache,prealloc,param,discrete_data)
+    flux_differencing_surface!(cache,prealloc,param,discrete_data,bcdata)
     end
 
     # Assemble RHS
@@ -172,19 +172,20 @@ function enforce_BC!(cache,prealloc,param,bcdata,discrete_data)
     end
 end
 
-function clear_flux_differencing_cache!(cache)
-    @unpack QF1 = cache
+function clear_flux_differencing_cache!(cache,prealloc)
+    @unpack QF1,QFI1 = cache
 
     @batch for k = 1:size(QF1,2)
         for i = 1:size(QF1,1)
             QF1[i,k] = zero(QF1[i,k])
+            QFI1[i,k] = zero(QFI1[i,k])
         end
     end
 end
 
 function flux_differencing_volume!(cache,prealloc,param,equation,discrete_data)
     @unpack equation = param
-    @unpack QF1      = cache
+    @unpack QF1,QFI1 = cache
     @unpack Srsh_nnz = discrete_data.ops
 
     dim = get_dim_type(equation)
@@ -196,68 +197,142 @@ function flux_differencing_volume!(cache,prealloc,param,equation,discrete_data)
         for (i,j) in Srsh_nnz
             Ui = get_U(vol_flux_type,i,k,cache,prealloc,param.equation,dim)
             Uj = get_U(vol_flux_type,j,k,cache,prealloc,param.equation,dim)
-            accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
+            accumulate_QF1!(QF1,QFI1,i,Ui,j,Uj,k,param,discrete_data,equation)
         end
     end
 end
 
 # Get (utilde, beta, log(rho), log(beta)) at index i,element k
-function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleIdealGas,dim::Dim1)
+function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleEulerIdealGas,dim::Dim1)
     @unpack u_tilde             = prealloc
     @unpack beta,rholog,betalog = cache
 
     return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k])
 end
 
-function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleIdealGas,dim::Dim2)
+function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleEulerIdealGas,dim::Dim2)
     @unpack u_tilde             = prealloc
     @unpack beta,rholog,betalog = cache
 
     return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],u_tilde[idx,k][3]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k])
 end
 
-function get_U(vol_flux_type::CentralFlux,idx,k,cache,prealloc,equation::CompressibleIdealGas,dim)
+function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleNavierStokesIdealGas,dim::Dim1)
+    @unpack u_tilde,sigma_tilde = prealloc
+    @unpack beta,rholog,betalog = cache
+
+    return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k]), sigma_tilde[idx,k]
+end
+
+function get_U(vol_flux_type::ChandrashekarFlux,idx,k,cache,prealloc,equation::CompressibleNavierStokesIdealGas,dim::Dim2)
+    @unpack u_tilde,sigma_tilde = prealloc
+    @unpack beta,rholog,betalog = cache
+
+    return SVector(u_tilde[idx,k][1],u_tilde[idx,k][2]/u_tilde[idx,k][1],u_tilde[idx,k][3]/u_tilde[idx,k][1],beta[idx,k],rholog[idx,k],betalog[idx,k]), sigma_tilde[idx,k]
+end
+
+function get_U(vol_flux_type::CentralFlux,idx,k,cache,prealloc,equation::CompressibleEulerIdealGas,dim)
     return prealloc.u_tilde[idx,k]
+end
+
+function get_U(vol_flux_type::CentralFlux,idx,k,cache,prealloc,equation::CompressibleNavierStokesIdealGas,dim)
+    return prealloc.u_tilde[idx,k], prealloc.sigma_tilde[idx,k]
 end
 
 function get_U(vol_flux_type,idx,k,cache,prealloc,equation::KPP,dim)
     return prealloc.u_tilde[idx,k]
 end
 
-function accumulate_QF1!(QF1,i,Ui,j,Uj,k,param,discrete_data,equation)
+function accumulate_QF1!(QF1,QFI1,i,Ui,j,Uj,k,param,discrete_data,equation)
     ϵ = param.global_constants.ZEROTOL
     dim = get_dim_type(equation)
     # TODO: assume Sxyh_db_ij = -Sxyh_db_ji
     #              Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
     Sxyh_db_ij = get_Sx(i,j,k,discrete_data,dim)
-    fxy = get_high_order_volume_flux(get_high_order_volume_flux(param.rhs_type),equation,Ui,Uj)
+    fxy,fIxy = get_high_order_volume_flux(get_high_order_volume_flux(param.rhs_type),equation,Ui,Uj)
     Sfxy_ij = Sxyh_db_ij .* fxy
     Sfxy_ji = -Sfxy_ij
     QF1[i,k] += Sfxy_ij
     QF1[j,k] += Sfxy_ji
+    SfIxy_ij = Sxyh_db_ij .* fIxy
+    SfIxy_ji = -SfIxy_ij
+    QFI1[i,k] += SfIxy_ij
+    QFI1[j,k] += SfIxy_ji
 end
 
-function get_high_order_volume_flux(vol_flux_type::ChandrashekarFlux,equation,Ui,Uj)
-    return fS(equation,Ui,Uj)
+function get_high_order_volume_flux(vol_flux_type::ChandrashekarFlux,equation::CompressibleEulerIdealGas{Dim},Ui,Uj) where {Dim}
+    fs = fS(equation,Ui,Uj)
+    return fs, fs
 end
 
-function get_high_order_volume_flux(vol_flux_type::CentralFlux,equation,Ui,Uj)
+function get_high_order_volume_flux(vol_flux_type::ChandrashekarFlux,equation::CompressibleNavierStokesIdealGas{Dim},Ui,Uj) where {Dim}
+    ui,sigmai = Ui
+    uj,sigmaj = Uj
+    fs = fS(equation,ui,uj)
+    return fs .- .5*(sigmai + sigmaj), fs
+end
+
+function get_high_order_volume_flux(vol_flux_type::CentralFlux,equation::CompressibleEulerIdealGas{Dim},Ui,Uj) where {Dim}
     fi = fluxes(equation,Ui)
     fj = fluxes(equation,Uj)
-    return .5 .* (fi.+fj)
+    fc = .5 .* (fi[1].+fj[1])
+    return fc, fc
 end
 
-function flux_differencing_surface!(cache,prealloc,param,discrete_data)
+function get_high_order_volume_flux(vol_flux_type::CentralFlux,equation::CompressibleNavierStokesIdealGas{Dim},Ui,Uj) where {Dim}
+    fi = fluxes(equation,Ui)
+    fj = fluxes(equation,Uj)
+    fc = .5 .* (fi[1].+fj[1])
+    return fc .- .5 .* (fi[2].+fj[2]), fc
+end
+
+function flux_differencing_surface!(cache,prealloc,param,discrete_data,bcdata)
+    @unpack BF_H,BFI_H,fstar_H,u_tilde,sigma,sigmaP = prealloc
+    @unpack mapWnoslip, mapWslip, nxy = bcdata
     @unpack equation = param
+    @unpack fq2q = discrete_data.ops
 
     K  = get_num_elements(param)
+    Nq  = size(prealloc.Uq,1)
+    Nfp = size(BF_H,1)
+    dim = get_dim_type(equation)
     @batch for k = 1:K
         accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equation)
+    end
+
+    # Enforce boundary condition
+    # TODO: redundant calculation above
+    @batch for j = 1:size(mapWslip,1)
+        iw = mapWslip[j]
+        i = mod1(iw,Nfp)
+        k = div(iw-1,Nfp)+1
+        ui = u_tilde[i+Nq,k]
+        ni = (nxy[1][i,k], nxy[2][i,k])
+        fnIstar = noslip_flux(equation,ui[1],ui[2]/ui[1],ui[3]/ui[1],pfun(param.equation, ui),ni[1],ni[2])
+
+        Bxy_i = get_Bx(i,k,discrete_data,dim)
+        # TODO: suspicious norm... Need to double check. Hardcoding
+        BFI_H[i,k] = map(x->x .* fnIstar, abs.(Bxy_i))
+        BF_H[i,k] = BFI_H[i,k] - Bxy_i.*(.5*(sigma[fq2q[i],k]+sigmaP[i,k]))
+    end
+
+    # TODO: copy paste above
+    @batch for j = 1:size(mapWnoslip,1)
+        iw = mapWnoslip[j]
+        i = mod1(iw,Nfp)
+        k = div(iw-1,Nfp)+1
+        ui = u_tilde[i+Nq,k]
+        ni = (nxy[1][i,k], nxy[2][i,k])
+        fnIstar = noslip_flux(equation,ui[1],ui[2]/ui[1],ui[3]/ui[1],pfun(param.equation, ui),ni[1],ni[2])
+
+        Bxy_i = get_Bx(i,k,discrete_data,dim)
+        BFI_H[i,k] = map(x->x .* fnIstar, abs.(Bxy_i))
+        BF_H[i,k] = BFI_H[i,k] - Bxy_i.*(.5*(sigma[fq2q[i],k]+sigmaP[i,k]))
     end
 end
 
 function accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equation)
-    @unpack BF_H,fstar_H,u_tilde = prealloc
+    @unpack BF_H,BFI_H,fstar_H,u_tilde = prealloc
     @unpack uP,LFc       = cache
     
     # Boundary contributions (B F)1
@@ -267,17 +342,20 @@ function accumulate_numerical_flux!(prealloc,cache,k,param,discrete_data,equatio
     dim = get_dim_type(equation)
     uf = @view u_tilde[Nq+1:Nh,:]
     for i = 1:Nfp
-        fstar_H[i,k] = evaluate_high_order_surface_flux(prealloc,cache,param,i,k,get_high_order_surface_flux(param.rhs_type))
+        fstar_H[i,k], fIstar = evaluate_high_order_surface_flux(prealloc,cache,param,discrete_data,i,k,get_high_order_surface_flux(param.rhs_type),param.equation)
         Bxy_i = get_Bx(i,k,discrete_data,dim)
         BF_H[i,k] = Bxy_i.*fstar_H[i,k]
         # Apply LF dissipation
         lf = LFc[i,k]*(uP[i,k]-uf[i,k])
         apply_LF_dissipation_to_BF(BF_H,param,i,k,lf,dim)
         apply_LF_dissipation_to_fstar(fstar_H,param,i,k,Bxy_i,lf,dim)
+
+        BFI_H[i,k] = Bxy_i.*fIstar
+        apply_LF_dissipation_to_BF(BFI_H,param,i,k,lf,dim)
     end
 end
 
-function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_type::ChandrashekarOnProjectedVal)
+function evaluate_high_order_surface_flux(prealloc,cache,param,discrete_data,i,k,surface_flux_type::ChandrashekarOnProjectedVal,equation::CompressibleEulerIdealGas)
     @unpack equation                                      = param
     @unpack u_tilde                                       = prealloc
     @unpack beta,rholog,betalog,uP,betaP,rhologP,betalogP = cache
@@ -289,11 +367,30 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     betaf    = @view beta[Nq+1:Nh,:]
     rhologf  = @view rholog[Nq+1:Nh,:]
     betalogf = @view betalog[Nq+1:Nh,:]
-    return fS(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
-                       (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
+    fs = fS(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
+                     (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
+    return fs, fs
 end
 
-function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal)
+function evaluate_high_order_surface_flux(prealloc,cache,param,discrete_data,i,k,surface_flux_type::ChandrashekarOnProjectedVal,equation::CompressibleNavierStokesIdealGas)
+    @unpack equation                                      = param
+    @unpack u_tilde,sigma,sigmaP                          = prealloc
+    @unpack beta,rholog,betalog,uP,betaP,rhologP,betalogP = cache
+    @unpack fq2q                                          = discrete_data.ops
+
+    Nq = size(prealloc.Uq,1)
+    Nh = size(u_tilde,1)
+    Nd = get_dim(equation)
+    uf       = @view u_tilde[Nq+1:Nh,:]
+    betaf    = @view beta[Nq+1:Nh,:]
+    rhologf  = @view rholog[Nq+1:Nh,:]
+    betalogf = @view betalog[Nq+1:Nh,:]
+    fs = fS(equation,(uf[i,k][1],(uf[i,k][c]/uf[i,k][1] for c in 2:2+Nd-1)...,betaf[i,k],rhologf[i,k],betalogf[i,k]),
+                     (uP[i,k][1],(uP[i,k][c]/uP[i,k][1] for c in 2:2+Nd-1)...,betaP[i,k],rhologP[i,k],betalogP[i,k]))
+    return fs .- .5*(sigma[fq2q[i],k]+sigmaP[i,k]), fs
+end
+
+function evaluate_high_order_surface_flux(prealloc,cache,param,discrete_data,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal,equation::CompressibleEulerIdealGas)
     @unpack equation = param
     @unpack u_tilde  = prealloc
     @unpack uP       = cache
@@ -303,17 +400,39 @@ function evaluate_high_order_surface_flux(prealloc,cache,param,i,k,surface_flux_
     uf = @view u_tilde[Nq+1:Nh,:]
     fxyf = fluxes(equation,uf[i,k])
     fxyP = fluxes(equation,uP[i,k])
+    fc = .5 .* (fxyf[1].+fxyP[1])
 
-    return .5 .* (fxyf.+fxyP)
+    return fc, fc
+end
+
+# TODO: refactor
+function evaluate_high_order_surface_flux(prealloc,cache,param,discrete_data,i,k,surface_flux_type::LaxFriedrichsOnProjectedVal,equation::CompressibleNavierStokesIdealGas)
+    @unpack equation = param
+    @unpack u_tilde,sigma,sigmaP = prealloc
+    @unpack uP       = cache
+    @unpack fq2q     = discrete_data.ops
+
+    Nq = size(prealloc.Uq,1)
+    Nh = size(u_tilde,1)
+    uf = @view u_tilde[Nq+1:Nh,:]
+    fxyf = fluxes(equation,(uf[i,k],sigma[fq2q[i],k]))
+    fxyP = fluxes(equation,(uP[i,k],sigmaP[i,k]))
+    fc = .5 .* (fxyf[1].+fxyP[1])
+
+    return fc .- .5 .* (fxyf[2].+fxyP[2]), fc
 end
 
 function project_flux_difference_to_quad_unlimited!(k,cache,prealloc,discrete_data,tid)
     @unpack BF_H                      = prealloc
+    @unpack BFI_H                     = prealloc
     @unpack MinvVhTQF1,MinvVfTBF1,QF1 = cache
+    @unpack MinvVhTQFI1,MinvVfTBFI1,QFI1 = cache
     @unpack MinvVhT,MinvVfT           = discrete_data.ops
 
     @views mul!(MinvVhTQF1[:,k],MinvVhT,QF1[:,k])
     @views mul!(MinvVfTBF1[:,k],MinvVfT,BF_H[:,k])
+    @views mul!(MinvVhTQFI1[:,k],MinvVhT,QFI1[:,k])
+    @views mul!(MinvVfTBFI1[:,k],MinvVfT,BFI_H[:,k])
 end
 
 function project_flux_difference_to_quad!(cache,prealloc,param,entropyproj_limiter_type::NoEntropyProjectionLimiter,discrete_data,k,nstage,tid)
@@ -365,7 +484,9 @@ end
 function assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
     @unpack entropyproj_limiter_type  = param
     @unpack QF1,MinvVhTQF1,MinvVfTBF1 = cache
+    @unpack QFI1,MinvVhTQFI1,MinvVfTBFI1 = cache
     @unpack BF_H,rhsH,rhsxyH          = prealloc
+    @unpack BFI_H,rhsIH,rhsIxyH       = prealloc
     @unpack Jq                        = discrete_data.geom
     @unpack MinvVhT,MinvVfT,Vq        = discrete_data.ops
  
@@ -389,6 +510,8 @@ function assemble_rhs!(cache,prealloc,param,discrete_data,nstage)
         for i = 1:size(rhsH,1)
             rhsxyH[i,k] = -(MinvVhTQF1[i,k]+MinvVfTBF1[i,k])/Jq[i,k]
             rhsH[i,k] = sum(rhsxyH[i,k])
+            rhsIxyH[i,k] = -(MinvVhTQFI1[i,k]+MinvVfTBFI1[i,k])/Jq[i,k]
+            rhsIH[i,k] = sum(rhsIxyH[i,k])
         end
         # TODO: Assume Vq = I for both LGL and Gauss
         # @views mul!(rhsH[:,k],Vq,sum.(rhsxyH[:,k]))

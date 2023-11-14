@@ -53,7 +53,8 @@ for limiter_type in [(NoEntropyProjectionLimiter()    ,LaxFriedrichsOnNodalVal()
                      (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityBound())             ,GaussCollocation());
                      (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnNodalVal()    ,SubcellLimiter(bound_type=PositivityAndMinEntropyBound()),GaussCollocation());
                      (NodewiseScaledExtrapolation()   ,LaxFriedrichsOnProjectedVal(),ZhangShuLimiter()                                        ,GaussCollocation());]
-for N in [1;2;3;4]
+# for N in [1;2;3;4]
+for N in [3]
 for K in [(5,5),(10,10),(20,20),(40,40),(80,80)]
 
 

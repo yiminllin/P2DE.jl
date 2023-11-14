@@ -171,7 +171,9 @@ end
 # TODO: documentation... from the ipad note
 function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim1)
     @unpack f_bar_H,f_bar_L     = cache
+    @unpack fI_bar_H,fI_bar_L     = cache
     @unpack rhsL,rhsH,BF_H,BF_L = prealloc
+    @unpack rhsIL,rhsIH,BFI_H,BFI_L = prealloc
     @unpack wq = discrete_data.ops
     @unpack Jq = discrete_data.geom
 
@@ -185,13 +187,21 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim1)
             f_bar_H[1][i,k] = f_bar_H[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsH[i-1,k]
             f_bar_L[1][i,k] = f_bar_L[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsL[i-1,k]
         end
+        fI_bar_H[1][1,k] = BFI_H[1,k][1]
+        fI_bar_L[1][1,k] = BFI_L[1,k][1]
+        for i = 2:Nq+1
+            fI_bar_H[1][i,k] = fI_bar_H[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsIH[i-1,k]
+            fI_bar_L[1][i,k] = fI_bar_L[1][i-1,k]+Jq[i-1,k]*wq[i-1]*rhsIL[i-1,k]
+        end
     end
 end
 
 # TODO: use views instead of index flattening
 function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
     @unpack f_bar_H,f_bar_L                   = cache
+    @unpack fI_bar_H,fI_bar_L                 = cache
     @unpack rhsL,rhsH,rhsxyH,rhsxyL,BF_H,BF_L = prealloc
+    @unpack rhsIL,rhsIH,rhsIxyH,rhsIxyL,BFI_H,BFI_L = prealloc
     @unpack wq = discrete_data.ops
     @unpack Jq = discrete_data.geom
     
@@ -209,6 +219,14 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
         rhsxyH_k = reshape(view(rhsxyH,:,k),N1D,N1D)
         rhsxyL_k = reshape(view(rhsxyL,:,k),N1D,N1D)
 
+        fIx_bar_H_k = reshape(view(fI_bar_H[1],:,k),N1Dp1,N1D)
+        fIx_bar_L_k = reshape(view(fI_bar_L[1],:,k),N1Dp1,N1D)
+        fIy_bar_H_k = reshape(view(fI_bar_H[2],:,k),N1D,N1Dp1)
+        fIy_bar_L_k = reshape(view(fI_bar_L[2],:,k),N1D,N1Dp1)
+
+        rhsIxyH_k = reshape(view(rhsIxyH,:,k),N1D,N1D)
+        rhsIxyL_k = reshape(view(rhsIxyL,:,k),N1D,N1D)
+
         wq_k = reshape(view(wq,:),N1D,N1D)
         Jq_k = reshape(view(Jq,:,k),N1D,N1D)
 
@@ -217,9 +235,13 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
             iface = sj
             fx_bar_H_k[1,sj] = BF_H[iface,k][1]
             fx_bar_L_k[1,sj] = BF_L[iface,k][1]
+            fIx_bar_H_k[1,sj] = BFI_H[iface,k][1]
+            fIx_bar_L_k[1,sj] = BFI_L[iface,k][1]
             for si = 2:N1Dp1
                 fx_bar_H_k[si,sj] = fx_bar_H_k[si-1,sj] + wq_k[si-1,sj]*Jq_k[si-1,sj]*rhsxyH_k[si-1,sj][1]
                 fx_bar_L_k[si,sj] = fx_bar_L_k[si-1,sj] + wq_k[si-1,sj]*Jq_k[si-1,sj]*rhsxyL_k[si-1,sj][1]
+                fIx_bar_H_k[si,sj] = fIx_bar_H_k[si-1,sj] + wq_k[si-1,sj]*Jq_k[si-1,sj]*rhsIxyH_k[si-1,sj][1]
+                fIx_bar_L_k[si,sj] = fIx_bar_L_k[si-1,sj] + wq_k[si-1,sj]*Jq_k[si-1,sj]*rhsIxyL_k[si-1,sj][1]
             end
         end
 
@@ -228,9 +250,13 @@ function accumulate_f_bar!(cache,prealloc,param,discrete_data,dim::Dim2)
             iface = si+2*N1D
             fy_bar_H_k[si,1] = BF_H[iface,k][2]
             fy_bar_L_k[si,1] = BF_L[iface,k][2]
+            fIy_bar_H_k[si,1] = BFI_H[iface,k][2]
+            fIy_bar_L_k[si,1] = BFI_L[iface,k][2]
             for sj = 2:N1Dp1
                 fy_bar_H_k[si,sj] = fy_bar_H_k[si,sj-1] + wq_k[si,sj-1]*Jq_k[si,sj-1]*rhsxyH_k[si,sj-1][2]
                 fy_bar_L_k[si,sj] = fy_bar_L_k[si,sj-1] + wq_k[si,sj-1]*Jq_k[si,sj-1]*rhsxyL_k[si,sj-1][2]
+                fIy_bar_H_k[si,sj] = fIy_bar_H_k[si,sj-1] + wq_k[si,sj-1]*Jq_k[si,sj-1]*rhsIxyH_k[si,sj-1][2]
+                fIy_bar_L_k[si,sj] = fIy_bar_L_k[si,sj-1] + wq_k[si,sj-1]*Jq_k[si,sj-1]*rhsIxyL_k[si,sj-1][2]
             end
         end
     end
@@ -510,7 +536,7 @@ function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcda
     @unpack Uq,vq    = prealloc
     @unpack fq2q     = discrete_data.ops
     @unpack Nfp,Nq   = discrete_data.sizes
-    @unpack vf,psif,dvdf,f_bar_H,f_bar_L,sum_Bpsi,sum_dvfbarL = cache
+    @unpack vf,psif,dvdf,fI_bar_H,fI_bar_L,sum_Bpsi,sum_dvfbarL = cache
 
     K     = get_num_elements(param)
     @batch for k = 1:K
@@ -531,8 +557,8 @@ function initialize_ES_subcell_limiting!(cache,prealloc,param,discrete_data,bcda
         # TODO: hardcoding views
         dvdf_k    = view(dvdf[1],:,k)
         vq_k      = view(vq,:,k)
-        f_bar_H_k = view(f_bar_H[1],:,k)
-        f_bar_L_k = view(f_bar_L[1],:,k)
+        f_bar_H_k = view(fI_bar_H[1],:,k)
+        f_bar_L_k = view(fI_bar_L[1],:,k)
         
         sum_dvfbarL_k = 0.0
         for si = 2:param.N+1

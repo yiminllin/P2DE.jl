@@ -43,17 +43,27 @@ function initial_condition(param,x,y)
 end
 
 γ = 1.4
+mu = 0.001
+Re = 1/mu
+lambda = 2/3*mu
+Pr = 3/4
+cp = γ/(γ-1)
+cv = 1/(γ-1)
+kappa = mu*cp/Pr
 param = Param(N=3, K=(80,80), xL=(-1.5,-1.5), xR=(1.5,1.5),
               global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
               timestepping_param=TimesteppingParameter(T=1.0, CFL=0.5, dt0=1e-3, t0=0.0),
-              limiting_param=LimitingParameter(ζ=0.1, η=0.1),
+              limiting_param=LimitingParameter(ζ=0.5, η=0.1),
               postprocessing_param=PostprocessingParameter(output_interval=100),
-              equation=CompressibleEulerIdealGas{Dim2}(γ),
-              rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
-                                            high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-              approximation_basis_type=GaussCollocation(),
-              entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-              rhs_limiter_type=ZhangShuLimiter(shockcapture_type=NoShockCapture()))
+            #   equation=CompressibleEulerIdealGas{Dim2}(γ),
+              equation=CompressibleNavierStokesIdealGas{Dim2}(γ,Re,mu,lambda,Pr,cp,cv,kappa),
+              rhs_type=StdDGLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
+                                               high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
+              approximation_basis_type=LobattoCollocation(),
+              entropyproj_limiter_type=NoEntropyProjectionLimiter(),
+            #   rhs_limiter_type=SubcellLimiter(bound_type=PositivityAndCellEntropyBound()))
+              rhs_limiter_type=SubcellLimiter(bound_type=PositivityBound()))
+            #   rhs_limiter_type=ZhangShuLimiter(shockcapture_type=NoShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N

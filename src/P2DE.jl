@@ -74,7 +74,7 @@ export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas,KPP
 ##################
 export get_γ
 export initialize_DG
-export primitive_to_conservative
+export primitive_to_conservative,pfun
 export SSP33!
 export calculate_error,plot_component,plot_rho_animation,write_to_jld2
 export visualize_error_data

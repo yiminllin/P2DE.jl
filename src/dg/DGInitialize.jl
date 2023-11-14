@@ -11,6 +11,11 @@ function initialize_preallocations(param,md,sizes)
     u_tilde     = zeros(SVector{Nc,Float64},Nh,K)
     v_tilde     = zeros(SVector{Nc,Float64},Nh,K)
     psi_tilde   = zeros(SVector{Nd,Float64},Nh,K)
+    theta       = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    sigma       = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    sigma_tilde = zeros(SVector{Nd,SVector{Nc,Float64}},Nh,K)
+    vP          = zeros(SVector{Nc,Float64},Nfp,K)
+    sigmaP      = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     rhsH        = zeros(SVector{Nc,Float64},Nq,K)
     rhsL        = zeros(SVector{Nc,Float64},Nq,K)
     rhsU        = zeros(SVector{Nc,Float64},Nq,K)
@@ -19,6 +24,14 @@ function initialize_preallocations(param,md,sizes)
     rhsxyU      = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
     BF_H        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     BF_L        = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
+    rhsIH       = zeros(SVector{Nc,Float64},Nq,K)
+    rhsIL       = zeros(SVector{Nc,Float64},Nq,K)
+    rhsIU       = zeros(SVector{Nc,Float64},Nq,K)
+    rhsIxyH     = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    rhsIxyL     = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    rhsIxyU     = zeros(SVector{Nd,SVector{Nc,Float64}},Nq,K)
+    BFI_H       = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
+    BFI_L       = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     fstar_H     = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     fstar_L     = zeros(SVector{Nd,SVector{Nc,Float64}},Nfp,K)
     Larr        = zeros(Float64,K,Ns)
@@ -31,8 +44,10 @@ function initialize_preallocations(param,md,sizes)
     indicator_modal  = zeros(Float64,Np,K)
     smooth_indicator = zeros(Float64,K)
 
-    prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,psi_tilde,
-                                    rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,fstar_H,fstar_L,
+    prealloc = Preallocation{Nc,Nd}(Uq,vq,u_tilde,v_tilde,psi_tilde,theta,sigma,sigma_tilde,vP,sigmaP,
+                                    rhsH,rhsL,rhsU,rhsxyH,rhsxyL,rhsxyU,BF_H,BF_L,
+                                    rhsIH,rhsIL,rhsIU,rhsIxyH,rhsIxyL,rhsIxyU,BFI_H,BFI_L,
+                                    fstar_H,fstar_L,
                                     Larr,L_local_arr,θ_arr,θ_local_arr,
                                     resW,resZ,
                                     indicator,indicator_modal,smooth_indicator)

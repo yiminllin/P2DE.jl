@@ -47,7 +47,7 @@ function calculate_wavespeed_and_inviscid_flux!(cache,prealloc,param,discrete_da
     K  = get_num_elements(param)
     @batch for k = 1:K
         update_face_values!(cache,prealloc,k,discrete_data,get_low_order_surface_flux(param.rhs_type))
-        update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_data)
+        update_wavespeed_and_flux!(cache,param.equation,prealloc,k,param,discrete_data)
     end
 end
 
@@ -74,11 +74,12 @@ function update_face_values!(cache,prealloc,k,discrete_data,surface_flux_type::L
     end
 end
 
-function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_data)
+# TODO: refactor
+function update_wavespeed_and_flux!(cache,equation::CompressibleEulerIdealGas,prealloc,k,param,discrete_data)
     @unpack equation = param
-    @unpack Uq       = prealloc
+    @unpack Uq = prealloc
     @unpack Srs0_nnz = discrete_data.ops
-    @unpack Uf,wavespeed_f,flux = cache
+    @unpack Uf,wavespeed_f,flux,fluxI = cache
 
     Nq  = size(Uq,1)
     Nfp = size(Uf,1)
@@ -87,7 +88,9 @@ function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_dat
     # Volume inviscid flux
     for i = 1:Nq
         u_i = Uq[i,k]
-        flux[i,k] = fluxes(equation,u_i)
+        f = fluxes(equation,u_i)
+        fluxI[i,k] = f[1]
+        flux[i,k] = f[1].-f[2]
     end
 
     # Surface wavespeed and inviscid flux
@@ -96,7 +99,43 @@ function update_wavespeed_and_inviscid_flux!(cache,prealloc,k,param,discrete_dat
         Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
         n_i = Bxy_i./n_i_norm
         wavespeed_f[i,k] = wavespeed_estimate(equation,u_i,n_i)
-        flux[i+Nq,k] = fluxes(equation,u_i)
+        f = fluxes(equation,u_i)
+        fluxI[i+Nq,k] = f[1]
+        flux[i+Nq,k] = f[1].-f[2]
+    end
+end
+
+# TODO: refactor
+function update_wavespeed_and_flux!(cache,equation::CompressibleNavierStokesIdealGas,prealloc,k,param,discrete_data)
+    @unpack equation = param
+    @unpack Uq,sigma,sigma_tilde = prealloc
+    @unpack Srs0_nnz = discrete_data.ops
+    @unpack Uf,wavespeed_f,flux,fluxI = cache
+
+    Nq  = size(Uq,1)
+    Nfp = size(Uf,1)
+    dim = get_dim_type(equation)
+
+    # Volume inviscid flux
+    for i = 1:Nq
+        u_i = Uq[i,k]
+        sigma_i = sigma[i,k]
+        f = fluxes(equation,(u_i,sigma_i))
+        fluxI[i,k] = f[1]
+        flux[i,k] = f[1].-f[2]
+    end
+
+    # Surface wavespeed and inviscid flux
+    for i = 1:Nfp
+        u_i = Uf[i,k]
+        sigma_i = sigma_tilde[i+Nq,k]
+        Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
+        n_i = Bxy_i./n_i_norm
+        # TODO: refactor with wavespeed estimate
+        wavespeed_f[i,k] = max(wavespeed_estimate(equation,u_i,n_i),zhang_positivity_estimate(equation,u_i,sigma_i,n_i))
+        f = fluxes(equation,(u_i,sigma_i))
+        fluxI[i+Nq,k] = f[1]
+        flux[i+Nq,k] = f[1].-f[2]
     end
 end
 
@@ -140,7 +179,7 @@ function get_uP_and_enforce_BC!(cache,prealloc,param,bcdata,discrete_data)
 end
 
 function clear_low_order_rhs!(cache,prealloc,param)
-    @unpack rhsxyL          = prealloc
+    @unpack rhsxyL,rhsIxyL  = prealloc
     @unpack Q0F1,λarr,λBarr = cache
 
     K  = get_num_elements(param)
@@ -149,15 +188,36 @@ function clear_low_order_rhs!(cache,prealloc,param)
     @batch for k = 1:K
         for i = 1:size(rhsxyL,1)
             rhsxyL[i,k] = zero(rhsxyL[i,k])
+            rhsIxyL[i,k] = zero(rhsIxyL[i,k])
             Q0F1[i,k]   = zero(Q0F1[i,k])
         end
     end
 end
 
+function get_volume_wavespeed(equation::CompressibleEulerIdealGas, U_i, U_j, n_ij, n_ji)
+    return max(wavespeed_estimate(equation,U_i,n_ij),wavespeed_estimate(equation,U_j,n_ji))
+end
+
+function get_volume_wavespeed(equation::CompressibleNavierStokesIdealGas, U_i, U_j, n_ij, n_ji)
+    u_i,sigma_i = U_i
+    u_j,sigma_j = U_j
+    return max(wavespeed_estimate(equation,u_i,n_ij),wavespeed_estimate(equation,u_j,n_ji),
+               zhang_positivity_estimate(equation,u_i,sigma_i,n_ij), zhang_positivity_estimate(equation,u_j,sigma_j,n_ji))
+end
+
+# TODO: refactor
+function get_discrete_var(equation::CompressibleEulerIdealGas, prealloc, i, k)
+    return prealloc.Uq[i,k]
+end
+
+function get_discrete_var(equation::CompressibleNavierStokesIdealGas, prealloc, i, k)
+    return prealloc.Uq[i,k], prealloc.sigma[i,k]
+end
+
 function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
     @unpack equation       = param
-    @unpack rhsxyL,Uq      = prealloc
-    @unpack flux,λarr,Q0F1 = cache
+    @unpack rhsxyL,rhsIxyL,Uq      = prealloc
+    @unpack flux,fluxI,λarr,Q0F1,Q0FI1 = cache
     @unpack Srs0_nnz       = discrete_data.ops
     
     dim = get_dim_type(equation)
@@ -166,8 +226,8 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
     @batch for k = 1:K
         # Volume contributions
         for (i,j) in Srs0_nnz
-            u_i = Uq[i,k]
-            u_j = Uq[j,k]
+            U_i = get_discrete_var(equation, prealloc, i, k)
+            U_j = get_discrete_var(equation, prealloc, j, k)
             Fxyij = @. .5*(flux[i,k]+flux[j,k])
             # TODO: assume Sxy0J_ij = -Sxy0J_ji
             #              n_ij_norm = n_ji_norm
@@ -175,7 +235,7 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
             Sxy0J_ij,n_ij_norm = get_Sx0_with_n(i,j,k,discrete_data,dim)
             n_ij = Sxy0J_ij./n_ij_norm
             n_ji = -n_ij
-            wavespeed_ij = max(wavespeed_estimate(equation,u_i,n_ij),wavespeed_estimate(equation,u_j,n_ji))
+            wavespeed_ij = get_volume_wavespeed(equation, U_i, U_j, n_ij, n_ji)
             λarr[i,j,k] = n_ij_norm*wavespeed_ij
             λarr[j,i,k] = λarr[i,j,k]
             ΛD_ij = get_graph_viscosity(cache,prealloc,param,i,j,k,Sxy0J_ij,dim)
@@ -183,21 +243,28 @@ function accumulate_low_order_rhs_volume!(cache,prealloc,param,discrete_data)
             SFxy_ΛD_ji = -SFxy_ΛD_ij
             Q0F1[i,k] += SFxy_ΛD_ij
             Q0F1[j,k] += SFxy_ΛD_ji
+
+            FIxyij = @. .5*(fluxI[i,k]+fluxI[j,k])
+            SFIxy_ΛD_ij = 2.0*Sxy0J_ij.*FIxyij - ΛD_ij
+            SFIxy_ΛD_ji = -SFIxy_ΛD_ij
+            Q0FI1[i,k] += SFIxy_ΛD_ij
+            Q0FI1[j,k] += SFIxy_ΛD_ji
         end
     end
 
     @batch for k = 1:K
         for i = 1:Nq
             rhsxyL[i,k] -= Q0F1[i,k]
+            rhsIxyL[i,k] -= Q0FI1[i,k]
         end
     end
 end
 
 function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bcdata)
     @unpack equation = param
-    @unpack rhsxyL,BF_L,fstar_L       = prealloc
-    @unpack Uf,uP,flux,wavespeed_f,λBarr = cache
-    @unpack mapP                      = bcdata
+    @unpack rhsxyL,rhsIxyL,BF_L,BFI_L,fstar_L,BF_H,BFI_H,fstar_H,sigmaP = prealloc
+    @unpack Uf,uP,flux,fluxI,wavespeed_f,λBarr = cache
+    @unpack mapP,mapWslip,mapWnoslip                      = bcdata
     @unpack fq2q                      = discrete_data.ops
 
     K  = get_num_elements(param)
@@ -216,7 +283,8 @@ function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bc
             Bxy_i,n_i_norm = get_Bx_with_n(i,k,discrete_data,dim)
             λBarr[i,k] = .5*n_i_norm*max(wavespeed_f[i,k],wavespeed_f[iP,kP])
 
-            flux_xy_P = fluxes(equation,uP[i,k])
+            fluxI_xy_P, sigma_xy_P = fluxes(equation,(uP[i,k],sigmaP[i,k]))
+            flux_xy_P = fluxI_xy_P .- sigma_xy_P
             fstar_L[i,k] = .5 .*(flux[i+Nq,k].+flux_xy_P)
             BF_L[i,k] = Bxy_i.*fstar_L[i,k]
             
@@ -224,8 +292,35 @@ function accumulate_low_order_rhs_surface!(cache,prealloc,param,discrete_data,bc
             apply_LF_dissipation_to_BF(BF_L,param,i,k,lf,get_dim_type(param.equation))
             apply_LF_dissipation_to_fstar(fstar_L,param,i,k,Bxy_i,lf,get_dim_type(param.equation))
 
+            fIstar_L = .5 .*(fluxI[i+Nq,k].+fluxI_xy_P)
+            BFI_L[i,k] = Bxy_i.*fIstar_L
+            apply_LF_dissipation_to_BF(BFI_L,param,i,k,lf,get_dim_type(param.equation))
+        end
+    end
+
+    # Enforce Wall boundary condition.
+    # TODO: HACK assume high order wall numerical flux is calculated
+    @batch for j = 1:size(mapWslip,1)
+        iw = mapWslip[j]
+        i = mod1(iw,Nfp)
+        k = div(iw-1,Nfp)+1
+        BF_L[i,k] = BF_H[i,k]
+        BFI_L[i,k] = BFI_H[i,k]
+    end
+    @batch for j = 1:size(mapWnoslip,1)
+        iw = mapWnoslip[j]
+        i = mod1(iw,Nfp)
+        k = div(iw-1,Nfp)+1
+        BF_L[i,k] = BF_H[i,k]
+        BFI_L[i,k] = BFI_H[i,k]
+    end
+
+    @batch for k = 1:K
+        # Surface contributions
+        for i = 1:Nfp
             iq = fq2q[i]
             rhsxyL[iq,k] -= BF_L[i,k]
+            rhsIxyL[iq,k] -= BFI_L[i,k]
         end
     end
 end
@@ -234,6 +329,7 @@ function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data)
     @unpack Jq = discrete_data.geom
     @unpack wq = discrete_data.ops
     @unpack rhsL,rhsxyL = prealloc
+    @unpack rhsIL,rhsIxyL = prealloc
 
     K  = get_num_elements(param)
     @batch for k = 1:K
@@ -242,6 +338,8 @@ function scale_low_order_rhs_by_mass!(prealloc,param,discrete_data)
             wJq_i    = Jq[i,k]*wq[i]
             rhsxyL[i,k] = rhsxyL[i,k]/wJq_i
             rhsL[i,k] = sum(rhsxyL[i,k])
+            rhsIxyL[i,k] = rhsIxyL[i,k]/wJq_i
+            rhsIL[i,k] = sum(rhsIxyL[i,k])
         end
     end
 end

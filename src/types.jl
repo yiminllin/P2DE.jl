@@ -64,7 +64,9 @@ end
 abstract type Cache{DIM,Nc} end
 struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     flux       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    fluxI      ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Q0F1       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    Q0FI1      ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     wavespeed_f::Array{Float64,2}
     alphaarr   ::Array{Float64,2}
     Uf         ::Array{SVector{Nc,Float64},2}   # TODO: Redundant with limiters cache
@@ -77,6 +79,8 @@ end
 
 LowOrderPositivityCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
     LowOrderPositivityCache(zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
+                            zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
+                            zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
                             zeros(SVector{DIM,SVector{Nc,Float64}},Nq,K),
                             zeros(Float64,Nfp,K),
                             zeros(Float64,Nfp,K),
@@ -103,6 +107,9 @@ struct FluxDiffCache{DIM,Nc} <: Cache{DIM,Nc}
     QF1        ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     MinvVhTQF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     MinvVfTBF1 ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    QFI1       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    MinvVhTQFI1::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    MinvVfTBFI1::Array{SVector{DIM,SVector{Nc,Float64}},2}
 end
 
 FluxDiffCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
@@ -118,6 +125,9 @@ FluxDiffCache{DIM,Nc}(; K=0,Np=0,Nq=0,Nh=0,Nfp=0,Nthread=1) where {DIM,Nc} =
                        zeros(Float64,Nfp,Nq,Nthread),
                        reshape(hcat([[diagm(ones(Nq)) zeros(Nq,Nfp)] for _ = 1:Nthread]...),Nq,Nq+Nfp,Nthread),
                        zeros(Float64,Np,Nh,Nthread),
+                       zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
+                       zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
+                       zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Nh,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K),
                        zeros(SVector{DIM,SVector{Nc,Float64}},Np,K))
@@ -256,7 +266,13 @@ Base.@kwdef struct CompressibleEulerParam <: CompressibleParam
     # TODO: fill in
 end
 Base.@kwdef struct CompressibleNavierStokesParam <: CompressibleParam
-    # TODO: fill in
+    Re::Float64
+    mu::Float64
+    lambda::Float64
+    Pr::Float64
+    cp::Float64
+    cv::Float64
+    kappa::Float64
 end
 Base.@kwdef struct CompressibleIdealGas{DIM,PARAM<:CompressibleParam} <: CompressibleFlow{DIM}
     param::PARAM
@@ -267,10 +283,38 @@ const CompressibleEulerIdealGas{DIM}        = CompressibleIdealGas{DIM,Compressi
 const CompressibleNavierStokesIdealGas{DIM} = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}
 
 CompressibleEulerIdealGas{DIM}(γ) where DIM        = CompressibleIdealGas{DIM,CompressibleEulerParam}(γ=γ,param=CompressibleEulerParam())
-CompressibleNavierStokesIdealGas{DIM}(γ) where DIM = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}(γ=γ,param=CompressibleNavierStokesParam())
+CompressibleNavierStokesIdealGas{DIM}(γ,Re,mu,lambda,Pr,cp,cv,kappa) where DIM = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}(γ=γ,param=CompressibleNavierStokesParam(Re=Re,mu=mu,lambda=lambda,Pr=Pr,cp=cp,cv=cv,kappa=kappa))
 
 function get_γ(equation::CompressibleIdealGas)
     return equation.γ
+end
+
+function get_λ(equation::CompressibleNavierStokesIdealGas)
+    return equation.param.lambda
+end
+
+function get_μ(equation::CompressibleNavierStokesIdealGas)
+    return equation.param.mu
+end
+
+function get_Pr(equation::CompressibleNavierStokesIdealGas)
+    return equation.param.Pr
+end
+
+function get_Re(equation::CompressibleNavierStokesIdealGas)
+    return equation.param.Re
+end
+
+function get_κ(equation::CompressibleNavierStokesIdealGas)
+    return equation.param.kappa
+end
+
+function get_cv(equation::CompressibleNavierStokesIdealGas)
+    return equation.param.cv
+end
+
+function get_cp(equation::CompressibleNavierStokesIdealGas)
+    return equation.param.cp
 end
 
 function get_equation_1D(equation::CompressibleIdealGas{Dim2})
@@ -327,6 +371,7 @@ Base.@kwdef struct PostprocessingCache{Nc}
     xp::Array{Float64,2}
     yp::Array{Float64,2}
     Up::Array{SVector{Nc,Float64},2}
+    schlp::Array{Float64,2}
 end
 
 # TODO: put parameters into limiter
@@ -378,12 +423,15 @@ function get_shockcapture_type(param::Param)
     return get_shockcapture_type(param.rhs_limiter_type)
 end
 
-struct BCData{Nc}
+struct BCData{DIM,Nc}
     mapP::Array{Int64,2}
     mapI::Array{Int64,1}
     mapO::Array{Int64,1}  # List of global indices with inflow and outflow
                           # (do nothing) boundary conditions
+    mapWslip::Array{Int64,1}
+    mapWnoslip::Array{Int64,1}
     Ival::Array{SVector{Nc,Float64},1}
+    nxy ::NTuple{DIM,Array{Float64,2}}
 end
 
 struct GeomData{NGEO}
@@ -442,6 +490,11 @@ struct Preallocation{Nc,DIM}
     u_tilde    ::Array{SVector{Nc,Float64},2}       # entropy projected conservative variables
     v_tilde    ::Array{SVector{Nc,Float64},2}       # projected entropy variables
     psi_tilde  ::Array{SVector{DIM,Float64},2}
+    theta      ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    sigma      ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    sigma_tilde::Array{SVector{DIM,SVector{Nc,Float64}},2}  # TODO: hardcoded for LGL
+    vP         ::Array{SVector{Nc,Float64},2}       # TODO: move to cache
+    sigmaP     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     rhsH       ::Array{SVector{Nc,Float64},2}
     rhsL       ::Array{SVector{Nc,Float64},2}
     rhsU       ::Array{SVector{Nc,Float64},2}
@@ -450,6 +503,14 @@ struct Preallocation{Nc,DIM}
     rhsxyU     ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF_H       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     BF_L       ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    rhsIH      ::Array{SVector{Nc,Float64},2}
+    rhsIL      ::Array{SVector{Nc,Float64},2}
+    rhsIU      ::Array{SVector{Nc,Float64},2}
+    rhsIxyH    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    rhsIxyL    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    rhsIxyU    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BFI_H      ::Array{SVector{DIM,SVector{Nc,Float64}},2}
+    BFI_L      ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     fstar_H    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     fstar_L    ::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Larr       ::Array{Float64,2}
@@ -489,6 +550,8 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     P_k      ::Array{SVector{Nc,Float64},2}
     f_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    fI_bar_H  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
+    fI_bar_L  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
     f_bar_lim::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # TODO: unnecessary
     dfH_vol  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}       # \Delta^vol fbarH
     dfL_vol  ::NTuple{DIM,Array{SVector{Nc,Float64},2}}
@@ -516,6 +579,8 @@ SubcellLimiterCache{DIM,Nc}(; K=0,Nq=0,Nfp=0,N1D=0,Ns=Ns,Nthread=1,s_modified_mi
                                 zeros(SVector{DIM,Float64},Nfp,K),
                                 zeros(SVector{Nc,Float64},Nq,Nthread),
                                 zeros(SVector{Nc,Float64},Nq,Nthread),
+                                tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
+                                tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),
                                 tuple([zeros(SVector{Nc,Float64},Nq+N1D,K) for _ in 1:DIM]...),

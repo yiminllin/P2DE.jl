@@ -1,10 +1,16 @@
 include("./DGRHSUtils.jl")
+include("./ViscousRHS.jl")
 include("./FluxDiffRHS.jl")
 include("./LowOrderPositivityRHS.jl")
 
 function rhs!(param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
     @timeit_debug timer "initialize rhs" begin
     init_get_rhs!(param,param.entropyproj_limiter_type,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
+    end
+    @timeit_debug timer "compute viscous terms" begin
+    # TODO: redundant, and refactor
+    entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data,nstage,timer)
+    compute_sigma(param.equation,prealloc,param,discrete_data,bcdata,param.approximation_basis_type)
     end
     @timeit_debug timer "rhs calculation" begin
     dt = get_rhs!(param.rhs_type,param,discrete_data,bcdata,prealloc,caches,t,dt,nstage,timer)
@@ -53,11 +59,11 @@ function get_rhs!(rhs_type::LimitedDG,param,discrete_data,bcdata,prealloc,caches
     @timeit_debug timer "entropy projection" begin
     entropy_projection!(prealloc,param,param.entropyproj_limiter_type,discrete_data,nstage,timer)
     end
-    @timeit_debug timer "low order positivity" begin
-    dt = rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data,bcdata,t,dt,nstage,timer,false)
-    end
     @timeit_debug timer "high order ESDG" begin
     rhs_fluxdiff!(prealloc,rhs_cache,param,discrete_data,bcdata,nstage,timer,false)
+    end
+    @timeit_debug timer "low order positivity" begin
+    dt = rhs_pos_Gauss!(prealloc,rhs_cache,param,discrete_data,bcdata,t,dt,nstage,timer,false)
     end
     @timeit_debug timer "apply positivity limiter" begin
     apply_rhs_limiter!(prealloc,param,discrete_data,bcdata,caches,t,dt,nstage,param.rhs_limiter_type,timer)

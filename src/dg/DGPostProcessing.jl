@@ -155,8 +155,9 @@ function get_postprocessing_cache(param,md,dim::Dim1)
     Nc = get_num_components(param.equation)
 
     Up = zeros(SVector{Nc,Float64},N1D,K)
+    schl = zeros(Float64,N1D,K)
 
-    return PostprocessingCache(xp=xq,yp=xq,Up=Up)
+    return PostprocessingCache(xp=xq,yp=xq,Up=Up,schl=schl)
 end
 
 # TODO: only works for rectangular 2D quad mesh
@@ -170,6 +171,7 @@ function get_postprocessing_cache(param,md,dim::Dim2)
     Nc = get_num_components(param.equation)
 
     Up = zeros(SVector{Nc,Float64},N1D*Kx,N1D*Ky)
+    schlp = zeros(Float64,N1D*Kx,N1D*Ky)
     xp = zeros(Float64,N1D*Kx,N1D*Ky)
     yp = zeros(Float64,N1D*Kx,N1D*Ky)
 
@@ -184,12 +186,36 @@ function get_postprocessing_cache(param,md,dim::Dim2)
         @views @. yp[irange,jrange] = yq_k
     end
 
-    return PostprocessingCache(xp=xp,yp=yp,Up=Up)
+    return PostprocessingCache(xp=xp,yp=yp,Up=Up,schlp=schlp)
 end
 
-function construct_vtk_file!(cache,param,data_hist,output_path,filename)
+function schlieren_visualization!(cache,U,md,rd)
+    @unpack x,xq,rxJ,syJ,nxyzJ,J,mapP = md
+    @unpack Vf,LIFT,Drst = rd
+
+    nxJ = nxyzJ[1]
+    nyJ = nxyzJ[2]
+    Dr = Drst[1]
+    Ds = Drst[2]
+    rx = rxJ ./ J
+    sy = syJ ./ J
+
+    rhot = map(x->x[1], U)
+    rhof = Vf*rhot
+    rhoP = rhof[mapP]
+    schl = sqrt.((rx.*(Dr*rhot) + .5*LIFT*((rhoP-rhof).*nxJ)./J).^2 
+              .+ (sy.*(Ds*rhot) + .5*LIFT*((rhoP-rhof).*nyJ)./J).^2)
+    schl_min  = minimum(schl)
+    schl_max  = maximum(schl)
+
+    @. schl   = exp(-10*(schl-schl_min)/(schl_max-schl_min))
+
+    return schl
+end
+
+function construct_vtk_file!(cache,md,rd,param,data_hist,output_path,filename)
     @unpack Uhist,thist = data_hist
-    @unpack xp,yp,Up    = cache
+    @unpack xp,yp,Up,schlp = cache
     @unpack N,K         = param
     N1D = N+1
     Kx,Ky = K
@@ -199,6 +225,7 @@ function construct_vtk_file!(cache,param,data_hist,output_path,filename)
     for i in 1:length(Uhist)
         t = thist[i]
         U = Uhist[i]
+        schl = schlieren_visualization!(cache,U,md,rd)
         vtk_grid("$(output_path)/$(filename)_N=$(N)_K=$(K)_t=$(t)",xp,yp) do vtk
             for k = 1:K
                 ik = mod1(k,Kx)
@@ -206,8 +233,10 @@ function construct_vtk_file!(cache,param,data_hist,output_path,filename)
                 irange = (ik-1)*N1D+1:ik*N1D
                 jrange = (jk-1)*N1D+1:jk*N1D
                 @views Up[irange,jrange] = reshape(U[:,k],N1D,N1D)
+                @views schlp[irange,jrange] = reshape(schl[:,k],N1D,N1D)
             end    
             set_vtk_field!(vtk,Up,param.equation)
+            vtk["schl"] = schlp
 
             pvd[t] = vtk
         end
