@@ -53,21 +53,21 @@ include("./timestepping/TimeStepping.jl")
 ################
 # Export types #
 ################
-export Param,BCData,DataHistory,ErrorData
-export GlobalConstant,TimesteppingParameter,PostprocessingParameter,
-       LimitingParameter
-export LowOrderPositivity,EntropyStable,StandardDG,ESLimitedLowOrderPos,StdDGLimitedLowOrderPos
-export ChandrashekarOnProjectedVal,LaxFriedrichsOnNodalVal,LaxFriedrichsOnProjectedVal
-export NoEntropyProjectionLimiter,NodewiseScaledExtrapolation
-export NoRHSLimiter,ZhangShuLimiter,SubcellLimiter
-export PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound
-export PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound
-export TVDBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound
-export TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound
-export NoShockCapture,HennemannShockCapture
-export GaussCollocation,LobattoCollocation
-export Dim1,Dim2,Dim3
-export CompressibleEulerIdealGas,CompressibleNavierStokesIdealGas,KPP
+export Param, BCData, DataHistory, ErrorData
+export GlobalConstant, TimesteppingParameter, PostprocessingParameter,
+    LimitingParameter
+export LowOrderPositivity, EntropyStable, StandardDG, ESLimitedLowOrderPos, StdDGLimitedLowOrderPos
+export ChandrashekarOnProjectedVal, LaxFriedrichsOnNodalVal, LaxFriedrichsOnProjectedVal
+export NoEntropyProjectionLimiter, NodewiseScaledExtrapolation
+export NoRHSLimiter, ZhangShuLimiter, SubcellLimiter
+export PositivityBound, PositivityAndMinEntropyBound, PositivityAndRelaxedMinEntropyBound
+export PositivityAndCellEntropyBound, PositivityAndRelaxedCellEntropyBound
+export TVDBound, TVDAndMinEntropyBound, TVDAndRelaxedMinEntropyBound
+export TVDAndCellEntropyBound, TVDAndRelaxedCellEntropyBound
+export NoShockCapture, HennemannShockCapture
+export GaussCollocation, LobattoCollocation
+export Dim1, Dim2, Dim3
+export CompressibleEulerIdealGas, CompressibleNavierStokesIdealGas, KPP
 
 ##################
 # Export methods #
@@ -76,15 +76,15 @@ export get_γ
 export initialize_DG
 export primitive_to_conservative
 export SSP33!
-export calculate_error,plot_component,plot_rho_animation,write_to_jld2
+export calculate_error, plot_component, plot_rho_animation, write_to_jld2
 export visualize_error_data
 export construct_vtk_file!
-export check_positivity,check_conservation
-export get_num_elements,get_num_components
+export check_positivity, check_conservation
+export get_num_elements, get_num_components
 
 #####################
 # TODO: for testing #
 #####################
-export rhs!,rhs_pos_Gauss!,rhs_fluxdiff!,compute_entropyproj_limiting_param!
+export rhs!, rhs_pos_Gauss!, rhs_fluxdiff!, compute_entropyproj_limiting_param!
 
 end
