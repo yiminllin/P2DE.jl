@@ -6,6 +6,8 @@ using StartUpDG
 
 using P2DE
 
+print(Threads.nthreads())
+
 function exact_sol(eqn, x, y, t)
     γ = get_γ(eqn)
     x0 = 4.5
@@ -44,18 +46,14 @@ function initial_condition(param, x, y)
     return primitive_to_conservative(param.equation, SVector(exact_sol(param.equation, x, y, t0)))
 end
 
-# # TODO: refactor convergence
-# jld_path = "/home/yiminlin/outputs/jld2/isentropic-vortex.jld2"
-#
-
 for limiter_type in [
     (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound(), shockcapture_type=HennemannShockCapture()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedMinEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndCellEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedCellEntropyBound(beta=0.5)), LobattoCollocation())
+    # (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), LobattoCollocation());
+    # (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound(), shockcapture_type=HennemannShockCapture()), LobattoCollocation());
+    # (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), LobattoCollocation());
+    # (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedMinEntropyBound()), LobattoCollocation());
+    # (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndCellEntropyBound()), LobattoCollocation());
+    # (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedCellEntropyBound(beta=0.5)), LobattoCollocation())
 ]
     for N in [1; 2; 3; 4]
         for K in [(5, 5)]
@@ -83,13 +81,7 @@ for limiter_type in [
             data_hist = SSP33!(param, discrete_data, bcdata, prealloc, caches)
 
             err_data = calculate_error(prealloc.Uq, param, discrete_data, md, prealloc, exact_sol)
-
-            # df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)..., :data_history)])
-            # write_to_jld2(param, data_hist, err_data, df, jld_path)
-
         end
     end
 end
 
-# df = load(jld_path, "data")
-# visualize_error_data(df)
