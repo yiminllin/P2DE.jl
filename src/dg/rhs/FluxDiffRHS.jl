@@ -118,7 +118,7 @@ function calculate_interface_dissipation_coeff!(cache, prealloc, param, bcdata, 
     @batch for k = 1:K
         for i = 1:Nfp
             Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
-            n_i = Bxy_i ./ n_i_norm
+            n_i = @. Bxy_i / n_i_norm
             lam[i, k] = wavespeed_estimate(equation, uf[i, k], n_i)
             LFc[i, k] = 0.5 * n_i_norm
         end
@@ -231,7 +231,7 @@ function accumulate_QF1!(QF1, i, Ui, j, Uj, k, param, discrete_data, equation)
     #              Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
     Sxyh_db_ij = get_Sx(i, j, k, discrete_data, dim)
     fxy = get_high_order_volume_flux(get_high_order_volume_flux(param.rhs_type), equation, Ui, Uj)
-    Sfxy_ij = Sxyh_db_ij .* fxy
+    Sfxy_ij = @. Sxyh_db_ij * fxy
     Sfxy_ji = -Sfxy_ij
     QF1[i, k] += Sfxy_ij
     QF1[j, k] += Sfxy_ji
@@ -244,7 +244,7 @@ end
 function get_high_order_volume_flux(vol_flux_type::CentralFlux, equation, Ui, Uj)
     fi = fluxes(equation, Ui)
     fj = fluxes(equation, Uj)
-    return 0.5 .* (fi .+ fj)
+    return @. 0.5 * (fi + fj)
 end
 
 function flux_differencing_surface!(cache, prealloc, param, discrete_data)
@@ -269,7 +269,7 @@ function accumulate_numerical_flux!(prealloc, cache, k, param, discrete_data, eq
     for i = 1:Nfp
         fstar_H[i, k] = evaluate_high_order_surface_flux(prealloc, cache, param, i, k, get_high_order_surface_flux(param.rhs_type))
         Bxy_i = get_Bx(i, k, discrete_data, dim)
-        BF_H[i, k] = Bxy_i .* fstar_H[i, k]
+        BF_H[i, k] = @. Bxy_i * fstar_H[i, k]
         # Apply LF dissipation
         lf = LFc[i, k] * (uP[i, k] - uf[i, k])
         apply_LF_dissipation_to_BF(BF_H, param, i, k, lf, dim)
@@ -304,7 +304,7 @@ function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_
     fxyf = fluxes(equation, uf[i, k])
     fxyP = fluxes(equation, uP[i, k])
 
-    return 0.5 .* (fxyf .+ fxyP)
+    return @. 0.5 * (fxyf + fxyP)
 end
 
 function project_flux_difference_to_quad_unlimited!(k, cache, prealloc, discrete_data, tid)
@@ -335,7 +335,7 @@ function project_flux_difference_to_quad!(cache, prealloc, param, entropyproj_li
     VhT_new = @views VhT_new[:, :, tid]
     MinvVhT_new = @views MinvVhT_new[:, :, tid]
     VfT_new = @views VhT_new[:, Nq+1:Nh]
-    VfT_new .= transpose(Vf_new)
+    @. VfT_new = transpose(Vf_new)
     @. MinvVhT_new = (1 / discrete_data.ops.wq) * VhT_new
     MinvVfT_new = @views MinvVhT_new[:, Nq+1:Nh]
     @views mul!(MinvVhTQF1[:, k], MinvVhT_new, QF1[:, k])

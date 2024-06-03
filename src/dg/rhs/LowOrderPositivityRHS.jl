@@ -94,7 +94,7 @@ function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete
     for i = 1:Nfp
         u_i = Uf[i, k]
         Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
-        n_i = Bxy_i ./ n_i_norm
+        n_i = @. Bxy_i / n_i_norm
         wavespeed_f[i, k] = wavespeed_estimate(equation, u_i, n_i)
         flux[i+Nq, k] = fluxes(equation, u_i)
     end
@@ -173,13 +173,13 @@ function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
             #              n_ij_norm = n_ji_norm
             #              Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
             Sxy0J_ij, n_ij_norm = get_Sx0_with_n(i, j, k, discrete_data, dim)
-            n_ij = Sxy0J_ij ./ n_ij_norm
+            n_ij = @. Sxy0J_ij / n_ij_norm
             n_ji = -n_ij
             wavespeed_ij = max(wavespeed_estimate(equation, u_i, n_ij), wavespeed_estimate(equation, u_j, n_ji))
             λarr[i, j, k] = n_ij_norm * wavespeed_ij
             λarr[j, i, k] = λarr[i, j, k]
             ΛD_ij = get_graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim)
-            SFxy_ΛD_ij = 2.0 * Sxy0J_ij .* Fxyij - ΛD_ij
+            SFxy_ΛD_ij = @. 2.0 * Sxy0J_ij * Fxyij - ΛD_ij
             SFxy_ΛD_ji = -SFxy_ΛD_ij
             Q0F1[i, k] += SFxy_ΛD_ij
             Q0F1[j, k] += SFxy_ΛD_ji
@@ -217,8 +217,8 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
             λBarr[i, k] = 0.5 * n_i_norm * max(wavespeed_f[i, k], wavespeed_f[iP, kP])
 
             flux_xy_P = fluxes(equation, uP[i, k])
-            fstar_L[i, k] = 0.5 .* (flux[i+Nq, k] .+ flux_xy_P)
-            BF_L[i, k] = Bxy_i .* fstar_L[i, k]
+            fstar_L[i, k] = @. 0.5 * (flux[i+Nq, k] + flux_xy_P)
+            BF_L[i, k] = @. Bxy_i * fstar_L[i, k]
 
             lf = λBarr[i, k] * (uP[i, k] - Uf[i, k])
             apply_LF_dissipation_to_BF(BF_L, param, i, k, lf, get_dim_type(param.equation))

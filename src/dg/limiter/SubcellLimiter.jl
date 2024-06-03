@@ -2,7 +2,7 @@
 ### Subcell limiter methods ###
 ###############################
 function initialize_entropy_bounds!(cache, prealloc, equation::CompressibleIdealGas, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, param, discrete_data, bcdata, t, nstage, dim)
-    cache.lbound_s_modified .= 0.0
+    @. cache.lbound_s_modified = 0.0
 end
 
 function initialize_entropy_bounds!(cache, prealloc, equation::KPP, bound_type, param, discrete_data, bcdata, t, nstage, dim)
@@ -525,7 +525,7 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
             vf[i, k] = v_ufun(equation, uf)
             psif[i, k] = psi_ufun(equation, uf)
             Bxy_i = get_Bx(i, k, discrete_data, dim)
-            sum_Bpsi[k] += Bxy_i .* psif[i, k]
+            sum_Bpsi[k] += @. Bxy_i * psif[i, k]
         end
 
         # TODO: hardcoding views
@@ -540,8 +540,8 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
             fxH = f_bar_H_k[si]
             dfx = fxH - fxL
             dv = vq_k[si-1] - vq_k[si]
-            dvdf_k[si-1] = sum(dv .* dfx)
-            sum_dvfbarL_k += sum(dv .* fxL)
+            dvdf_k[si-1] = sum(@. dv * dfx)
+            sum_dvfbarL_k += sum(@. dv * fxL)
         end
         sum_dvfbarL[k] = SVector(sum_dvfbarL_k,)
     end
@@ -570,7 +570,7 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
             vf[i, k] = v_ufun(equation, uf)
             psif[i, k] = psi_ufun(equation, uf)
             Bxy_i = get_Bx(i, k, discrete_data, dim)
-            sum_Bpsi[k] += Bxy_i .* psif[i, k]
+            sum_Bpsi[k] += @. Bxy_i * psif[i, k]
         end
 
         # TODO: hardcoding views
@@ -589,8 +589,8 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
                 fxH = fx_bar_H_k[si, sj]
                 dfx = fxH - fxL
                 dv = vq_k[si-1, sj] - vq_k[si, sj]
-                dvdfx_k[si-1, sj] = sum(dv .* dfx)
-                sum_dvfxbarL += sum(dv .* fxL)
+                dvdfx_k[si-1, sj] = sum(@. dv * dfx)
+                sum_dvfxbarL += sum(@. dv * fxL)
             end
         end
         sum_dvfybarL = 0.0
@@ -600,8 +600,8 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
                 fyH = fy_bar_H_k[si, sj]
                 dfy = fyH - fyL
                 dv = vq_k[si, sj-1] - vq_k[si, sj]
-                dvdfy_k[si, sj-1] = sum(dv .* dfy)
-                sum_dvfybarL += sum(dv .* fyL)
+                dvdfy_k[si, sj-1] = sum(@. dv * dfy)
+                sum_dvfybarL += sum(@. dv * fyL)
             end
         end
         sum_dvfbarL[k] = SVector(sum_dvfxbarL, sum_dvfybarL)
@@ -831,8 +831,8 @@ function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bc
                 fxstar_L_i = fstar_L[ifq, k][1]
                 dv = vf[ifq, k] - vf[mapP[ifq, k]]
                 dpsix = psif[ifq, k][1] - psif[mapP[ifq, k]][1]
-                dvfxH = sum(dv .* fxstar_H_i)
-                dvfxL = sum(dv .* fxstar_L_i)
+                dvfxH = sum(@. dv * fxstar_H_i)
+                dvfxL = sum(@. dv * fxstar_L_i)
                 solve_l_es_interface!(Lx_local, idx, k, idxP, kP, dvfxH, dvfxL, dpsix)
             end
         end
@@ -850,8 +850,8 @@ function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bc
                 fystar_L_i = fstar_L[ifq, k][2]
                 dv = vf[ifq, k] - vf[mapP[ifq, k]]
                 dpsiy = psif[ifq, k][2] - psif[mapP[ifq, k]][2]
-                dvfyH = sum(dv .* fystar_H_i)
-                dvfyL = sum(dv .* fystar_L_i)
+                dvfyH = sum(@. dv * fystar_H_i)
+                dvfyL = sum(@. dv * fystar_L_i)
                 solve_l_es_interface!(Ly_local, idx, k, idxP, kP, dvfyH, dvfyL, dpsiy)
             end
         end
