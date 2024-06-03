@@ -774,7 +774,7 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
                 idx = dvdf_order_k[curr_idx][2]
                 si = mod1(idx, N1D)
                 sj = div(idx - 1, N1D) + 2
-                if dvdfy_k[si-1, sj] < param.global_constants.ZEROTOL
+                if dvdfy_k[si, sj-1] < param.global_constants.ZEROTOL
                     break
                 end
                 lhs = lhs - Ly_local_k[si, sj] * dvdfy_k[si, sj-1]
