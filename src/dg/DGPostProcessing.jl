@@ -16,12 +16,12 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
         for i = 1:Nq
             exact_U_k_i = get_exact_solution(prealloc, i, k, T, md, equation, exact_sol)
             wJq_i = discrete_data.ops.wq[i] * discrete_data.geom.Jq[i]
-            L1err = L1err + wJq_i * abs.(exact_U_k_i - U_k[i])
-            L2err = L2err + wJq_i * abs.(exact_U_k_i - U_k[i]) .^ 2
-            Linferr = max.(Linferr, abs.(exact_U_k_i - U_k[i]))
-            L1exact = L1exact + wJq_i * abs.(exact_U_k_i)
-            L2exact = L2exact + wJq_i * abs.(exact_U_k_i) .^ 2
-            Linfexact = max.(Linfexact, abs.(exact_U_k_i))
+            L1err = L1err + wJq_i * @. abs(exact_U_k_i - U_k[i])
+            L2err = L2err + wJq_i * @. abs(exact_U_k_i - U_k[i])^2
+            Linferr = @. max(Linferr, abs(exact_U_k_i - U_k[i]))
+            L1exact = L1exact + @. wJq_i * abs(exact_U_k_i)
+            L2exact = L2exact + @. wJq_i * abs(exact_U_k_i)^2
+            Linfexact = @. max(Linfexact, abs(exact_U_k_i))
         end
     end
 
