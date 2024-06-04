@@ -1,12 +1,10 @@
 using Revise
 using StaticArrays
-# using DataFrames
-# using JLD2
+using DataFrames
+using JLD2
 using StartUpDG
 
 using P2DE
-
-print(Threads.nthreads())
 
 function exact_sol(eqn, x, y, t)
     γ = get_γ(eqn)
@@ -46,24 +44,26 @@ function initial_condition(param, x, y)
     return primitive_to_conservative(param.equation, SVector(exact_sol(param.equation, x, y, t0)))
 end
 
-for limiter_type in [
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
+# TODO: refactor convergence
+jld_path = "/data/yl184/outputs/jld2/isentropic-vortex.jld2"
+
+for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
     (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound(), shockcapture_type=HennemannShockCapture()), LobattoCollocation());
     (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedMinEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndCellEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedCellEntropyBound(beta=0.5)), LobattoCollocation())
-]
+    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), GaussCollocation());
+    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), GaussCollocation());
+    (NodewiseScaledExtrapolation(), LaxFriedrichsOnProjectedVal(), ZhangShuLimiter(), GaussCollocation())]
     for N in [1; 2; 3; 4]
-        for K in [(5, 5)]
+        for K in [(5, 5), (10, 10), (20, 20), (40, 40), (80, 80)]
+
+
             entropyproj_type, low_order_flux_type, rhs_lim_type, discretization_type = limiter_type
             γ = 1.4
             param = Param(N=N, K=K, xL=(0.0, 0.0), xR=(10.0, 10.0),
                 global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
-                timestepping_param=TimesteppingParameter(T=0.1, CFL=0.75, dt0=1e-2, t0=0.0),
+                timestepping_param=TimesteppingParameter(T=1.0, CFL=0.75, dt0=1e-2, t0=0.0),
                 limiting_param=LimitingParameter(ζ=0.1, η=0.5),
-                postprocessing_param=PostprocessingParameter(output_interval=10000),
+                postprocessing_param=PostprocessingParameter(output_interval=100),
                 equation=CompressibleEulerIdealGas{Dim2}(γ),
                 rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=low_order_flux_type,
                     high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
@@ -81,7 +81,13 @@ for limiter_type in [
             data_hist = SSP33!(param, discrete_data, bcdata, prealloc, caches)
 
             err_data = calculate_error(prealloc.Uq, param, discrete_data, md, prealloc, exact_sol)
+
+            df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)..., :data_history)])
+            write_to_jld2(param, data_hist, err_data, df, jld_path)
+
         end
     end
 end
 
+df = load(jld_path, "data")
+visualize_error_data(df)
