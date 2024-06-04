@@ -1,2 +1,4 @@
 [deps]
+StartUpDG = "472ebc20-7c99-4d4b-9470-8fde4e9faa0f"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
