@@ -1,6 +1,6 @@
 function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
-    @unpack equation, N = param
-    @unpack Nq, Nc = discrete_data.sizes
+    (; equation, N) = param
+    (; Nq, Nc) = discrete_data.sizes
 
     K = get_num_elements(param)
     T = param.timestepping_param.T
@@ -46,13 +46,13 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
 end
 
 function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim1}, exact_sol)
-    @unpack xq = md
+    (; xq) = md
     xq_i = xq[i, k]
     return primitive_to_conservative(equation, exact_sol(equation, xq_i, T))
 end
 
 function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim2}, exact_sol)
-    @unpack xq, yq = md
+    (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]
     return primitive_to_conservative(equation, exact_sol(equation, xq_i, yq_i, T))
@@ -60,7 +60,7 @@ end
 
 # TODO: hardcoded
 function get_exact_solution(prealloc, i, k, T, md, equation::KPP{Dim2}, exact_sol)
-    @unpack xq, yq = md
+    (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]
     return exact_sol(equation, xq_i, yq_i, T)
@@ -69,8 +69,8 @@ end
 function plot_component(param, discrete_data, md, prealloc,
     rhoq, kL, kR, PlotL, PlotU, output_filename,
     plot_exact=false, xexact=nothing, rhoexact=nothing, kLexact=kL, kRexact=kR)
-    @unpack xL, xR = param
-    @unpack Nq = discrete_data.sizes
+    (; xL, xR) = param
+    (; Nq) = discrete_data.sizes
 
     gr(x_lim=[xL, xR], ylim=[PlotL, PlotU], label=false, legend=false)
     xplot = zeros(Float64, Nq, kR - kL + 1)
@@ -88,8 +88,8 @@ function plot_component(param, discrete_data, md, prealloc,
 end
 
 function plot_rho_animation(md, param, prealloc, data_hist, limiting_hist, PlotL, PlotU, output_filename)
-    @unpack xL, xR = param
-    @unpack Uhist = data_hist
+    (; xL, xR) = param
+    (; Uhist) = data_hist
 
     K = get_num_elements(param)
     gr(x_lim=[xL, xR], ylim=[PlotL, PlotU], label=false, legend=false)
@@ -148,9 +148,9 @@ end
 
 # TODO: hardcoded
 function get_postprocessing_cache(param, md, dim::Dim1)
-    @unpack K = param
-    @unpack N = param
-    @unpack xq = md
+    (; K) = param
+    (; N) = param
+    (; xq) = md
     N1D = N + 1
     Nc = get_num_components(param.equation)
 
@@ -161,9 +161,9 @@ end
 
 # TODO: only works for rectangular 2D quad mesh
 function get_postprocessing_cache(param, md, dim::Dim2)
-    @unpack K = param
-    @unpack N = param
-    @unpack xq, yq = md
+    (; K) = param
+    (; N) = param
+    (; xq, yq) = md
     N1D = N + 1
     Kx, Ky = K
     K = get_num_elements(param)
@@ -188,9 +188,9 @@ function get_postprocessing_cache(param, md, dim::Dim2)
 end
 
 function construct_vtk_file!(cache, param, data_hist, output_path, filename)
-    @unpack Uhist, thist = data_hist
-    @unpack xp, yp, Up = cache
-    @unpack N, K = param
+    (; Uhist, thist) = data_hist
+    (; xp, yp, Up) = cache
+    (; N, K) = param
     N1D = N + 1
     Kx, Ky = K
     K = get_num_elements(param)

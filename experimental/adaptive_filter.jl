@@ -3,8 +3,8 @@ struct ExponentialFilter <: AdaptiveFilter end
 struct ZhangShuFilter <: AdaptiveFilter end
 
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter}, discrete_data, nstage, timer)
-    @unpack Uq, vq, v_tilde, u_tilde = prealloc
-    @unpack Nh, Nq, Nfp = discrete_data.sizes
+    (; Uq, vq, v_tilde, u_tilde) = prealloc
+    (; Nh, Nq, Nfp) = discrete_data.sizes
     K = get_num_elements(param)
 
     for k = 1:K
@@ -19,8 +19,8 @@ function entropy_projection!(prealloc, param, entropyproj_limiter_type::Union{Ad
 end
 
 function init_get_rhs!(param, entropyproj_limiter_type::AdaptiveFilter, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
-    @unpack approximation_basis_type = param
-    @unpack entropyproj_limiter_cache = caches
+    (; approximation_basis_type) = param
+    (; entropyproj_limiter_cache) = caches
 
     @timeit_debug timer "compute modal coefficients" begin
         compute_modal_coefficients!(prealloc, param, discrete_data, entropyproj_limiter_cache)
@@ -38,7 +38,7 @@ function project_flux_difference_to_quad!(cache, prealloc, param, entropyproj_li
 end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::AdaptiveFilter, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
 
@@ -66,8 +66,8 @@ function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter_type::Zhan
 end
 
 function update_limited_entropyproj_vars_on_element!(prealloc, cache, θ, k, entropyproj_limiter_type::AdaptiveFilter, param, discrete_data)
-    @unpack VqVDM = discrete_data.ops
-    @unpack U_modal, U_k, Uq_k, vq_k, v_tilde_k, u_tilde_k = cache
+    (; VqVDM) = discrete_data.ops
+    (; U_modal, U_k, Uq_k, vq_k, v_tilde_k, u_tilde_k) = cache
 
     U_k .= @views U_modal[:, k]
     apply_filter!(U_k, param.entropyproj_limiter_type, param.equation, θ)
@@ -82,9 +82,9 @@ end
 ### Filtering methods ###
 #########################
 function compute_modal_coefficients!(prealloc, param, discrete_data, cache)
-    @unpack Uq = prealloc
-    @unpack U_modal = cache
-    @unpack VDMinvPq = discrete_data.ops
+    (; Uq) = prealloc
+    (; U_modal) = cache
+    (; VDMinvPq) = discrete_data.ops
 
     K = get_num_elements(param)
     for k = 1:K
@@ -93,8 +93,8 @@ function compute_modal_coefficients!(prealloc, param, discrete_data, cache)
 end
 
 function apply_entropyproj_filtering!(prealloc, param, entropyproj_limiter_type::AdaptiveFilter, discrete_data, nstage)
-    @unpack Uq, θ_arr, U_modal = prealloc
-    @unpack VqVDM = discrete_data.ops
+    (; Uq, θ_arr, U_modal) = prealloc
+    (; VqVDM) = discrete_data.ops
 
     K = get_num_elements(param)
     for k = 1:K

@@ -7,7 +7,7 @@ struct Preallocation{Nc,DIM}
 end
 
 function initialize_transfer_operators(elem_type, param, rd_gauss, rd_LGL)
-    @unpack N = param
+    (; N) = param
 
     T_g2l = vandermonde(elem_type, N, rd_LGL.rst...) / vandermonde(elem_type, N, rd_gauss.rst...)
     T_l2g = vandermonde(elem_type, N, rd_gauss.rst...) / vandermonde(elem_type, N, rd_LGL.rst...)
@@ -53,7 +53,7 @@ function update_indicator!(prealloc, approximation_basis_type::LobattoCollocatio
 end
 
 function update_indicator!(prealloc, approximation_basis_type::HybridGaussLGL, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
-    @unpack LGLind, L_G2L_arr, L_L2G_arr = prealloc
+    (; LGLind, L_G2L_arr, L_L2G_arr) = prealloc
 
     K = get_num_elements(param)
     clear_transfer_cache!(prealloc)
@@ -79,7 +79,7 @@ function update_indicator!(prealloc, approximation_basis_type::HybridGaussLGL, p
 end
 
 function apply_transfer_limiter!(prealloc, param, discrete_data, T, L, k)
-    @unpack uL_k, P_k = prealloc
+    (; uL_k, P_k) = prealloc
 
     Uk = view(prealloc.Uq, :, k)
     avg_k = get_average(Uk, discrete_data.ops.wq)
@@ -109,7 +109,7 @@ function get_average(Uk, wq)
 end
 
 function get_upper_bound(Uk, param)
-    @unpack η = param.limiting_param
+    (; η) = param.limiting_param
 
     Urho = -Inf
     Urhoe = -Inf

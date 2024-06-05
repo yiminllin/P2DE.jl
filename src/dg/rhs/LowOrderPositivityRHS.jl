@@ -2,7 +2,7 @@
 ### RHS of positivity preserving Gauss ###
 ##########################################
 function rhs_pos_Gauss!(prealloc, rhs_cache, param, discrete_data, bcdata, t, dt, nstage, timer, need_proj=true)
-    @unpack entropyproj_limiter_type, equation = param
+    (; entropyproj_limiter_type, equation) = param
 
     cache = get_low_order_cache(rhs_cache)
     @timeit_debug timer "entropy projection" begin
@@ -52,9 +52,9 @@ function calculate_wavespeed_and_inviscid_flux!(cache, prealloc, param, discrete
 end
 
 function update_face_values!(cache, prealloc, k, discrete_data, surface_flux_type::LaxFriedrichsOnNodalVal)
-    @unpack Uf = cache
-    @unpack Uq = prealloc
-    @unpack fq2q = discrete_data.ops
+    (; Uf) = cache
+    (; Uq) = prealloc
+    (; fq2q) = discrete_data.ops
 
     Nfp = size(Uf, 1)
     for i = 1:Nfp
@@ -64,8 +64,8 @@ function update_face_values!(cache, prealloc, k, discrete_data, surface_flux_typ
 end
 
 function update_face_values!(cache, prealloc, k, discrete_data, surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack Uf = cache
-    @unpack u_tilde = prealloc
+    (; Uf) = cache
+    (; u_tilde) = prealloc
 
     Nfp = size(Uf, 1)
     Nq = size(prealloc.Uq, 1)
@@ -75,10 +75,10 @@ function update_face_values!(cache, prealloc, k, discrete_data, surface_flux_typ
 end
 
 function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete_data)
-    @unpack equation = param
-    @unpack Uq = prealloc
-    @unpack Srs0_nnz = discrete_data.ops
-    @unpack Uf, wavespeed_f, flux = cache
+    (; equation) = param
+    (; Uq) = prealloc
+    (; Srs0_nnz) = discrete_data.ops
+    (; Uf, wavespeed_f, flux) = cache
 
     Nq = size(Uq, 1)
     Nfp = size(Uf, 1)
@@ -101,11 +101,11 @@ function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete
 end
 
 function get_uP_and_enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
-    @unpack Uf, uP = cache
-    @unpack Uq, u_tilde = prealloc
-    @unpack equation = param
-    @unpack mapP, mapI, mapO, Ival = bcdata
-    @unpack fq2q = discrete_data.ops
+    (; Uf, uP) = cache
+    (; Uq, u_tilde) = prealloc
+    (; equation) = param
+    (; mapP, mapI, mapO, Ival) = bcdata
+    (; fq2q) = discrete_data.ops
 
     K = get_num_elements(param)
     Nfp = size(mapP, 1)
@@ -140,8 +140,8 @@ function get_uP_and_enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
 end
 
 function clear_low_order_rhs!(cache, prealloc, param)
-    @unpack rhsxyL = prealloc
-    @unpack Q0F1, λarr, λBarr = cache
+    (; rhsxyL) = prealloc
+    (; Q0F1, λarr, λBarr) = cache
 
     K = get_num_elements(param)
     Nc = get_num_components(param.equation)
@@ -155,10 +155,10 @@ function clear_low_order_rhs!(cache, prealloc, param)
 end
 
 function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
-    @unpack equation = param
-    @unpack rhsxyL, Uq = prealloc
-    @unpack flux, λarr, Q0F1 = cache
-    @unpack Srs0_nnz = discrete_data.ops
+    (; equation) = param
+    (; rhsxyL, Uq) = prealloc
+    (; flux, λarr, Q0F1) = cache
+    (; Srs0_nnz) = discrete_data.ops
 
     dim = get_dim_type(equation)
     K = get_num_elements(param)
@@ -194,11 +194,11 @@ function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
 end
 
 function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data, bcdata)
-    @unpack equation = param
-    @unpack rhsxyL, BF_L, fstar_L = prealloc
-    @unpack Uf, uP, flux, wavespeed_f, λBarr = cache
-    @unpack mapP = bcdata
-    @unpack fq2q = discrete_data.ops
+    (; equation) = param
+    (; rhsxyL, BF_L, fstar_L) = prealloc
+    (; Uf, uP, flux, wavespeed_f, λBarr) = cache
+    (; mapP) = bcdata
+    (; fq2q) = discrete_data.ops
 
     K = get_num_elements(param)
     dim = get_dim_type(equation)
@@ -231,9 +231,9 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
 end
 
 function scale_low_order_rhs_by_mass!(prealloc, param, discrete_data)
-    @unpack Jq = discrete_data.geom
-    @unpack wq = discrete_data.ops
-    @unpack rhsL, rhsxyL = prealloc
+    (; Jq) = discrete_data.geom
+    (; wq) = discrete_data.ops
+    (; rhsL, rhsxyL) = prealloc
 
     K = get_num_elements(param)
     @batch for k = 1:K
@@ -247,10 +247,10 @@ function scale_low_order_rhs_by_mass!(prealloc, param, discrete_data)
 end
 
 function calculate_lambda_and_low_order_CFL!(cache, prealloc, param, discrete_data, bcdata, t)
-    @unpack CFL, dt0, T = param.timestepping_param
-    @unpack Jq = discrete_data.geom
-    @unpack wq = discrete_data.ops
-    @unpack dtarr = cache
+    (; CFL, dt0, T) = param.timestepping_param
+    (; Jq) = discrete_data.geom
+    (; wq) = discrete_data.ops
+    (; dtarr) = cache
 
     K = get_num_elements(param)
     Nq = size(prealloc.Uq, 1)
@@ -276,10 +276,10 @@ function accumulate_alpha!(cache, prealloc, k, param, discrete_data, surface_flu
 end
 
 function accumulate_alpha!(cache, prealloc, k, param, discrete_data, surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack αarr = cache
-    @unpack Uq, u_tilde = prealloc
-    @unpack fq2q = discrete_data.ops
-    @unpack equation = param
+    (; αarr) = cache
+    (; Uq, u_tilde) = prealloc
+    (; fq2q) = discrete_data.ops
+    (; equation) = param
 
     Nq = size(Uq, 1)
     Nfp = size(αarr, 1)
@@ -293,9 +293,9 @@ function accumulate_alpha!(cache, prealloc, k, param, discrete_data, surface_flu
 end
 
 function get_lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata)
-    @unpack equation = param
-    @unpack λarr = cache
-    @unpack q2fq = discrete_data.ops
+    (; equation) = param
+    (; λarr) = cache
+    (; q2fq) = discrete_data.ops
 
     dim = get_dim_type(equation)
     Nq = size(prealloc.Uq, 1)
@@ -321,7 +321,7 @@ function get_lambda_B_CFL(cache, i, n_i_norm, k, surface_flux_type::LaxFriedrich
 end
 
 function get_lambda_B_CFL(cache, i, n_i_norm, k, surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack λBarr, αarr, wavespeed_f = cache
+    (; λBarr, αarr, wavespeed_f) = cache
 
     return αarr[i, k] * λBarr[i, k] + 0.5 * n_i_norm * wavespeed_f[i, k]
 end
@@ -333,7 +333,7 @@ end
 # TODO: refactor with bisection
 # Find alpha s.t. alpha*ui - uitilde >= 0
 function find_alpha(equation::CompressibleIdealGas, param, ui, uitilde)
-    @unpack equation = param
+    (; equation) = param
     POSTOL = param.global_constants.POSTOL
     alphaL = 0.0
     alphaR = 1.0
@@ -369,12 +369,12 @@ function find_alpha(equation::KPP, param, ui, uitilde)
 end
 
 function check_low_order_entropy_stability(cache, prealloc, param, discrete_data, dim::Dim2)
-    @unpack equation = param
-    @unpack rhsxyL, fstar_L, vq = prealloc
-    @unpack Uf = cache
-    @unpack Jq = discrete_data.geom
-    @unpack wq = discrete_data.ops
-    @unpack Nq, Nfp = discrete_data.sizes
+    (; equation) = param
+    (; rhsxyL, fstar_L, vq) = prealloc
+    (; Uf) = cache
+    (; Jq) = discrete_data.geom
+    (; wq) = discrete_data.ops
+    (; Nq, Nfp) = discrete_data.sizes
 
     K = get_num_elements(param)
     Nd = get_dim(equation)

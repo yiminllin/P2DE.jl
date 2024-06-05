@@ -129,7 +129,7 @@ end
 
 # TODO: pass in SizeData
 function get_rhs_cache(rhs_type::LowOrderPositivity, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
 
@@ -137,7 +137,7 @@ function get_rhs_cache(rhs_type::LowOrderPositivity, param, sizes)
 end
 
 function get_rhs_cache(rhs_type::FluxDiffRHS, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
 
@@ -145,7 +145,7 @@ function get_rhs_cache(rhs_type::FluxDiffRHS, param, sizes)
 end
 
 function get_rhs_cache(rhs_type::LimitedDG, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
 
@@ -564,7 +564,7 @@ EntropyProjectionLimiterCache{DIM,Nc}(; K=0, Np=0, Nq=0, Nh=0, Nfp=0, Nthread=1)
         zeros(Float64, Nfp, K))
 
 function get_shockcapture_cache(shockcapture_type, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     Nd = get_dim(param.equation)
     K = get_num_elements(param)
 
@@ -572,14 +572,14 @@ function get_shockcapture_cache(shockcapture_type, param, sizes)
 end
 
 function get_limiter_cache(limiter_type::NoRHSLimiter, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     Nd = get_dim(param.equation)
 
     return NoRHSLimiterCache{Nd,Nc}()
 end
 
 function get_limiter_cache(limiter_type::ZhangShuLimiter, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
 
@@ -587,7 +587,7 @@ function get_limiter_cache(limiter_type::ZhangShuLimiter, param, sizes)
 end
 
 function get_limiter_cache(limiter_type::SubcellLimiter, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
@@ -596,14 +596,14 @@ function get_limiter_cache(limiter_type::SubcellLimiter, param, sizes)
 end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     Nd = get_dim(param.equation)
 
     return NoEntropyProjectionLimiterCache{Nd,Nc}()
 end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapolation, param, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
 
