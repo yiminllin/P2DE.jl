@@ -1,10 +1,10 @@
 # TODO: refactor
 function initialize_total_variation!(cache, prealloc, param, discrete_data, bcdata, dim::Dim1)
-    @unpack equation = param
-    @unpack Uq = prealloc
-    @unpack mapP = bcdata
-    @unpack q2fq, fq2q = discrete_data.ops
-    @unpack s_modified, var_s_modified, lbound_s_modified = cache
+    (; equation) = param
+    (; Uq) = prealloc
+    (; mapP) = bcdata
+    (; q2fq, fq2q) = discrete_data.ops
+    (; s_modified, var_s_modified, lbound_s_modified) = cache
 
     N1D = param.N + 1
     K = get_num_elements(param)
@@ -26,11 +26,11 @@ end
 
 # TODO: refactor
 function initialize_total_variation!(cache, prealloc, param, discrete_data, bcdata, dim::Dim2)
-    @unpack equation = param
-    @unpack Uq = prealloc
-    @unpack mapP = bcdata
-    @unpack q2fq, fq2q = discrete_data.ops
-    @unpack s_modified, var_s_modified, lbound_s_modified = cache
+    (; equation) = param
+    (; Uq) = prealloc
+    (; mapP) = bcdata
+    (; q2fq, fq2q) = discrete_data.ops
+    (; s_modified, var_s_modified, lbound_s_modified) = cache
 
     N1D = param.N + 1
     K = get_num_elements(param)

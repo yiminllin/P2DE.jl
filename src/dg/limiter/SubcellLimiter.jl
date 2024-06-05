@@ -17,11 +17,11 @@ function initialize_entropy_bounds!(cache, prealloc, equation::CompressibleIdeal
 end
 
 function initialize_s_modified!(cache, prealloc, param, t, nstage)
-    @unpack equation = param
-    @unpack t0 = param.timestepping_param
-    @unpack s_modified = cache
-    @unpack s_modified_min = cache
-    @unpack Uq = prealloc
+    (; equation) = param
+    (; t0) = param.timestepping_param
+    (; s_modified) = cache
+    (; s_modified_min) = cache
+    (; Uq) = prealloc
 
     N1D = param.N + 1
     K = get_num_elements(param)
@@ -39,11 +39,11 @@ function initialize_s_modified!(cache, prealloc, param, t, nstage)
 end
 
 function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim1)
-    @unpack equation = param
-    @unpack Uq = prealloc
-    @unpack mapP = bcdata
-    @unpack q2fq, fq2q = discrete_data.ops
-    @unpack s_modified, s_modified_min, lbound_s_modified, smooth_factor = cache
+    (; equation) = param
+    (; Uq) = prealloc
+    (; mapP) = bcdata
+    (; q2fq, fq2q) = discrete_data.ops
+    (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
     N1D = param.N + 1
     K = get_num_elements(param)
@@ -64,11 +64,11 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
 end
 
 function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim2)
-    @unpack equation = param
-    @unpack Uq = prealloc
-    @unpack mapP = bcdata
-    @unpack q2fq, fq2q = discrete_data.ops
-    @unpack s_modified, s_modified_min, lbound_s_modified, smooth_factor = cache
+    (; equation) = param
+    (; Uq) = prealloc
+    (; mapP) = bcdata
+    (; q2fq, fq2q) = discrete_data.ops
+    (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
     N1D = param.N + 1
     K = get_num_elements(param)
@@ -102,9 +102,9 @@ function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas,
 end
 
 function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, discrete_data, bcdata, t, dt, nstage, dim::Dim1)
-    @unpack Uq, rhsL = prealloc
-    @unpack mapP = bcdata
-    @unpack rhoL, lbound_rho, ubound_rho = cache
+    (; Uq, rhsL) = prealloc
+    (; mapP) = bcdata
+    (; rhoL, lbound_rho, ubound_rho) = cache
 
     N1D = param.N + 1
     K = get_num_elements(param)
@@ -133,9 +133,9 @@ function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas,
 end
 
 function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, discrete_data, bcdata, t, dt, nstage, dim::Dim2)
-    @unpack Uq, rhsL = prealloc
-    @unpack mapP = bcdata
-    @unpack rhoL, lbound_rho, ubound_rho = cache
+    (; Uq, rhsL) = prealloc
+    (; mapP) = bcdata
+    (; rhoL, lbound_rho, ubound_rho) = cache
 
     N1D = param.N + 1
     K = get_num_elements(param)
@@ -170,10 +170,10 @@ end
 
 # TODO: documentation... from the ipad note
 function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim1)
-    @unpack f_bar_H, f_bar_L = cache
-    @unpack rhsL, rhsH, BF_H, BF_L = prealloc
-    @unpack wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
+    (; f_bar_H, f_bar_L) = cache
+    (; rhsL, rhsH, BF_H, BF_L) = prealloc
+    (; wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
 
     K = get_num_elements(param)
     Nq = size(prealloc.Uq, 1)
@@ -190,10 +190,10 @@ end
 
 # TODO: use views instead of index flattening
 function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim2)
-    @unpack f_bar_H, f_bar_L = cache
-    @unpack rhsL, rhsH, rhsxyH, rhsxyL, BF_H, BF_L = prealloc
-    @unpack wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
+    (; f_bar_H, f_bar_L) = cache
+    (; rhsL, rhsH, rhsxyH, rhsxyL, BF_H, BF_L) = prealloc
+    (; wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
 
     K = get_num_elements(param)
     Nq = size(prealloc.Uq, 1)
@@ -237,13 +237,13 @@ function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim2)
 end
 
 function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equation::CompressibleIdealGas, param, discrete_data, bcdata, dt, nstage, dim::Dim1)
-    @unpack uL_k, f_bar_H, f_bar_L = limiter_cache
-    @unpack lbound_s_modified = limiter_cache
-    @unpack Uq, L_local_arr, rhsL = prealloc
-    @unpack blending_factor = shockcapture_cache
-    @unpack wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
-    @unpack rhs_limiter_type = param
+    (; uL_k, f_bar_H, f_bar_L) = limiter_cache
+    (; lbound_s_modified) = limiter_cache
+    (; Uq, L_local_arr, rhsL) = prealloc
+    (; blending_factor) = shockcapture_cache
+    (; wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
+    (; rhs_limiter_type) = param
     bound_type = get_bound_type(param)
 
     K = get_num_elements(param)
@@ -280,14 +280,14 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
 end
 
 function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equation::CompressibleIdealGas, param, discrete_data, bcdata, dt, nstage, dim::Dim2)
-    @unpack uL_k, f_bar_H, f_bar_L = limiter_cache
-    @unpack lbound_s_modified = limiter_cache
-    @unpack Uq, rhsL, L_local_arr = prealloc
-    @unpack blending_factor = shockcapture_cache
-    @unpack mapP = bcdata
-    @unpack wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
-    @unpack rhs_limiter_type = param
+    (; uL_k, f_bar_H, f_bar_L) = limiter_cache
+    (; lbound_s_modified) = limiter_cache
+    (; Uq, rhsL, L_local_arr) = prealloc
+    (; blending_factor) = shockcapture_cache
+    (; mapP) = bcdata
+    (; wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
+    (; rhs_limiter_type) = param
     bound_type = get_bound_type(param)
 
     K = get_num_elements(param)
@@ -389,14 +389,14 @@ end
 
 # TODO: refactor
 function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim1)
-    @unpack lbound_rho, ubound_rho = cache
+    (; lbound_rho, ubound_rho) = cache
     Lrho = lbound_rho[i, k]
     Urho = ubound_rho[i, k]
     return (Lrho, Urho)
 end
 
 function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim2)
-    @unpack lbound_rho, ubound_rho = cache
+    (; lbound_rho, ubound_rho) = cache
     iq, jq = i
     N1D = param.N + 1
     lbound_rho_k = reshape(view(lbound_rho, :, k), N1D, N1D)
@@ -407,16 +407,16 @@ function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndR
 end
 
 function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim1)
-    @unpack uL_k = cache
-    @unpack ζ = param.limiting_param
+    (; uL_k) = cache
+    (; ζ) = param.limiting_param
     Lrho = ζ * uL_k[i, tid][1]
     Urho = Inf
     return (Lrho, Urho)
 end
 
 function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim2)
-    @unpack uL_k = cache
-    @unpack ζ = param.limiting_param
+    (; uL_k) = cache
+    (; ζ) = param.limiting_param
     iq, jq = i
     N1D = param.N + 1
     u_L_k = reshape(view(uL_k, :, tid), N1D, N1D)
@@ -426,8 +426,8 @@ function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntrop
 end
 
 function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equation::KPP, param, discrete_data, bcdata, dt, nstage, dim)
-    @unpack L_local_arr = prealloc
-    @unpack blending_factor = shockcapture_cache
+    (; L_local_arr) = prealloc
+    (; blending_factor) = shockcapture_cache
 
     K = get_num_elements(param)
 
@@ -444,7 +444,7 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
 end
 
 function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::Dim1)
-    @unpack L_local_arr = prealloc
+    (; L_local_arr) = prealloc
     K = get_num_elements(param)
 
     # Symmetrize limiting parameter TODO: hardcoded, should use mapP
@@ -456,7 +456,7 @@ function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::D
 end
 
 function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::Dim2)
-    @unpack L_local_arr = prealloc
+    (; L_local_arr) = prealloc
 
     # TODO: refactor
     K = get_num_elements(param)
@@ -506,11 +506,11 @@ function enforce_ES_subcell!(cache, prealloc, param, discrete_data, bcdata, nsta
 end
 
 function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim1)
-    @unpack equation = param
-    @unpack Uq, vq = prealloc
-    @unpack fq2q = discrete_data.ops
-    @unpack Nfp, Nq = discrete_data.sizes
-    @unpack vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL = cache
+    (; equation) = param
+    (; Uq, vq) = prealloc
+    (; fq2q) = discrete_data.ops
+    (; Nfp, Nq) = discrete_data.sizes
+    (; vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL) = cache
 
     K = get_num_elements(param)
     @batch for k = 1:K
@@ -548,11 +548,11 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
 end
 
 function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim2)
-    @unpack equation = param
-    @unpack Uq, vq = prealloc
-    @unpack fq2q = discrete_data.ops
-    @unpack Nfp, Nq = discrete_data.sizes
-    @unpack vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL = cache
+    (; equation) = param
+    (; Uq, vq) = prealloc
+    (; fq2q) = discrete_data.ops
+    (; Nfp, Nq) = discrete_data.sizes
+    (; vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL) = cache
 
     K = get_num_elements(param)
     N1D = param.N + 1
@@ -609,10 +609,10 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
 end
 
 function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim1)
-    @unpack L_local_arr = prealloc
-    @unpack dvdf, sum_Bpsi, sum_dvfbarL = cache
-    @unpack dvdf_order, smooth_factor = cache
-    @unpack Nq = discrete_data.sizes
+    (; L_local_arr) = prealloc
+    (; dvdf, sum_Bpsi, sum_dvfbarL) = cache
+    (; dvdf_order, smooth_factor) = cache
+    (; Nq) = discrete_data.sizes
     bound_type = get_bound_type(param)
 
     K = get_num_elements(param)
@@ -674,10 +674,10 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
 end
 
 function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim2)
-    @unpack L_local_arr = prealloc
-    @unpack dvdf, sum_Bpsi, sum_dvfbarL = cache
-    @unpack dvdf_order, smooth_factor = cache
-    @unpack Nq = discrete_data.sizes
+    (; L_local_arr) = prealloc
+    (; dvdf, sum_Bpsi, sum_dvfbarL) = cache
+    (; dvdf_order, smooth_factor) = cache
+    (; Nq) = discrete_data.sizes
     bound_type = get_bound_type(param)
 
     K = get_num_elements(param)
@@ -806,9 +806,9 @@ function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bc
 end
 
 function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bcdata, nstage, basis_type::GaussCollocation, dim::Dim2)
-    @unpack fstar_H, fstar_L, L_local_arr = prealloc
-    @unpack vf, psif = cache
-    @unpack mapP = bcdata
+    (; fstar_H, fstar_L, L_local_arr) = prealloc
+    (; vf, psif) = cache
+    (; mapP) = bcdata
 
     Lx_local = view(L_local_arr, :, 1, :, nstage)
     Ly_local = view(L_local_arr, :, 2, :, nstage)
@@ -873,8 +873,8 @@ end
 
 # TODO: not necessary
 function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim1)
-    @unpack f_bar_H, f_bar_L, f_bar_lim = cache
-    @unpack L_local_arr = prealloc
+    (; f_bar_H, f_bar_L, f_bar_lim) = cache
+    (; L_local_arr) = prealloc
 
     K = get_num_elements(param)
     Nq = size(prealloc.Uq, 1)
@@ -888,8 +888,8 @@ end
 
 # TODO: not necessary
 function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim2)
-    @unpack f_bar_H, f_bar_L, f_bar_lim = cache
-    @unpack L_local_arr = prealloc
+    (; f_bar_H, f_bar_L, f_bar_lim) = cache
+    (; L_local_arr) = prealloc
 
     K = get_num_elements(param)
     Nq = size(prealloc.Uq, 1)
@@ -926,10 +926,10 @@ function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim2)
 end
 
 function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim1)
-    @unpack rhsU = prealloc
-    @unpack f_bar_lim = cache
-    @unpack wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
+    (; rhsU) = prealloc
+    (; f_bar_lim) = cache
+    (; wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
 
     K = get_num_elements(param)
     Nq = size(prealloc.Uq, 1)
@@ -943,10 +943,10 @@ function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim1
 end
 
 function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim2)
-    @unpack f_bar_lim = cache
-    @unpack rhsU, rhsxyU = prealloc
-    @unpack wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
+    (; f_bar_lim) = cache
+    (; rhsU, rhsxyU) = prealloc
+    (; wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
 
     K = get_num_elements(param)
     N1D = param.N + 1    # TODO: hardcoded
@@ -978,16 +978,16 @@ function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim2
 end
 
 function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, dim::Dim2)
-    @unpack equation = param
-    @unpack rhsxyU, rhsxyH, rhsxyL = prealloc
-    @unpack Uq, vq, u_tilde, v_tilde = prealloc
-    @unpack fstar_H, fstar_L = prealloc
-    @unpack f_bar_H, f_bar_L, f_bar_lim = cache
-    @unpack dfH_vol, dfL_vol, df_vol = cache
-    @unpack dfH_surf, dfL_surf, df_surf = cache
-    @unpack fq2q, wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
-    @unpack Nq, Nfp = discrete_data.sizes
+    (; equation) = param
+    (; rhsxyU, rhsxyH, rhsxyL) = prealloc
+    (; Uq, vq, u_tilde, v_tilde) = prealloc
+    (; fstar_H, fstar_L) = prealloc
+    (; f_bar_H, f_bar_L, f_bar_lim) = cache
+    (; dfH_vol, dfL_vol, df_vol) = cache
+    (; dfH_surf, dfL_surf, df_surf) = cache
+    (; fq2q, wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
+    (; Nq, Nfp) = discrete_data.sizes
 
     K = get_num_elements(param)
     N1D = param.N + 1    # TODO: hardcoded
@@ -1161,9 +1161,9 @@ function update_smoothness_factor!(bound_type::Union{PositivityAndMinEntropyBoun
 end
 
 function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndRelaxedMinEntropyBound}, cache, prealloc, param, nstage)
-    @unpack N = param
-    @unpack smooth_factor = cache
-    @unpack smooth_indicator = prealloc
+    (; N) = param
+    (; smooth_factor) = cache
+    (; smooth_indicator) = prealloc
 
     K = get_num_elements(param)
     kappa = 1.0

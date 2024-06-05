@@ -1,8 +1,8 @@
 function SSP33!(param, discrete_data, bcdata, prealloc, caches)
-    @unpack CFL, dt0, t0, T = param.timestepping_param
-    @unpack output_interval = param.postprocessing_param
-    @unpack θ_arr, Larr, rhsU, resW, resZ = prealloc
-    @unpack Uq = prealloc
+    (; CFL, dt0, t0, T) = param.timestepping_param
+    (; output_interval) = param.postprocessing_param
+    (; θ_arr, Larr, rhsU, resW, resZ) = prealloc
+    (; Uq) = prealloc
 
     # TODO: very ugly hack... seems like I need to warm up the threads to avoid allocations?
     timer_dummy = TimerOutput()

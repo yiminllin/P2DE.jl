@@ -1,6 +1,6 @@
 # TODO: change file names
 function initialize_preallocations(param, md, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
@@ -40,8 +40,8 @@ function initialize_preallocations(param, md, sizes)
 end
 
 function initialize_cache(param, md, sizes)
-    @unpack rhs_type, rhs_limiter_type, entropyproj_limiter_type = param
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; rhs_type, rhs_limiter_type, entropyproj_limiter_type) = param
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     dim = get_dim_type(param.equation)
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
@@ -63,7 +63,7 @@ function initialize_DG(param, initial_condition, initial_boundary_conditions)
 
     rd, md, discrete_data = initialize_data(param)
 
-    @unpack sizes = discrete_data
+    (; sizes) = discrete_data
     bcdata = initial_boundary_conditions(param, md)
     prealloc = initialize_preallocations(param, md, sizes)
     caches = initialize_cache(param, md, sizes)
@@ -74,12 +74,12 @@ function initialize_DG(param, initial_condition, initial_boundary_conditions)
 end
 
 function initialize_data(param)
-    @unpack N, equation, approximation_basis_type = param
+    (; N, equation, approximation_basis_type) = param
     return initialize_reference_data(param, equation, approximation_basis_type)
 end
 
 function initialize_reference_data(param, equation::EquationType{Dim1}, approx_basis_type::GaussCollocation)
-    @unpack N = param
+    (; N) = param
     element_type = Line()
     rd_gauss = construct_gauss_reference_data(RefElemData(element_type, N, quad_rule_vol=gauss_quad(0, 0, N)))
     md_gauss, discrete_data_gauss = initialize_operators(param, rd_gauss, GaussQuadrature())
@@ -88,7 +88,7 @@ function initialize_reference_data(param, equation::EquationType{Dim1}, approx_b
 end
 
 function initialize_reference_data(param, equation::EquationType{Dim1}, approx_basis_type::LobattoCollocation)
-    @unpack N = param
+    (; N) = param
     element_type = Line()
     rd_LGL = RefElemData(element_type, N, quad_rule_vol=gauss_lobatto_quad(0, 0, N))
     md_LGL, discrete_data_LGL = initialize_operators(param, rd_LGL, LobattoQuadrature())
@@ -97,7 +97,7 @@ function initialize_reference_data(param, equation::EquationType{Dim1}, approx_b
 end
 
 function initialize_reference_data(param, equation::EquationType{Dim2}, approx_basis_type::GaussCollocation)
-    @unpack N = param
+    (; N) = param
     element_type = Quad()
 
     # create degree N tensor product Gauss quadrature rule
@@ -113,7 +113,7 @@ function initialize_reference_data(param, equation::EquationType{Dim2}, approx_b
 end
 
 function initialize_reference_data(param, equation::EquationType{Dim2}, approx_basis_type::LobattoCollocation)
-    @unpack N = param
+    (; N) = param
     element_type = Quad()
     rd_LGL = RefElemData(element_type, SBP(), N)
     md_LGL, discrete_data_LGL = initialize_operators(param, rd_LGL, LobattoQuadrature())
@@ -151,14 +151,14 @@ function construct_gauss_reference_data(rd)
 end
 
 function initialize_operators(param, rd, quad_type)
-    @unpack N = param
+    (; N) = param
     ZEROTOL = param.global_constants.ZEROTOL
 
     # TODO: Assume uniform mesh
     # Construct mesh
     md = initialize_uniform_mesh_data(param, rd, rd.element_type)
-    @unpack x, xq, rxJ, nxJ, J, mapP = md
-    @unpack r, rq, wq, wf, M, Pq, Vq, Vf, LIFT, nrstJ, Drst, VDM = rd
+    (; x, xq, rxJ, nxJ, J, mapP) = md
+    (; r, rq, wq, wf, M, Pq, Vq, Vf, LIFT, nrstJ, Drst, VDM) = rd
     Vf = Matrix(Vf)
 
     # Construct geometric factors
@@ -245,7 +245,7 @@ function initialize_operators(param, rd, quad_type)
 end
 
 function initialize_uniform_mesh_data(param, rd, element_type::Line)
-    @unpack xL, xR, K = param
+    (; xL, xR, K) = param
 
     VXYZ, EToV = uniform_mesh(rd.element_type, K)
     VX = VXYZ[1]
@@ -256,7 +256,7 @@ function initialize_uniform_mesh_data(param, rd, element_type::Line)
 end
 
 function initialize_uniform_mesh_data(param, rd, element_type::Quad)
-    @unpack xL, xR, K = param
+    (; xL, xR, K) = param
 
     VXYZ, EToV = uniform_mesh(rd.element_type, K[1], K[2])
     VX = VXYZ[1]
@@ -269,8 +269,8 @@ function initialize_uniform_mesh_data(param, rd, element_type::Quad)
 end
 
 function get_geometric_factors(param, rd, md, element_type::Line)
-    @unpack Vq, Vf = rd
-    @unpack J, rxJ = md
+    (; Vq, Vf) = rd
+    (; J, rxJ) = md
 
     Vh = [Vq; Vf]
     Jq = Vq * J
@@ -280,8 +280,8 @@ function get_geometric_factors(param, rd, md, element_type::Line)
 end
 
 function get_geometric_factors(param, rd, md, element_type::Quad)
-    @unpack Vq, Vf = rd
-    @unpack J, rxJ, sxJ, ryJ, syJ = md
+    (; Vq, Vf) = rd
+    (; J, rxJ, sxJ, ryJ, syJ) = md
 
     Vh = [Vq; Vf]
     Jq = Vq * J
@@ -357,7 +357,7 @@ function get_low_order_extrapolation(param, rd, element_type::Quad, quad_type::L
 end
 
 function init_U!(param, discrete_data, md, prealloc, initial_condition)
-    @unpack Nq = discrete_data.sizes
+    (; Nq) = discrete_data.sizes
 
     K = get_num_elements(param)
     for k = 1:K

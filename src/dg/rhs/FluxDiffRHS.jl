@@ -2,7 +2,7 @@
 ### RHS of modal ESDG ###
 #########################
 function rhs_fluxdiff!(prealloc, rhs_cache, param, discrete_data, bcdata, nstage, timer, need_proj=true)
-    @unpack entropyproj_limiter_type, equation = param
+    (; entropyproj_limiter_type, equation) = param
 
     cache = get_high_order_cache(rhs_cache)
     @timeit_debug timer "entropy projection" begin
@@ -41,11 +41,11 @@ function rhs_fluxdiff!(prealloc, rhs_cache, param, discrete_data, bcdata, nstage
 end
 
 function calculate_primitive_variables!(cache, prealloc, param, equation::CompressibleIdealGas, bcdata)
-    @unpack equation = param
-    @unpack mapP = bcdata
-    @unpack u_tilde = prealloc
-    @unpack psi_tilde = prealloc
-    @unpack beta, rholog, betalog, uP, betaP, rhologP, betalogP = cache
+    (; equation) = param
+    (; mapP) = bcdata
+    (; u_tilde) = prealloc
+    (; psi_tilde) = prealloc
+    (; beta, rholog, betalog, uP, betaP, rhologP, betalogP) = cache
     K = get_num_elements(param)
     Nfp = size(mapP, 1)
 
@@ -79,10 +79,10 @@ function calculate_primitive_variables!(cache, prealloc, param, equation::Compre
 end
 
 function calculate_primitive_variables!(cache, prealloc, param, equation::KPP{Dim2}, bcdata)
-    @unpack equation = param
-    @unpack mapP = bcdata
-    @unpack u_tilde = prealloc
-    @unpack uP = cache
+    (; equation) = param
+    (; mapP) = bcdata
+    (; u_tilde) = prealloc
+    (; uP) = cache
     K = get_num_elements(param)
     Nfp = size(mapP, 1)
 
@@ -101,10 +101,10 @@ function calculate_primitive_variables!(cache, prealloc, param, equation::KPP{Di
 end
 
 function calculate_interface_dissipation_coeff!(cache, prealloc, param, bcdata, discrete_data)
-    @unpack lam, LFc = cache
-    @unpack u_tilde = prealloc
-    @unpack equation = param
-    @unpack mapP = bcdata
+    (; lam, LFc) = cache
+    (; u_tilde) = prealloc
+    (; equation) = param
+    (; mapP) = bcdata
 
     # TODO: refactor
     K = get_num_elements(param)
@@ -132,11 +132,11 @@ function calculate_interface_dissipation_coeff!(cache, prealloc, param, bcdata, 
 end
 
 function enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
-    @unpack Uq, u_tilde = prealloc
-    @unpack equation = param
-    @unpack mapP, mapI, mapO, Ival = bcdata
-    @unpack LFc, uP, betaP, rhologP, betalogP = cache
-    @unpack fq2q = discrete_data.ops
+    (; Uq, u_tilde) = prealloc
+    (; equation) = param
+    (; mapP, mapI, mapO, Ival) = bcdata
+    (; LFc, uP, betaP, rhologP, betalogP) = cache
+    (; fq2q) = discrete_data.ops
 
     Nfp = size(mapP, 1)
     # zero dissipation on the boundary
@@ -173,7 +173,7 @@ function enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
 end
 
 function clear_flux_differencing_cache!(cache)
-    @unpack QF1 = cache
+    (; QF1) = cache
 
     @batch for k = 1:size(QF1, 2)
         for i = 1:size(QF1, 1)
@@ -183,9 +183,9 @@ function clear_flux_differencing_cache!(cache)
 end
 
 function flux_differencing_volume!(cache, prealloc, param, equation, discrete_data)
-    @unpack equation = param
-    @unpack QF1 = cache
-    @unpack Srsh_nnz = discrete_data.ops
+    (; equation) = param
+    (; QF1) = cache
+    (; Srsh_nnz) = discrete_data.ops
 
     dim = get_dim_type(equation)
     vol_flux_type = get_high_order_volume_flux(param.rhs_type)
@@ -203,15 +203,15 @@ end
 
 # Get (utilde, beta, log(rho), log(beta)) at index i,element k
 function get_U(vol_flux_type::ChandrashekarFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim::Dim1)
-    @unpack u_tilde = prealloc
-    @unpack beta, rholog, betalog = cache
+    (; u_tilde) = prealloc
+    (; beta, rholog, betalog) = cache
 
     return SVector(u_tilde[idx, k][1], u_tilde[idx, k][2] / u_tilde[idx, k][1], beta[idx, k], rholog[idx, k], betalog[idx, k])
 end
 
 function get_U(vol_flux_type::ChandrashekarFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim::Dim2)
-    @unpack u_tilde = prealloc
-    @unpack beta, rholog, betalog = cache
+    (; u_tilde) = prealloc
+    (; beta, rholog, betalog) = cache
 
     return SVector(u_tilde[idx, k][1], u_tilde[idx, k][2] / u_tilde[idx, k][1], u_tilde[idx, k][3] / u_tilde[idx, k][1], beta[idx, k], rholog[idx, k], betalog[idx, k])
 end
@@ -248,7 +248,7 @@ function get_high_order_volume_flux(vol_flux_type::CentralFlux, equation, Ui, Uj
 end
 
 function flux_differencing_surface!(cache, prealloc, param, discrete_data)
-    @unpack equation = param
+    (; equation) = param
 
     K = get_num_elements(param)
     @batch for k = 1:K
@@ -257,8 +257,8 @@ function flux_differencing_surface!(cache, prealloc, param, discrete_data)
 end
 
 function accumulate_numerical_flux!(prealloc, cache, k, param, discrete_data, equation)
-    @unpack BF_H, fstar_H, u_tilde = prealloc
-    @unpack uP, LFc = cache
+    (; BF_H, fstar_H, u_tilde) = prealloc
+    (; uP, LFc) = cache
 
     # Boundary contributions (B F)1
     Nq = size(prealloc.Uq, 1)
@@ -278,9 +278,9 @@ function accumulate_numerical_flux!(prealloc, cache, k, param, discrete_data, eq
 end
 
 function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_flux_type::ChandrashekarOnProjectedVal)
-    @unpack equation = param
-    @unpack u_tilde = prealloc
-    @unpack beta, rholog, betalog, uP, betaP, rhologP, betalogP = cache
+    (; equation) = param
+    (; u_tilde) = prealloc
+    (; beta, rholog, betalog, uP, betaP, rhologP, betalogP) = cache
 
     Nq = size(prealloc.Uq, 1)
     Nh = size(u_tilde, 1)
@@ -294,9 +294,9 @@ function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_
 end
 
 function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_flux_type::LaxFriedrichsOnProjectedVal)
-    @unpack equation = param
-    @unpack u_tilde = prealloc
-    @unpack uP = cache
+    (; equation) = param
+    (; u_tilde) = prealloc
+    (; uP) = cache
 
     Nq = size(prealloc.Uq, 1)
     Nh = size(u_tilde, 1)
@@ -308,9 +308,9 @@ function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_
 end
 
 function project_flux_difference_to_quad_unlimited!(k, cache, prealloc, discrete_data, tid)
-    @unpack BF_H = prealloc
-    @unpack MinvVhTQF1, MinvVfTBF1, QF1 = cache
-    @unpack MinvVhT, MinvVfT = discrete_data.ops
+    (; BF_H) = prealloc
+    (; MinvVhTQF1, MinvVfTBF1, QF1) = cache
+    (; MinvVhT, MinvVfT) = discrete_data.ops
 
     @views mul!(MinvVhTQF1[:, k], MinvVhT, QF1[:, k])
     @views mul!(MinvVfTBF1[:, k], MinvVfT, BF_H[:, k])
@@ -322,9 +322,9 @@ end
 
 # TODO: hardcoded, only for gauss
 function project_flux_difference_to_quad!(cache, prealloc, param, entropyproj_limiter_type::ScaledExtrapolation, discrete_data, k, nstage, tid)
-    @unpack BF_H = prealloc
-    @unpack MinvVhTQF1, MinvVfTBF1, QF1, VhT_new, MinvVhT_new, Vf_new = cache
-    @unpack Nq, Nh = discrete_data.sizes
+    (; BF_H) = prealloc
+    (; MinvVhTQF1, MinvVfTBF1, QF1, VhT_new, MinvVhT_new, Vf_new) = cache
+    (; Nq, Nh) = discrete_data.sizes
 
     # TODO: only consider Gauss and LGL for now, so Vq = I
     #       and we assume VqT_new = I
@@ -343,8 +343,8 @@ function project_flux_difference_to_quad!(cache, prealloc, param, entropyproj_li
 end
 
 function update_limited_extrapolation!(cache, prealloc, param, entropyproj_limiter_type::NodewiseScaledExtrapolation, discrete_data, k, nstage, tid)
-    @unpack Vf_new = cache
-    @unpack Vf, Vf_low = discrete_data.ops
+    (; Vf_new) = cache
+    (; Vf, Vf_low) = discrete_data.ops
 
     for i = 1:discrete_data.sizes.Nfp
         l_k_i = prealloc.θ_local_arr[i, k, nstage]
@@ -363,11 +363,11 @@ end
 
 # TODO: dispatch
 function assemble_rhs!(cache, prealloc, param, discrete_data, nstage)
-    @unpack entropyproj_limiter_type = param
-    @unpack QF1, MinvVhTQF1, MinvVfTBF1 = cache
-    @unpack BF_H, rhsH, rhsxyH = prealloc
-    @unpack Jq = discrete_data.geom
-    @unpack MinvVhT, MinvVfT, Vq = discrete_data.ops
+    (; entropyproj_limiter_type) = param
+    (; QF1, MinvVhTQF1, MinvVfTBF1) = cache
+    (; BF_H, rhsH, rhsxyH) = prealloc
+    (; Jq) = discrete_data.geom
+    (; MinvVhT, MinvVfT, Vq) = discrete_data.ops
 
     K = get_num_elements(param)
     # Assemble RHS
@@ -396,13 +396,13 @@ function assemble_rhs!(cache, prealloc, param, discrete_data, nstage)
 end
 
 function check_flux_diff_entropy_stability(cache, prealloc, param, discrete_data, dim::Dim2)
-    @unpack equation = param
-    @unpack v_tilde, psi_tilde, Uq, vq = prealloc
-    @unpack fstar_H, rhsxyH = prealloc
-    @unpack QF1, MinvVhTQF1, MinvVfTBF1 = cache
-    @unpack wq = discrete_data.ops
-    @unpack Jq = discrete_data.geom
-    @unpack Nq, Nh, Nfp = discrete_data.sizes
+    (; equation) = param
+    (; v_tilde, psi_tilde, Uq, vq) = prealloc
+    (; fstar_H, rhsxyH) = prealloc
+    (; QF1, MinvVhTQF1, MinvVfTBF1) = cache
+    (; wq) = discrete_data.ops
+    (; Jq) = discrete_data.geom
+    (; Nq, Nh, Nfp) = discrete_data.sizes
 
     # Check entropy stability
     K = get_num_elements(param)

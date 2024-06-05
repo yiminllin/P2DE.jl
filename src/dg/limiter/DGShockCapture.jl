@@ -13,10 +13,10 @@ function initialize_smoothness_indicator!(shockcapture_type, bound_type, preallo
 end
 
 function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage, dim::Dim1)
-    @unpack indicator, indicator_modal, smooth_indicator = prealloc
-    @unpack N, equation = param
-    @unpack VDM_inv = discrete_data.ops
-    @unpack Nq, Np = discrete_data.sizes
+    (; indicator, indicator_modal, smooth_indicator) = prealloc
+    (; N, equation) = param
+    (; VDM_inv) = discrete_data.ops
+    (; Nq, Np) = discrete_data.sizes
 
     initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
 
@@ -47,10 +47,10 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
 end
 
 function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage, dim::Dim2)
-    @unpack indicator, indicator_modal, smooth_indicator = prealloc
-    @unpack N, equation = param
-    @unpack VDM_inv = discrete_data.ops
-    @unpack Nq, Np = discrete_data.sizes
+    (; indicator, indicator_modal, smooth_indicator) = prealloc
+    (; N, equation) = param
+    (; VDM_inv) = discrete_data.ops
+    (; Nq, Np) = discrete_data.sizes
 
     initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
 
@@ -83,10 +83,10 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
 end
 
 function initialize_indicator!(equation::CompressibleIdealGas, prealloc, param, discrete_data, nstage)
-    @unpack indicator = prealloc
-    @unpack equation = param
-    @unpack Uq = prealloc
-    @unpack Nq = discrete_data.sizes
+    (; indicator) = prealloc
+    (; equation) = param
+    (; Uq) = prealloc
+    (; Nq) = discrete_data.sizes
 
     K = get_num_elements(param)
     @batch for k = 1:K
@@ -100,10 +100,10 @@ function initialize_indicator!(equation::CompressibleIdealGas, prealloc, param, 
 end
 
 function initialize_indicator!(equation::KPP, prealloc, param, discrete_data, nstage)
-    @unpack indicator = prealloc
-    @unpack equation = param
-    @unpack Uq = prealloc
-    @unpack Nq = discrete_data.sizes
+    (; indicator) = prealloc
+    (; equation) = param
+    (; Uq) = prealloc
+    (; Nq) = discrete_data.sizes
 
     K = get_num_elements(param)
     @batch for k = 1:K
@@ -124,10 +124,10 @@ end
 
 # (46) in https://www.sciencedirect.com/science/article/pii/S0021999120307099
 function update_blending_factor!(shockcapture::HennemannShockCapture, cache, prealloc, param, discrete_data, nstage)
-    @unpack blending_factor = cache
-    @unpack smooth_indicator = prealloc
-    @unpack a, c = shockcapture
-    @unpack N = param
+    (; blending_factor) = cache
+    (; smooth_indicator) = prealloc
+    (; a, c) = shockcapture
+    (; N) = param
 
     K = get_num_elements(param)
     TN = a * 10^(-c * (N + 1)^0.25)

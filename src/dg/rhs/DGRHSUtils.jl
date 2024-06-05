@@ -11,16 +11,16 @@ function reference_to_physical(U, GJ, dim::Dim2)
 end
 
 function get_Bx(i, k, discrete_data, dim::Dim1)
-    @unpack Br = discrete_data.ops
-    @unpack rxJh = discrete_data.geom
+    (; Br) = discrete_data.ops
+    (; rxJh) = discrete_data.geom
 
     iface = i + discrete_data.sizes.Nq
     return reference_to_physical((Br[i, i],), (rxJh[iface, k],), dim)
 end
 
 function get_Bx(i, k, discrete_data, dim::Dim2)
-    @unpack Br, Bs = discrete_data.ops
-    @unpack rxJh, ryJh, sxJh, syJh = discrete_data.geom
+    (; Br, Bs) = discrete_data.ops
+    (; rxJh, ryJh, sxJh, syJh) = discrete_data.geom
 
     iface = i + discrete_data.sizes.Nq
     return reference_to_physical((Br[i, i], Bs[i, i]), (rxJh[iface, k], sxJh[iface, k], ryJh[iface, k], syJh[iface, k]), dim)
@@ -37,29 +37,29 @@ function get_Bx_with_n(i, k, discrete_data, dim::Dim2)
 end
 
 function get_Sx(i, j, k, discrete_data, dim::Dim1)
-    @unpack Srh_db = discrete_data.ops
-    @unpack rxJh = discrete_data.geom
+    (; Srh_db) = discrete_data.ops
+    (; rxJh) = discrete_data.geom
 
     return reference_to_physical((Srh_db[i, j],), (rxJh[i, k],), dim)
 end
 
 function get_Sx(i, j, k, discrete_data, dim::Dim2)
-    @unpack Srh_db, Ssh_db = discrete_data.ops
-    @unpack rxJh, ryJh, sxJh, syJh = discrete_data.geom
+    (; Srh_db, Ssh_db) = discrete_data.ops
+    (; rxJh, ryJh, sxJh, syJh) = discrete_data.geom
 
     return reference_to_physical((Srh_db[i, j], Ssh_db[i, j]), (rxJh[i, k], sxJh[i, k], ryJh[i, k], syJh[i, k]), dim)
 end
 
 function get_Sx0(i, j, k, discrete_data, dim::Dim1)
-    @unpack Sr0 = discrete_data.ops
-    @unpack rxJh = discrete_data.geom
+    (; Sr0) = discrete_data.ops
+    (; rxJh) = discrete_data.geom
 
     return reference_to_physical((Sr0[i, j],), (rxJh[i, k],), dim)
 end
 
 function get_Sx0(i, j, k, discrete_data, dim::Dim2)
-    @unpack Sr0, Ss0 = discrete_data.ops
-    @unpack rxJh, ryJh, sxJh, syJh = discrete_data.geom
+    (; Sr0, Ss0) = discrete_data.ops
+    (; rxJh, ryJh, sxJh, syJh) = discrete_data.geom
 
     return reference_to_physical((Sr0[i, j], Ss0[i, j]), (rxJh[i, k], sxJh[i, k], ryJh[i, k], syJh[i, k]), dim)
 end
@@ -103,15 +103,15 @@ end
 
 # TODO: hardcoded
 function get_graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim::Dim1)
-    @unpack λarr = cache
-    @unpack Uq = prealloc
+    (; λarr) = cache
+    (; Uq) = prealloc
 
     return SVector{1}(λarr[i, j, k] * (Uq[j, k] - Uq[i, k]))
 end
 
 function get_graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim::Dim2)
-    @unpack λarr = cache
-    @unpack Uq = prealloc
+    (; λarr) = cache
+    (; Uq) = prealloc
 
     Nc = get_num_components(param.equation)
     Sx0J_ij, Sy0J_ij = Sxy0J_ij

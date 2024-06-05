@@ -2,10 +2,10 @@
 ### Zhang-Shu limiter methods ###
 #################################
 function apply_zhang_shu_limiter!(prealloc, limiter_cache, shockcapture_cache, param, dt, nstage)
-    @unpack equation = param
-    @unpack Uq, rhsL, rhsH, rhsU = prealloc
-    @unpack uL_k, P_k = limiter_cache
-    @unpack blending_factor = shockcapture_cache
+    (; equation) = param
+    (; Uq, rhsL, rhsH, rhsU) = prealloc
+    (; uL_k, P_k) = limiter_cache
+    (; blending_factor) = shockcapture_cache
 
     K = get_num_elements(param)
     ζ = param.limiting_param.ζ
@@ -33,7 +33,7 @@ end
 # TODO: generalize to any equation
 # TODO: pack bounds as a struct
 function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, L, param, uL, P, k, Lrho::Function, Lrhoe::Function, Urho, Urhoe, nstage)
-    @unpack rhs_limiter_type = param
+    (; rhs_limiter_type) = param
     bound_type = get_bound_type(param)
     l = 1.0
     for i = 1:size(uL, 1)
@@ -45,7 +45,7 @@ function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, L, param, uL, 
 end
 
 function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, L, param, uL, P, k, Lrho::Real, Lrhoe::Real, Urho, Urhoe, nstage)
-    @unpack rhs_limiter_type = param
+    (; rhs_limiter_type) = param
     bound_type = get_bound_type(param)
     l = 1.0
     for i = 1:size(uL, 1)

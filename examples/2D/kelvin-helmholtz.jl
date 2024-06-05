@@ -18,12 +18,12 @@ function exact_sol(eqn, x, y, t)
 end
 
 function initial_boundary_conditions(param, md)
-    @unpack K, xf, yf, mapM, mapP, mapB = md
+    (; K, xf, yf, mapM, mapP, mapB) = md
 
     Nc = get_num_components(param.equation)
     # Make periodic
     md = make_periodic(md)
-    @unpack mapP = md
+    (; mapP) = md
 
     mapI = []
     mapO = []

@@ -39,8 +39,8 @@ function exact_sol(eqn, x, t)
 end
 
 function initial_boundary_conditions(param, md)
-    @unpack K, equation = param
-    @unpack mapP = md
+    (; K, equation) = param
+    (; mapP) = md
 
     mapI = [1]
     mapO = [2 * K]

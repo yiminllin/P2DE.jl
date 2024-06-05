@@ -4,7 +4,7 @@ end
 
 # TODO: put into entropy projection to avoid an extra projection step
 function compute_entropyproj_limiting_param!(param, discrete_data, prealloc, cache, approx_basis_type::GaussCollocation, nstage)
-    @unpack equation = param
+    (; equation) = param
     K = get_num_elements(param)
     clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
@@ -25,10 +25,10 @@ function clear_entropyproj_limiting_parameter_cache!(prealloc, entropyproj_limit
 end
 
 function calc_face_values!(prealloc, cache, param, equation::CompressibleEulerIdealGas, discrete_data)
-    @unpack equation = param
-    @unpack Uq, vq = prealloc
-    @unpack Uf, VUf, rhoef = cache
-    @unpack Vf = discrete_data.ops
+    (; equation) = param
+    (; Uq, vq) = prealloc
+    (; Uf, VUf, rhoef) = cache
+    (; Vf) = discrete_data.ops
 
     K = get_num_elements(param)
     @batch for k = 1:K
@@ -72,7 +72,7 @@ end
 
 # TODO: better to define custom index type for hybridized, quad, and surface nodes...
 function calculate_limited_entropyproj_vars_on_node!(cache, i, param, tid)
-    @unpack v3tilde, rhotilde, rhoetilde, v_tilde_k, u_tilde_k = cache
+    (; v3tilde, rhotilde, rhoetilde, v_tilde_k, u_tilde_k) = cache
     v3tilde[i, tid] = v_tilde_k[i, tid][end]
     rhotilde[i, tid] = u_tilde_k[i, tid][1]
     rhoetilde[i, tid] = rhoe_ufun(param.equation, u_tilde_k[i, tid])
@@ -85,7 +85,7 @@ end
 
 # TODO: skip volume quadrature points
 function check_bound_on_face_node(i, k, cache, param, sizes, tid)
-    @unpack v3tilde, rhotilde, rhoetilde, VUf, rhoef, Uf = cache
+    (; v3tilde, rhotilde, rhoetilde, VUf, rhoef, Uf) = cache
     ϵ = param.global_constants.POSTOL
     ζ = param.limiting_param.ζ
     η = param.limiting_param.η
@@ -107,10 +107,10 @@ function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc, 
 end
 
 function update_limited_entropyproj_vars_on_face_node!(prealloc, cache, θ_i, i, k, entropyproj_limiter_type::NodewiseScaledExtrapolation, param, discrete_data, tid)
-    @unpack Uq, vq = prealloc
-    @unpack v_tilde_k, u_tilde_k = cache
-    @unpack Nh, Nq = discrete_data.sizes
-    @unpack Vf, Vf_low = discrete_data.ops
+    (; Uq, vq) = prealloc
+    (; v_tilde_k, u_tilde_k) = cache
+    (; Nh, Nq) = discrete_data.sizes
+    (; Vf, Vf_low) = discrete_data.ops
     ϵ = param.global_constants.POSTOL
 
     # TODO: applying the function directly results in allocations

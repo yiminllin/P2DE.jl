@@ -40,8 +40,8 @@ function get_limiting_param_bound_rho_rhoe(param, U, P, Lrho, Lrhoe, Urho, Urhoe
 end
 
 function get_limiting_param_bound_phi(param, U, P, Lphi, lpos)
-    @unpack equation = param
-    @unpack POSTOL = param.global_constants
+    (; equation) = param
+    (; POSTOL) = param.global_constants
 
     # TODO: refactor
     f(l) = s_modified_ufun(equation, U + l * P) >= Lphi - POSTOL
@@ -50,7 +50,7 @@ function get_limiting_param_bound_phi(param, U, P, Lphi, lpos)
 end
 
 function rhoe_quadratic_solve(param, UL, P, Lrhoe)
-    @unpack ZEROTOL = param.global_constants
+    (; ZEROTOL) = param.global_constants
 
     dim = get_dim_type(param.equation)
     if Lrhoe == Inf
@@ -120,7 +120,7 @@ end
 
 # TODO: refactor
 function get_subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
-    @unpack mapP = bcdata
+    (; mapP) = bcdata
 
     N1D = N1Dp1 - 1
     Nfp = 4 * N1D
@@ -150,7 +150,7 @@ end
 
 # TODO: refactor
 function get_subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
-    @unpack mapP = bcdata
+    (; mapP) = bcdata
 
     N1D = N1Dp1 - 1
     Nfp = 4 * N1D
@@ -201,8 +201,8 @@ function quad_index_to_quad_index_P(idx, k, N1D, Nfp, q2fq, direction, fq2q, map
 end
 
 function get_low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim1)
-    @unpack q2fq, fq2q = discrete_data.ops
-    @unpack mapP = bcdata
+    (; q2fq, fq2q) = discrete_data.ops
+    (; mapP) = bcdata
     i = idx
     sl = i - 1 >= 1 ? (i - 1, k) : quad_index_to_quad_index_P(i, k, N1D, Nfp, q2fq, fq2q, mapP, dim)
     sr = i + 1 <= N1D ? (i + 1, k) : quad_index_to_quad_index_P(i, k, N1D, Nfp, q2fq, fq2q, mapP, dim)
@@ -210,8 +210,8 @@ function get_low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim
 end
 
 function get_low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim2)
-    @unpack q2fq, fq2q = discrete_data.ops
-    @unpack mapP = bcdata
+    (; q2fq, fq2q) = discrete_data.ops
+    (; mapP) = bcdata
     i, j = idx
     idxq = i + (j - 1) * N1D
     sl = i - 1 >= 1 ? (i - 1, j, k) : quad_index_to_quad_index_P(idxq, k, N1D, Nfp, q2fq, 1, fq2q, mapP, dim)

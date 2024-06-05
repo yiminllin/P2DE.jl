@@ -1,5 +1,5 @@
 function check_positivity(U, param)
-    @unpack equation = param
+    (; equation) = param
 
     K = get_num_elements(param)
     rhomin = Inf
@@ -23,7 +23,7 @@ function check_positivity(U, param)
 end
 
 function check_positivity_node(Ui, param)
-    @unpack equation = param
+    (; equation) = param
     is_positive = true
     rho = Ui[1]
     p = pfun(equation, Ui)
@@ -37,7 +37,7 @@ function check_positivity_node(Ui, param)
 end
 
 function check_conservation(prealloc, param, discrete_data)
-    @unpack Uq = prealloc
+    (; Uq) = prealloc
 
     K = get_num_elements(param)
     total = zero(prealloc.Uq[1])

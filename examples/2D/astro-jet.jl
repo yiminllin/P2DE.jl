@@ -19,16 +19,16 @@ function exact_sol(eqn, x, y, t)
 end
 
 function initial_boundary_conditions(param, md)
-    @unpack xL, xR, equation = param
-    @unpack K, xf, yf, mapM, mapP, mapB = md
-    @unpack ZEROTOL = param.global_constants
+    (; xL, xR, equation) = param
+    (; K, xf, yf, mapM, mapP, mapB) = md
+    (; ZEROTOL) = param.global_constants
 
     Nc = get_num_components(equation)
     K = get_num_elements(param)
     Nfp = size(mapP, 1)
     # Make periodic
     md = make_periodic(md)
-    @unpack mapP = md
+    (; mapP) = md
 
     mapI = Float64[]
     mapO = Float64[]

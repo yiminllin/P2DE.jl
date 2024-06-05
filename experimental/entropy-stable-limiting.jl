@@ -8,10 +8,10 @@ end
 
 # TODO: put into entropy projection to avoid an extra projection step
 function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis_type::GaussCollocation, nstage)
-    @unpack θ_local_arr = prealloc
-    @unpack equation = param
-    @unpack mapP = bcdata
-    @unpack POSTOL = param.global_constants
+    (; θ_local_arr) = prealloc
+    (; equation) = param
+    (; mapP) = bcdata
+    (; POSTOL) = param.global_constants
     N1D = param.N + 1
     K = get_num_elements(param)
     Nfp = discrete_data.sizes.Nfp
@@ -263,8 +263,8 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
 end
 
 function calculate_dvB_i_k(i, k, θ_i, prealloc, param, discrete_data)
-    @unpack VUfH, VUfL = prealloc
-    @unpack equation = param
+    (; VUfH, VUfL) = prealloc
+    (; equation) = param
     dim = get_dim_type(equation)
     Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
     vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
@@ -282,8 +282,8 @@ function calculate_dvBdfy_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)
 end
 
 function calculate_dvBdf_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)
-    @unpack VUfH, VUfL, VUPH, VUPL, fstar_L = prealloc
-    @unpack equation = param
+    (; VUfH, VUfL, VUPH, VUPL, fstar_L) = prealloc
+    (; equation) = param
     dim = get_dim_type(equation)
     vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
     vP_tilde_i_k = θP_i * VUPH[i, k] + (1.0 - θP_i) * VUPL[i, k]
@@ -305,8 +305,8 @@ function calculate_Gy_i_k(i, k, θ_i, prealloc, param, discrete_data)
 end
 
 function calculate_G_i_k(i, k, θ_i, prealloc, param, discrete_data)
-    @unpack VUfH, VUfL, psif, fstar_L = prealloc
-    @unpack equation = param
+    (; VUfH, VUfL, psif, fstar_L) = prealloc
+    (; equation) = param
     dim = get_dim_type(equation)
     Bxy_i = get_Bx(i, k, discrete_data, dim)
 
@@ -323,11 +323,11 @@ end
 # TODO: refactor
 # TODO: redundant with limiter
 function calc_face_values_ES!(prealloc, cache, param, equation, discrete_data, bcdata)
-    @unpack equation = param
-    @unpack Uq, vq = prealloc
-    @unpack UfL, UPL, VUfH, VUfL, VUPL, VUPH, psif, psiP, fstar_L = prealloc
-    @unpack Vf, Vf_low = discrete_data.ops
-    @unpack mapP = bcdata
+    (; equation) = param
+    (; Uq, vq) = prealloc
+    (; UfL, UPL, VUfH, VUfL, VUPL, VUPH, psif, psiP, fstar_L) = prealloc
+    (; Vf, Vf_low) = discrete_data.ops
+    (; mapP) = bcdata
 
     K = get_num_elements(param)
     Nfp = discrete_data.sizes.Nfp
@@ -364,8 +364,8 @@ end
 
 # TODO: refactor
 function calculate_numerical_flux(uf, uP, i, k, prealloc, param, discrete_data, dim)
-    @unpack equation, N = param
-    @unpack UfL, UPL = prealloc
+    (; equation, N) = param
+    (; UfL, UPL) = prealloc
     N1D = N + 1
     Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
     n_i = Bxy_i ./ n_i_norm
@@ -384,7 +384,7 @@ end
 # In DGLimiter.jl #
 ###################
 function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, dt, nstage, rhs_limiter_type::SubcellLimiter, timer)
-    @unpack limiter_cache, shockcapture_cache = caches
+    (; limiter_cache, shockcapture_cache) = caches
     dim = get_dim_type(param.equation)
     shockcapture_type = get_shockcapture_type(param)
     bound_type = get_bound_type(param)
@@ -465,14 +465,14 @@ end
 ########################
 
 function initialize_entropy_vars!(cache, prealloc, bound_type, param, discrete_data, bcdata, t, nstage, dim)
-    @unpack equation = param
-    @unpack t0 = param.timestepping_param
-    @unpack Uq, vq, psiq = prealloc
-    @unpack UfL, VUfL, VUPL, psif, psiP = prealloc
-    @unpack Vf_low = discrete_data.ops
-    @unpack mapP = bcdata
-    @unpack f_bar_H, f_bar_L = cache
-    @unpack sum_Bpsi = cache
+    (; equation) = param
+    (; t0) = param.timestepping_param
+    (; Uq, vq, psiq) = prealloc
+    (; UfL, VUfL, VUPL, psif, psiP) = prealloc
+    (; Vf_low) = discrete_data.ops
+    (; mapP) = bcdata
+    (; f_bar_H, f_bar_L) = cache
+    (; sum_Bpsi) = cache
 
     N1D = param.N + 1
     N1Dp1 = N1D + 1
@@ -512,9 +512,9 @@ end
 
 
 function initialize_entropy_stable_limiting!(cache, prealloc, param, discrete_data, bcdata, nstage, dim)
-    @unpack equation = param
-    @unpack vq = prealloc
-    @unpack f_bar_H, f_bar_L, sum_dvfbarL, sum_dvfbarH, dvdf = cache
+    (; equation) = param
+    (; vq) = prealloc
+    (; f_bar_H, f_bar_L, sum_dvfbarL, sum_dvfbarH, dvdf) = cache
 
     # TODO: refactor
     K = get_num_elements(param)
@@ -587,15 +587,15 @@ end
 
 # TODO: refactor x,y direction
 function enforce_ES_subcell_flux!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim2)
-    @unpack equation = param
-    @unpack Uq, vq, psiq = prealloc
-    @unpack UfL, VUfL, VUPL, psif, psiP = prealloc
-    @unpack L_local_arr, fstar_L, fstar_H = prealloc
-    @unpack f_bar_H, f_bar_L = cache
-    @unpack sum_Bpsi, sum_dvfbarL, sum_dvfbarH, dvdf = cache
-    @unpack Vf_low = discrete_data.ops
-    @unpack mapP = bcdata
-    @unpack LPmodels = prealloc
+    (; equation) = param
+    (; Uq, vq, psiq) = prealloc
+    (; UfL, VUfL, VUPL, psif, psiP) = prealloc
+    (; L_local_arr, fstar_L, fstar_H) = prealloc
+    (; f_bar_H, f_bar_L) = cache
+    (; sum_Bpsi, sum_dvfbarL, sum_dvfbarH, dvdf) = cache
+    (; Vf_low) = discrete_data.ops
+    (; mapP) = bcdata
+    (; LPmodels) = prealloc
 
     # TODO: refactor
     K = get_num_elements(param)
@@ -794,7 +794,7 @@ end
 # In DGInitialize.jl #
 ######################
 function initialize_preallocations(param, md, sizes)
-    @unpack Np, Nh, Nq, Nfp, Nc, Ns = sizes
+    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
     K = get_num_elements(param)
     Nd = get_dim(param.equation)
