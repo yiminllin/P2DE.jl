@@ -46,7 +46,7 @@ function calculate_primitive_variables!(cache, prealloc, param, equation::Compre
     (; u_tilde) = prealloc
     (; psi_tilde) = prealloc
     (; beta, rholog, betalog, uP, betaP, rhologP, betalogP) = cache
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nfp = size(mapP, 1)
 
     @batch for k = 1:K
@@ -83,7 +83,7 @@ function calculate_primitive_variables!(cache, prealloc, param, equation::KPP{Di
     (; mapP) = bcdata
     (; u_tilde) = prealloc
     (; uP) = cache
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nfp = size(mapP, 1)
 
     # Boundary contributions
@@ -107,7 +107,7 @@ function calculate_interface_dissipation_coeff!(cache, prealloc, param, bcdata, 
     (; mapP) = bcdata
 
     # TODO: refactor
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
     Nh = size(prealloc.u_tilde, 1)
     Nfp = Nh - Nq
@@ -189,7 +189,7 @@ function flux_differencing_volume!(cache, prealloc, param, equation, discrete_da
 
     dim = get_dim_type(equation)
     vol_flux_type = get_high_order_volume_flux(param.rhs_type)
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = discrete_data.sizes.Nq
     Nh = size(QF1, 1)
     @batch for k = 1:K
@@ -250,7 +250,7 @@ end
 function flux_differencing_surface!(cache, prealloc, param, discrete_data)
     (; equation) = param
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     @batch for k = 1:K
         accumulate_numerical_flux!(prealloc, cache, k, param, discrete_data, equation)
     end
@@ -369,7 +369,7 @@ function assemble_rhs!(cache, prealloc, param, discrete_data, nstage)
     (; Jq) = discrete_data.geom
     (; MinvVhT, MinvVfT, Vq) = discrete_data.ops
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     # Assemble RHS
     @batch for k = 1:K
         tid = Threads.threadid()
@@ -405,7 +405,7 @@ function check_flux_diff_entropy_stability(cache, prealloc, param, discrete_data
     (; Nq, Nh, Nfp) = discrete_data.sizes
 
     # Check entropy stability
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(equation)
     dim = get_dim_type(equation)
     @batch for k = 1:K

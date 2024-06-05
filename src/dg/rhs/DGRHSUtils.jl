@@ -113,7 +113,7 @@ function get_graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim::Dim
     (; λarr) = cache
     (; Uq) = prealloc
 
-    Nc = get_num_components(param.equation)
+    Nc = num_components(param.equation)
     Sx0J_ij, Sy0J_ij = Sxy0J_ij
     visc_term = λarr[i, j, k] * (Uq[j, k] - Uq[i, k])
     # If it is the dissipation in x-direction

@@ -23,8 +23,8 @@ function initial_boundary_conditions(param, md)
     (; K, xf, yf, mapM, mapP, mapB) = md
     (; ZEROTOL) = param.global_constants
 
-    Nc = get_num_components(equation)
-    K = get_num_elements(param)
+    Nc = num_components(equation)
+    K = num_elements(param)
     Nfp = size(mapP, 1)
     # Make periodic
     md = make_periodic(md)

@@ -24,7 +24,7 @@ function initialize_s_modified!(cache, prealloc, param, t, nstage)
     (; Uq) = prealloc
 
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     # Preallocate s_modified at nodes
     @batch for k = 1:K
@@ -46,7 +46,7 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
     (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     Nfp = size(mapP, 1)
     @batch for k = 1:K
@@ -71,7 +71,7 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
     (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     Nfp = size(mapP, 1)
     s_modified = reshape(s_modified, N1D, N1D, K)
@@ -107,7 +107,7 @@ function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas,
     (; rhoL, lbound_rho, ubound_rho) = cache
 
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     Nfp = size(mapP, 1)
 
@@ -138,7 +138,7 @@ function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas,
     (; rhoL, lbound_rho, ubound_rho) = cache
 
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     Nfp = size(mapP, 1)
 
@@ -175,7 +175,7 @@ function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim1)
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache?
     @batch for k = 1:K
@@ -195,7 +195,7 @@ function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim2)
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
     N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
@@ -246,7 +246,7 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     (; rhs_limiter_type) = param
     bound_type = get_bound_type(param)
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     ζ = param.limiting_param.ζ
     Lrhoe(uL_i) = ζ * rhoe_ufun(param.equation, uL_i)
@@ -290,7 +290,7 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     (; rhs_limiter_type) = param
     bound_type = get_bound_type(param)
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     N1D = param.N + 1
     N1Dp1 = N1D + 1
@@ -429,7 +429,7 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     (; L_local_arr) = prealloc
     (; blending_factor) = shockcapture_cache
 
-    K = get_num_elements(param)
+    K = num_elements(param)
 
     @views @. L_local_arr[:, :, :, nstage] = 1.0
     @batch for k = 1:K
@@ -445,7 +445,7 @@ end
 
 function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::Dim1)
     (; L_local_arr) = prealloc
-    K = get_num_elements(param)
+    K = num_elements(param)
 
     # Symmetrize limiting parameter TODO: hardcoded, should use mapP
     @batch for k = 1:K
@@ -459,7 +459,7 @@ function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::D
     (; L_local_arr) = prealloc
 
     # TODO: refactor
-    K = get_num_elements(param)
+    K = num_elements(param)
     N1D = param.N + 1
     N1Dp1 = N1D + 1
     Lx_local = view(L_local_arr, :, 1, :, nstage)
@@ -512,7 +512,7 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
     (; Nfp, Nq) = discrete_data.sizes
     (; vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL) = cache
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     @batch for k = 1:K
         # TODO: redundant
         for i = 1:Nq
@@ -554,7 +554,7 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
     (; Nfp, Nq) = discrete_data.sizes
     (; vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL) = cache
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     N1D = param.N + 1
     N1Dm1 = N1D - 1
     N1Dp1 = N1D + 1
@@ -615,7 +615,7 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
     (; Nq) = discrete_data.sizes
     bound_type = get_bound_type(param)
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     @batch for k = 1:K
         tid = Threads.threadid()
 
@@ -680,7 +680,7 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
     (; Nq) = discrete_data.sizes
     bound_type = get_bound_type(param)
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     N1D = param.N + 1
     N1Dp1 = N1D + 1
     N1Dm1 = N1D - 1
@@ -813,7 +813,7 @@ function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bc
     Lx_local = view(L_local_arr, :, 1, :, nstage)
     Ly_local = view(L_local_arr, :, 2, :, nstage)
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     N1D = param.N + 1
     N1Dp1 = N1D + 1
     @batch for k = 1:K
@@ -876,7 +876,7 @@ function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim1)
     (; f_bar_H, f_bar_L, f_bar_lim) = cache
     (; L_local_arr) = prealloc
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache? df_bar?
     @batch for k = 1:K
@@ -891,7 +891,7 @@ function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim2)
     (; f_bar_H, f_bar_L, f_bar_lim) = cache
     (; L_local_arr) = prealloc
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
     N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
@@ -931,7 +931,7 @@ function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim1
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
     # Update step
     @batch for k = 1:K
@@ -948,7 +948,7 @@ function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim2
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
     Nq = size(prealloc.Uq, 1)
@@ -989,7 +989,7 @@ function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, 
     (; Jq) = discrete_data.geom
     (; Nq, Nfp) = discrete_data.sizes
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
     Nd = get_dim(equation)
@@ -1165,7 +1165,7 @@ function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntr
     (; smooth_factor) = cache
     (; smooth_indicator) = prealloc
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     kappa = 1.0
     s0 = log(10, N^-4)
     @batch for k = 1:K

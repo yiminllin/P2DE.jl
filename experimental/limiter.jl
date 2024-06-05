@@ -7,7 +7,7 @@ function initialize_total_variation!(cache, prealloc, param, discrete_data, bcda
     (; s_modified, var_s_modified, lbound_s_modified) = cache
 
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     Nfp = size(mapP, 1)
     # Preallocate total variation of s_modified at nodes: 
@@ -33,7 +33,7 @@ function initialize_total_variation!(cache, prealloc, param, discrete_data, bcda
     (; s_modified, var_s_modified, lbound_s_modified) = cache
 
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     Nfp = size(mapP, 1)
     # Preallocate total variation of s_modified at nodes: 

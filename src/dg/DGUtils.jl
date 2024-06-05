@@ -1,7 +1,7 @@
 function check_positivity(U, param)
     (; equation) = param
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     rhomin = Inf
     rhoemin = Inf
     rhomax = -Inf
@@ -39,7 +39,7 @@ end
 function check_conservation(prealloc, param, discrete_data)
     (; Uq) = prealloc
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     total = zero(prealloc.Uq[1])
     for k = 1:K
         for i = 1:size(Uq, 1)

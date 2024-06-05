@@ -13,7 +13,7 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     (; mapP) = bcdata
     (; POSTOL) = param.global_constants
     N1D = param.N + 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nfp = discrete_data.sizes.Nfp
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
     calc_face_values_ES!(prealloc, cache, param, equation, discrete_data, bcdata)
@@ -329,7 +329,7 @@ function calc_face_values_ES!(prealloc, cache, param, equation, discrete_data, b
     (; Vf, Vf_low) = discrete_data.ops
     (; mapP) = bcdata
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nfp = discrete_data.sizes.Nfp
     dim = get_dim_type(equation)
     # Initialize entropy variable and entropy potential
@@ -477,7 +477,7 @@ function initialize_entropy_vars!(cache, prealloc, bound_type, param, discrete_d
     N1D = param.N + 1
     N1Dp1 = N1D + 1
     N1Dm1 = N1D - 1
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Uq, 1)
     # Preallocate vq,phiq at nodes
     @batch for k = 1:K
@@ -517,7 +517,7 @@ function initialize_entropy_stable_limiting!(cache, prealloc, param, discrete_da
     (; f_bar_H, f_bar_L, sum_dvfbarL, sum_dvfbarH, dvdf) = cache
 
     # TODO: refactor
-    K = get_num_elements(param)
+    K = num_elements(param)
     N1D = param.N + 1
     N1Dp1 = N1D + 1
     N1Dm1 = N1D - 1
@@ -598,7 +598,7 @@ function enforce_ES_subcell_flux!(cache, prealloc, param, discrete_data, bcdata,
     (; LPmodels) = prealloc
 
     # TODO: refactor
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nc = discrete_data.sizes.Nc
     Nfp = discrete_data.sizes.Nfp
     N1D = param.N + 1
@@ -796,7 +796,7 @@ end
 function initialize_preallocations(param, md, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
 

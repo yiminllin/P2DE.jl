@@ -7,7 +7,7 @@ function apply_zhang_shu_limiter!(prealloc, limiter_cache, shockcapture_cache, p
     (; uL_k, P_k) = limiter_cache
     (; blending_factor) = shockcapture_cache
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     ζ = param.limiting_param.ζ
     Lrho(uL_i) = ζ * uL_i[1]
     Lrhoe(uL_i) = ζ * rhoe_ufun(param.equation, uL_i)

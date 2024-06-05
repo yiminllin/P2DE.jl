@@ -8,7 +8,7 @@ end
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::ElementwiseScaledExtrapolation, discrete_data, nstage, timer)
     (; Uq, vq, v_tilde, u_tilde) = prealloc
     (; Nh, Nq, Nfp) = discrete_data.sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
 
     @batch for k = 1:K
         vq_k = view(vq, :, k)

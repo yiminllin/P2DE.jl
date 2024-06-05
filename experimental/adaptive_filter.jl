@@ -5,7 +5,7 @@ struct ZhangShuFilter <: AdaptiveFilter end
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter}, discrete_data, nstage, timer)
     (; Uq, vq, v_tilde, u_tilde) = prealloc
     (; Nh, Nq, Nfp) = discrete_data.sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
 
     for k = 1:K
         vq_k = view(vq, :, k)
@@ -39,7 +39,7 @@ end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::AdaptiveFilter, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
 
     return EntropyProjectionLimiterCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp)
@@ -86,7 +86,7 @@ function compute_modal_coefficients!(prealloc, param, discrete_data, cache)
     (; U_modal) = cache
     (; VDMinvPq) = discrete_data.ops
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     for k = 1:K
         @views mul!(U_modal[:, k], VDMinvPq, Uq[:, k])      # TODO: why there is allocation when remove k = 1:K loop?
     end
@@ -96,7 +96,7 @@ function apply_entropyproj_filtering!(prealloc, param, entropyproj_limiter_type:
     (; Uq, θ_arr, U_modal) = prealloc
     (; VqVDM) = discrete_data.ops
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     for k = 1:K
         U_modal_k = @views U_modal[:, k]
         apply_filter!(U_modal_k, param.entropyproj_limiter_type, param.equation, θ_arr[k, nstage])

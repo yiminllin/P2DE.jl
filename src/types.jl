@@ -130,7 +130,7 @@ end
 # TODO: pass in SizeData
 function get_rhs_cache(rhs_type::LowOrderPositivity, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
 
     return LowOrderPositivityCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
@@ -138,7 +138,7 @@ end
 
 function get_rhs_cache(rhs_type::FluxDiffRHS, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
 
     return FluxDiffCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
@@ -146,7 +146,7 @@ end
 
 function get_rhs_cache(rhs_type::LimitedDG, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
 
     cacheH = FluxDiffCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
@@ -293,17 +293,17 @@ function get_dim_type(equation::EquationType{Dim2})
     return Dim2()
 end
 
-function get_num_components(equation::CompressibleFlow{Dim1})
+function num_components(equation::CompressibleFlow{Dim1})
     return 3
 end
 
-function get_num_components(equation::CompressibleFlow{Dim2})
+function num_components(equation::CompressibleFlow{Dim2})
     return 4
 end
 
 struct KPP{DIM} <: EquationType{DIM} end
 
-function get_num_components(equation::KPP{Dim2})
+function num_components(equation::KPP{Dim2})
     return 1
 end
 
@@ -357,16 +357,16 @@ Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROP
 end
 
 # TODO: refactor
-function get_num_elements(param)
-    return get_num_elements(param, param.equation)
+function num_elements(param)
+    return num_elements(param, param.equation)
 end
 
-function get_num_elements(param, equation::EquationType{Dim1})
+function num_elements(param, equation::EquationType{Dim1})
     return param.K
 end
 
 # TODO: hardcoded for uniform mesh
-function get_num_elements(param, equation::EquationType{Dim2})
+function num_elements(param, equation::EquationType{Dim2})
     return param.K[1] * param.K[2]
 end
 
@@ -566,7 +566,7 @@ EntropyProjectionLimiterCache{DIM,Nc}(; K=0, Np=0, Nq=0, Nh=0, Nfp=0, Nthread=1)
 function get_shockcapture_cache(shockcapture_type, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     Nd = get_dim(param.equation)
-    K = get_num_elements(param)
+    K = num_elements(param)
 
     return ShockCaptureCache{Nd,Nc}(K=K, Ns=Ns)
 end
@@ -580,7 +580,7 @@ end
 
 function get_limiter_cache(limiter_type::ZhangShuLimiter, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
 
     return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq, Nthread=Threads.nthreads())
@@ -588,7 +588,7 @@ end
 
 function get_limiter_cache(limiter_type::SubcellLimiter, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
 
@@ -604,7 +604,7 @@ end
 
 function get_entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapolation, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
 
     return EntropyProjectionLimiterCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())

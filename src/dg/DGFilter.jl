@@ -5,7 +5,7 @@ end
 # TODO: put into entropy projection to avoid an extra projection step
 function compute_entropyproj_limiting_param!(param, discrete_data, prealloc, cache, approx_basis_type::GaussCollocation, nstage)
     (; equation) = param
-    K = get_num_elements(param)
+    K = num_elements(param)
     clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
     calc_face_values!(prealloc, cache, param, equation, discrete_data)
@@ -30,7 +30,7 @@ function calc_face_values!(prealloc, cache, param, equation::CompressibleEulerId
     (; Uf, VUf, rhoef) = cache
     (; Vf) = discrete_data.ops
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     @batch for k = 1:K
         @views mul!(Uf[:, k], Vf, Uq[:, k])
         for i = 1:size(vq, 1)

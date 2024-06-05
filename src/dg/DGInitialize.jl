@@ -2,7 +2,7 @@
 function initialize_preallocations(param, md, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
 
@@ -43,7 +43,7 @@ function initialize_cache(param, md, sizes)
     (; rhs_type, rhs_limiter_type, entropyproj_limiter_type) = param
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     dim = get_dim_type(param.equation)
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(param.equation)
 
     rhs_cache = get_rhs_cache(rhs_type, param, sizes)
@@ -176,7 +176,7 @@ function initialize_operators(param, rd, quad_type)
 
     # Define sizes
     Ns = 3   # TODO: define get_num_stage() for RK time stepper
-    Nc = get_num_components(param.equation)
+    Nc = num_components(param.equation)
     Np = size(VDM, 2)
     Nq = length(wq)
     Nfp = size(Vf, 1)
@@ -359,7 +359,7 @@ end
 function init_U!(param, discrete_data, md, prealloc, initial_condition)
     (; Nq) = discrete_data.sizes
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     for k = 1:K
         for i = 1:Nq
             set_initial_condition!(prealloc, i, k, param, initial_condition, md, param.equation)

@@ -55,7 +55,7 @@ end
 function update_indicator!(prealloc, approximation_basis_type::HybridGaussLGL, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
     (; LGLind, L_G2L_arr, L_L2G_arr) = prealloc
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     clear_transfer_cache!(prealloc)
     for k = 1:K
         ind = transfer_indicator(prealloc, discrete_data_gauss, k)

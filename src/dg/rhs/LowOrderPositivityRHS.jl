@@ -44,7 +44,7 @@ function rhs_pos_Gauss!(prealloc, rhs_cache, param, discrete_data, bcdata, t, dt
 end
 
 function calculate_wavespeed_and_inviscid_flux!(cache, prealloc, param, discrete_data)
-    K = get_num_elements(param)
+    K = num_elements(param)
     @batch for k = 1:K
         update_face_values!(cache, prealloc, k, discrete_data, get_low_order_surface_flux(param.rhs_type))
         update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete_data)
@@ -107,7 +107,7 @@ function get_uP_and_enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     (; mapP, mapI, mapO, Ival) = bcdata
     (; fq2q) = discrete_data.ops
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nfp = size(mapP, 1)
     # Initialize uP
     @batch for k = 1:K
@@ -143,8 +143,8 @@ function clear_low_order_rhs!(cache, prealloc, param)
     (; rhsxyL) = prealloc
     (; Q0F1, λarr, λBarr) = cache
 
-    K = get_num_elements(param)
-    Nc = get_num_components(param.equation)
+    K = num_elements(param)
+    Nc = num_components(param.equation)
     Nd = get_dim(param.equation)
     @batch for k = 1:K
         for i = 1:size(rhsxyL, 1)
@@ -161,7 +161,7 @@ function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
     (; Srs0_nnz) = discrete_data.ops
 
     dim = get_dim_type(equation)
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(Q0F1, 1)
     @batch for k = 1:K
         # Volume contributions
@@ -200,7 +200,7 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
     (; mapP) = bcdata
     (; fq2q) = discrete_data.ops
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     dim = get_dim_type(equation)
     Nd = get_dim(equation)
     Nq = size(prealloc.Uq, 1)
@@ -235,7 +235,7 @@ function scale_low_order_rhs_by_mass!(prealloc, param, discrete_data)
     (; wq) = discrete_data.ops
     (; rhsL, rhsxyL) = prealloc
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     @batch for k = 1:K
         # Divide by mass
         for i = 1:size(rhsxyL, 1)
@@ -252,7 +252,7 @@ function calculate_lambda_and_low_order_CFL!(cache, prealloc, param, discrete_da
     (; wq) = discrete_data.ops
     (; dtarr) = cache
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
     surface_flux_type = get_low_order_surface_flux(param.rhs_type)
     @. dtarr = min(CFL * dt0, T - t)
@@ -376,7 +376,7 @@ function check_low_order_entropy_stability(cache, prealloc, param, discrete_data
     (; wq) = discrete_data.ops
     (; Nq, Nfp) = discrete_data.sizes
 
-    K = get_num_elements(param)
+    K = num_elements(param)
     Nd = get_dim(equation)
     dim = get_dim_type(equation)
     @batch for k = 1:K

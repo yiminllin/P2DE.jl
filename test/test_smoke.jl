@@ -22,7 +22,7 @@ end
 function initial_boundary_conditions(param, md)
     (; K, xf, yf, mapM, mapP, mapB) = md
 
-    Nc = get_num_components(param.equation)
+    Nc = num_components(param.equation)
     # Make periodic
     md = make_periodic(md)
     (; mapP) = md
