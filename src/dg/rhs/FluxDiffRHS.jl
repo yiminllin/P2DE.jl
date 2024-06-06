@@ -4,7 +4,7 @@
 function rhs_fluxdiff!(prealloc, rhs_cache, param, discrete_data, bcdata, nstage, timer, need_proj=true)
     (; entropyproj_limiter_type, equation) = param
 
-    cache = get_high_order_cache(rhs_cache)
+    cache = high_order_cache(rhs_cache)
     @timeit_debug timer "entropy projection" begin
         if (need_proj)
             entropy_projection!(prealloc, param, entropyproj_limiter_type, discrete_data, nstage, timer)
@@ -12,7 +12,7 @@ function rhs_fluxdiff!(prealloc, rhs_cache, param, discrete_data, bcdata, nstage
     end
 
     @timeit_debug timer "calculate primitive variables" begin
-        calculate_primitive_variables!(cache, prealloc, param, equation, bcdata)
+        calculate_primitive_variables!(cache, prealloc, param, discrete_data, equation, bcdata)
     end
     @timeit_debug timer "calculate interface dissipation coefficients" begin
         calculate_interface_dissipation_coeff!(cache, prealloc, param, bcdata, discrete_data)
@@ -23,10 +23,10 @@ function rhs_fluxdiff!(prealloc, rhs_cache, param, discrete_data, bcdata, nstage
 
     # Flux differencing
     @timeit_debug timer "clear cache" begin
-        clear_flux_differencing_cache!(cache)
+        clear_flux_differencing_cache!(cache, discrete_data)
     end
     @timeit_debug timer "flux differencing volume kernel" begin
-        flux_differencing_volume!(cache, prealloc, param, equation, discrete_data)
+        flux_differencing_volume!(cache, prealloc, param, discrete_data)
     end
     @timeit_debug timer "flux differencing surface kernel" begin
         flux_differencing_surface!(cache, prealloc, param, discrete_data)
@@ -37,20 +37,19 @@ function rhs_fluxdiff!(prealloc, rhs_cache, param, discrete_data, bcdata, nstage
         assemble_rhs!(cache, prealloc, param, discrete_data, nstage)
     end
 
-    # check_flux_diff_entropy_stability(cache,prealloc,param,discrete_data,get_dim_type(equation))
+    # check_flux_diff_entropy_stability(cache,prealloc,param,discrete_data,dim_type(equation))
 end
 
-function calculate_primitive_variables!(cache, prealloc, param, equation::CompressibleIdealGas, bcdata)
+function calculate_primitive_variables!(cache, prealloc, param, discrete_data, equation::CompressibleIdealGas, bcdata)
     (; equation) = param
     (; mapP) = bcdata
     (; u_tilde) = prealloc
     (; psi_tilde) = prealloc
     (; beta, rholog, betalog, uP, betaP, rhologP, betalogP) = cache
-    K = get_num_elements(param)
-    Nfp = size(mapP, 1)
+    (; K, Nq, Nh, Nfp) = discrete_data.sizes
 
     @batch for k = 1:K
-        for i = 1:size(beta, 1)
+        for i = 1:Nh
             psi_tilde[i, k] = psi_ufun(equation, u_tilde[i, k])
             beta[i, k] = betafun(equation, u_tilde[i, k])
             rholog[i, k] = log(u_tilde[i, k][1])
@@ -60,8 +59,6 @@ function calculate_primitive_variables!(cache, prealloc, param, equation::Compre
 
     # Boundary contributions
     # TODO: refactor
-    Nq = size(prealloc.Uq, 1)
-    Nh = size(u_tilde, 1)
     uf = @view u_tilde[Nq+1:Nh, :]
     betaf = @view beta[Nq+1:Nh, :]
     rhologf = @view rholog[Nq+1:Nh, :]
@@ -78,18 +75,15 @@ function calculate_primitive_variables!(cache, prealloc, param, equation::Compre
     end
 end
 
-function calculate_primitive_variables!(cache, prealloc, param, equation::KPP{Dim2}, bcdata)
+function calculate_primitive_variables!(cache, prealloc, param, discrete_data, equation::KPP{Dim2}, bcdata)
     (; equation) = param
     (; mapP) = bcdata
     (; u_tilde) = prealloc
     (; uP) = cache
-    K = get_num_elements(param)
-    Nfp = size(mapP, 1)
+    (; K, Nfp, Nq, Nh) = discrete_data.sizes
 
     # Boundary contributions
     # TODO: refactor
-    Nq = size(prealloc.Uq, 1)
-    Nh = size(u_tilde, 1)
     uf = @view u_tilde[Nq+1:Nh, :]
     @batch for k = 1:K
         for i = 1:Nfp
@@ -105,19 +99,15 @@ function calculate_interface_dissipation_coeff!(cache, prealloc, param, bcdata, 
     (; u_tilde) = prealloc
     (; equation) = param
     (; mapP) = bcdata
+    (; K, Nfp, Nq, Nh) = discrete_data.sizes
 
     # TODO: refactor
-    K = get_num_elements(param)
-    Nq = size(prealloc.Uq, 1)
-    Nh = size(prealloc.u_tilde, 1)
-    Nfp = Nh - Nq
     uf = @view u_tilde[Nq+1:Nh, :]
-    dim = get_dim_type(equation)
 
     # Lax Friedrichs dissipation
     @batch for k = 1:K
         for i = 1:Nfp
-            Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
+            Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim_type(equation))
             n_i = @. Bxy_i / n_i_norm
             lam[i, k] = wavespeed_estimate(equation, uf[i, k], n_i)
             LFc[i, k] = 0.5 * n_i_norm
@@ -137,6 +127,7 @@ function enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     (; mapP, mapI, mapO, Ival) = bcdata
     (; LFc, uP, betaP, rhologP, betalogP) = cache
     (; fq2q) = discrete_data.ops
+    (; Nq, Nh) = discrete_data.sizes
 
     Nfp = size(mapP, 1)
     # zero dissipation on the boundary
@@ -148,8 +139,6 @@ function enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     end
 
     # Enforce inflow BC
-    Nq = size(Uq, 1)
-    Nh = size(u_tilde, 1)
     uf = @view u_tilde[Nq+1:Nh, :]
     @batch for i = 1:size(mapI, 1)
         ii = mapI[i]
@@ -172,76 +161,74 @@ function enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     end
 end
 
-function clear_flux_differencing_cache!(cache)
+function clear_flux_differencing_cache!(cache, discrete_data)
     (; QF1) = cache
+    (; Nh, K) = discrete_data.sizes
 
-    @batch for k = 1:size(QF1, 2)
-        for i = 1:size(QF1, 1)
+    @batch for k = 1:K
+        for i = 1:Nh
             QF1[i, k] = zero(QF1[i, k])
         end
     end
 end
 
-function flux_differencing_volume!(cache, prealloc, param, equation, discrete_data)
+function flux_differencing_volume!(cache, prealloc, param, discrete_data)
     (; equation) = param
     (; QF1) = cache
     (; Srsh_nnz) = discrete_data.ops
+    (; K) = discrete_data.sizes
 
-    dim = get_dim_type(equation)
-    vol_flux_type = get_high_order_volume_flux(param.rhs_type)
-    K = get_num_elements(param)
-    Nq = discrete_data.sizes.Nq
-    Nh = size(QF1, 1)
+    vol_flux_type = high_order_volume_flux_type(param.rhs_type)
     @batch for k = 1:K
         for (i, j) in Srsh_nnz
-            Ui = get_U(vol_flux_type, i, k, cache, prealloc, param.equation, dim)
-            Uj = get_U(vol_flux_type, j, k, cache, prealloc, param.equation, dim)
+            Ui = U(vol_flux_type, i, k, cache, prealloc, equation, dim_type(equation))
+            Uj = U(vol_flux_type, j, k, cache, prealloc, equation, dim_type(equation))
             accumulate_QF1!(QF1, i, Ui, j, Uj, k, param, discrete_data, equation)
         end
     end
 end
 
 # Get (utilde, beta, log(rho), log(beta)) at index i,element k
-function get_U(vol_flux_type::ChandrashekarFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim::Dim1)
+function U(vol_flux_type::ChandrashekarFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim::Dim1)
     (; u_tilde) = prealloc
     (; beta, rholog, betalog) = cache
 
     return SVector(u_tilde[idx, k][1], u_tilde[idx, k][2] / u_tilde[idx, k][1], beta[idx, k], rholog[idx, k], betalog[idx, k])
 end
 
-function get_U(vol_flux_type::ChandrashekarFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim::Dim2)
+function U(vol_flux_type::ChandrashekarFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim::Dim2)
     (; u_tilde) = prealloc
     (; beta, rholog, betalog) = cache
 
     return SVector(u_tilde[idx, k][1], u_tilde[idx, k][2] / u_tilde[idx, k][1], u_tilde[idx, k][3] / u_tilde[idx, k][1], beta[idx, k], rholog[idx, k], betalog[idx, k])
 end
 
-function get_U(vol_flux_type::CentralFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim)
+function U(vol_flux_type::CentralFlux, idx, k, cache, prealloc, equation::CompressibleIdealGas, dim)
     return prealloc.u_tilde[idx, k]
 end
 
-function get_U(vol_flux_type, idx, k, cache, prealloc, equation::KPP, dim)
+function U(vol_flux_type, idx, k, cache, prealloc, equation::KPP, dim)
     return prealloc.u_tilde[idx, k]
 end
 
 function accumulate_QF1!(QF1, i, Ui, j, Uj, k, param, discrete_data, equation)
     ϵ = param.global_constants.ZEROTOL
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
     # TODO: assume Sxyh_db_ij = -Sxyh_db_ji
-    #              Sxyh_db_ji = get_Sx(j,i,k,discrete_data,dim)
-    Sxyh_db_ij = get_Sx(i, j, k, discrete_data, dim)
-    fxy = get_high_order_volume_flux(get_high_order_volume_flux(param.rhs_type), equation, Ui, Uj)
+    #              Sxyh_db_ji = Sx(j,i,k,discrete_data,dim)
+    Sxyh_db_ij = Sx(i, j, k, discrete_data, dim)
+    fxy = high_order_volume_flux_type(high_order_volume_flux_type(param.rhs_type), equation, Ui, Uj)
     Sfxy_ij = @. Sxyh_db_ij * fxy
     Sfxy_ji = -Sfxy_ij
     QF1[i, k] += Sfxy_ij
     QF1[j, k] += Sfxy_ji
 end
 
-function get_high_order_volume_flux(vol_flux_type::ChandrashekarFlux, equation, Ui, Uj)
+function high_order_volume_flux_type(vol_flux_type::ChandrashekarFlux, equation, Ui, Uj)
     return fS(equation, Ui, Uj)
 end
 
-function get_high_order_volume_flux(vol_flux_type::CentralFlux, equation, Ui, Uj)
+function high_order_volume_flux_type(vol_flux_type::CentralFlux, equation, Ui, Uj)
     fi = fluxes(equation, Ui)
     fj = fluxes(equation, Uj)
     return @. 0.5 * (fi + fj)
@@ -249,8 +236,8 @@ end
 
 function flux_differencing_surface!(cache, prealloc, param, discrete_data)
     (; equation) = param
+    (; K) = discrete_data.sizes
 
-    K = get_num_elements(param)
     @batch for k = 1:K
         accumulate_numerical_flux!(prealloc, cache, k, param, discrete_data, equation)
     end
@@ -259,32 +246,27 @@ end
 function accumulate_numerical_flux!(prealloc, cache, k, param, discrete_data, equation)
     (; BF_H, fstar_H, u_tilde) = prealloc
     (; uP, LFc) = cache
+    (; Nq, Nh, Nfp) = discrete_data.sizes
 
     # Boundary contributions (B F)1
-    Nq = size(prealloc.Uq, 1)
-    Nh = size(u_tilde, 1)
-    Nfp = size(BF_H, 1)
-    dim = get_dim_type(equation)
     uf = @view u_tilde[Nq+1:Nh, :]
     for i = 1:Nfp
-        fstar_H[i, k] = evaluate_high_order_surface_flux(prealloc, cache, param, i, k, get_high_order_surface_flux(param.rhs_type))
-        Bxy_i = get_Bx(i, k, discrete_data, dim)
+        fstar_H[i, k] = evaluate_high_order_surface_flux(prealloc, cache, param, discrete_data, i, k, high_order_surface_flux_type(param.rhs_type))
+        Bxy_i = Bx(i, k, discrete_data, dim_type(equation))
         BF_H[i, k] = @. Bxy_i * fstar_H[i, k]
         # Apply LF dissipation
         lf = LFc[i, k] * (uP[i, k] - uf[i, k])
-        apply_LF_dissipation_to_BF(BF_H, param, i, k, lf, dim)
-        apply_LF_dissipation_to_fstar(fstar_H, param, i, k, Bxy_i, lf, dim)
+        apply_LF_dissipation_to_BF(BF_H, param, i, k, lf, dim_type(equation))
+        apply_LF_dissipation_to_fstar(fstar_H, param, i, k, Bxy_i, lf, dim_type(equation))
     end
 end
 
-function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_flux_type::ChandrashekarOnProjectedVal)
+function evaluate_high_order_surface_flux(prealloc, cache, param, discrete_data, i, k, surface_flux_type::ChandrashekarOnProjectedVal)
     (; equation) = param
     (; u_tilde) = prealloc
     (; beta, rholog, betalog, uP, betaP, rhologP, betalogP) = cache
+    (; Nq, Nh, Nd) = discrete_data.sizes
 
-    Nq = size(prealloc.Uq, 1)
-    Nh = size(u_tilde, 1)
-    Nd = get_dim(equation)
     uf = @view u_tilde[Nq+1:Nh, :]
     betaf = @view beta[Nq+1:Nh, :]
     rhologf = @view rholog[Nq+1:Nh, :]
@@ -293,13 +275,12 @@ function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_
         (uP[i, k][1], (uP[i, k][c] / uP[i, k][1] for c in 2:2+Nd-1)..., betaP[i, k], rhologP[i, k], betalogP[i, k]))
 end
 
-function evaluate_high_order_surface_flux(prealloc, cache, param, i, k, surface_flux_type::LaxFriedrichsOnProjectedVal)
+function evaluate_high_order_surface_flux(prealloc, cache, param, discrete_data, i, k, surface_flux_type::LaxFriedrichsOnProjectedVal)
     (; equation) = param
     (; u_tilde) = prealloc
     (; uP) = cache
+    (; Nq, Nh) = discrete_data.sizes
 
-    Nq = size(prealloc.Uq, 1)
-    Nh = size(u_tilde, 1)
     uf = @view u_tilde[Nq+1:Nh, :]
     fxyf = fluxes(equation, uf[i, k])
     fxyP = fluxes(equation, uP[i, k])
@@ -345,8 +326,9 @@ end
 function update_limited_extrapolation!(cache, prealloc, param, entropyproj_limiter_type::NodewiseScaledExtrapolation, discrete_data, k, nstage, tid)
     (; Vf_new) = cache
     (; Vf, Vf_low) = discrete_data.ops
+    (; Nfp) = discrete_data.sizes
 
-    for i = 1:discrete_data.sizes.Nfp
+    for i = 1:Nfp
         l_k_i = prealloc.θ_local_arr[i, k, nstage]
         @views @. Vf_new[i, :, tid] = l_k_i * Vf[i, :] + (1 - l_k_i) * Vf_low[i, :]
     end
@@ -368,8 +350,8 @@ function assemble_rhs!(cache, prealloc, param, discrete_data, nstage)
     (; BF_H, rhsH, rhsxyH) = prealloc
     (; Jq) = discrete_data.geom
     (; MinvVhT, MinvVfT, Vq) = discrete_data.ops
+    (; K, Nq) = discrete_data.sizes
 
-    K = get_num_elements(param)
     # Assemble RHS
     @batch for k = 1:K
         tid = Threads.threadid()
@@ -386,7 +368,7 @@ function assemble_rhs!(cache, prealloc, param, discrete_data, nstage)
             project_flux_difference_to_quad!(cache, prealloc, param, entropyproj_limiter_type, discrete_data, k, nstage, tid)
         end
         # TODO: assume collocation scheme, so Nq = Np
-        for i = 1:size(rhsH, 1)
+        for i = 1:Nq
             rhsxyH[i, k] = -(MinvVhTQF1[i, k] + MinvVfTBF1[i, k]) / Jq[i, k]
             rhsH[i, k] = sum(rhsxyH[i, k])
         end
@@ -402,12 +384,10 @@ function check_flux_diff_entropy_stability(cache, prealloc, param, discrete_data
     (; QF1, MinvVhTQF1, MinvVfTBF1) = cache
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
-    (; Nq, Nh, Nfp) = discrete_data.sizes
+    (; K, Nd, Nq, Nfp) = discrete_data.sizes
 
     # Check entropy stability
-    K = get_num_elements(param)
-    Nd = get_dim(equation)
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
     @batch for k = 1:K
         entropy_estimate_vol = zero(SVector{Nd,Float64})   # vT rhs_vol
         entropy_estimate_surf = zero(SVector{Nd,Float64})   # vT rhs_surf
@@ -421,7 +401,7 @@ function check_flux_diff_entropy_stability(cache, prealloc, param, discrete_data
         sum_Bpsi = zero(SVector{Nd,Float64})   # 1T B psi
         vTBfstar = zero(SVector{Nd,Float64})   # vT B f*
         for i = 1:Nfp
-            Bxy_i = get_Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim)
             sum_Bpsi += Bxy_i .* psi_tilde[Nq+i, k]
             vTBfstar += Bxy_i .* SVector(sum(v_tilde[i+Nq, k] .* fstar_H[i, k][1]), sum(v_tilde[i+Nq, k] .* fstar_H[i, k][2]))
         end

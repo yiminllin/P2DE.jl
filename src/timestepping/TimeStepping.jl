@@ -10,7 +10,7 @@ function SSP33!(param, discrete_data, bcdata, prealloc, caches)
     t_dummy = 0.0
     @benchmark rhs!($param, $discrete_data, $bcdata, $prealloc, $caches, $t_dummy, $dt_dummy, 1, $timer_dummy)
 
-    Nc = get_num_components(param.equation)
+    Nc = num_components(param.equation)
     Uhist = []
     Lhist = []
     θhist = []

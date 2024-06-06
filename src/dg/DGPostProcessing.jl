@@ -1,8 +1,7 @@
 function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     (; equation, N) = param
-    (; Nq, Nc) = discrete_data.sizes
+    (; K, Nq, Nc) = discrete_data.sizes
 
-    K = get_num_elements(param)
     T = param.timestepping_param.T
 
     L1err = zero(SVector{Nc,Float64})
@@ -14,7 +13,7 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     for k = 1:K
         U_k = @views U[:, k]
         for i = 1:Nq
-            exact_U_k_i = get_exact_solution(prealloc, i, k, T, md, equation, exact_sol)
+            exact_U_k_i = exact_solution(prealloc, i, k, T, md, equation, exact_sol)
             wJq_i = discrete_data.ops.wq[i] * discrete_data.geom.Jq[i]
             L1err = L1err + wJq_i * @. abs(exact_U_k_i - U_k[i])
             L2err = L2err + wJq_i * @. abs(exact_U_k_i - U_k[i])^2
@@ -45,13 +44,13 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     return err
 end
 
-function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim1}, exact_sol)
+function exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim1}, exact_sol)
     (; xq) = md
     xq_i = xq[i, k]
     return primitive_to_conservative(equation, exact_sol(equation, xq_i, T))
 end
 
-function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim2}, exact_sol)
+function exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim2}, exact_sol)
     (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]
@@ -59,7 +58,7 @@ function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGa
 end
 
 # TODO: hardcoded
-function get_exact_solution(prealloc, i, k, T, md, equation::KPP{Dim2}, exact_sol)
+function exact_solution(prealloc, i, k, T, md, equation::KPP{Dim2}, exact_sol)
     (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]
@@ -87,11 +86,11 @@ function plot_component(param, discrete_data, md, prealloc,
     savefig(output_filename)
 end
 
-function plot_rho_animation(md, param, prealloc, data_hist, limiting_hist, PlotL, PlotU, output_filename)
+function plot_rho_animation(md, param, prealloc, discrete_data, data_hist, limiting_hist, PlotL, PlotU, output_filename)
     (; xL, xR) = param
     (; Uhist) = data_hist
+    (; K) = discrete_data.sizes
 
-    K = get_num_elements(param)
     gr(x_lim=[xL, xR], ylim=[PlotL, PlotU], label=false, legend=false)
     anim = Animation()
     normalization_factor = reduce(max, map(x -> maximum(x), limiting_hist))
@@ -147,12 +146,12 @@ function visualize_error_data(df)
 end
 
 # TODO: hardcoded
-function get_postprocessing_cache(param, md, dim::Dim1)
+function postprocessing_cache(param, md, dim::Dim1)
     (; K) = param
     (; N) = param
     (; xq) = md
     N1D = N + 1
-    Nc = get_num_components(param.equation)
+    Nc = num_components(param.equation)
 
     Up = zeros(SVector{Nc,Float64}, N1D, K)
 
@@ -160,14 +159,14 @@ function get_postprocessing_cache(param, md, dim::Dim1)
 end
 
 # TODO: only works for rectangular 2D quad mesh
-function get_postprocessing_cache(param, md, dim::Dim2)
+function postprocessing_cache(param, md, dim::Dim2)
     (; K) = param
     (; N) = param
     (; xq, yq) = md
     N1D = N + 1
     Kx, Ky = K
-    K = get_num_elements(param)
-    Nc = get_num_components(param.equation)
+    K = num_elements(param)
+    Nc = num_components(param.equation)
 
     Up = zeros(SVector{Nc,Float64}, N1D * Kx, N1D * Ky)
     xp = zeros(Float64, N1D * Kx, N1D * Ky)
@@ -193,7 +192,7 @@ function construct_vtk_file!(cache, param, data_hist, output_path, filename)
     (; N, K) = param
     N1D = N + 1
     Kx, Ky = K
-    K = get_num_elements(param)
+    K = num_elements(param)
 
     pvd = paraview_collection("$(output_path)/$(filename)_N=$(N)_K=$(K).pvd")
     for i in 1:length(Uhist)

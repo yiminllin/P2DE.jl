@@ -112,7 +112,7 @@ for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), Z
                 plotzoom_path,
                 true, md.xq, [exact_sol(equation, xi, T)[1] for xi in md.xq], Int64(round(0.7 * K)), Int64(round(0.9 * K)))
 
-            plot_rho_animation(md, param, prealloc, data_hist, data_hist.θhist, 0, 1.2,
+            plot_rho_animation(md, param, prealloc, discrete_data, data_hist, data_hist.θhist, 0, 1.2,
                 gif_path)
 
             df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)..., :data_history)])

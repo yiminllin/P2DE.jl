@@ -4,19 +4,19 @@ include("./LowOrderPositivityRHS.jl")
 
 function rhs!(param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     @timeit_debug timer "initialize rhs" begin
-        init_get_rhs!(param, param.entropyproj_limiter_type, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+        init_rhs!(param, param.entropyproj_limiter_type, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     end
     @timeit_debug timer "rhs calculation" begin
-        dt = get_rhs!(param.rhs_type, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+        dt = rhs!(param.rhs_type, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     end
     return dt
 end
 
-function init_get_rhs!(param, entropyproj_limiter_type::NoEntropyProjectionLimiter, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function init_rhs!(param, entropyproj_limiter_type::NoEntropyProjectionLimiter, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     return nothing
 end
 
-function init_get_rhs!(param, entropyproj_limiter_type::ScaledExtrapolation, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function init_rhs!(param, entropyproj_limiter_type::ScaledExtrapolation, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; approximation_basis_type) = param
     (; entropyproj_limiter_cache) = caches
 
@@ -25,7 +25,7 @@ function init_get_rhs!(param, entropyproj_limiter_type::ScaledExtrapolation, dis
     end
 end
 
-function get_rhs!(rhs_type::LowOrderPositivity, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function rhs!(rhs_type::LowOrderPositivity, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; rhsL, rhsU) = prealloc
     (; rhs_cache) = caches
 
@@ -36,7 +36,7 @@ function get_rhs!(rhs_type::LowOrderPositivity, param, discrete_data, bcdata, pr
     return dt
 end
 
-function get_rhs!(rhs_type::FluxDiffRHS, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function rhs!(rhs_type::FluxDiffRHS, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; rhsH, rhsU) = prealloc
     (; rhs_cache) = caches
 
@@ -47,7 +47,7 @@ function get_rhs!(rhs_type::FluxDiffRHS, param, discrete_data, bcdata, prealloc,
     return dt
 end
 
-function get_rhs!(rhs_type::LimitedDG, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function rhs!(rhs_type::LimitedDG, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; rhs_cache) = caches
 
     @timeit_debug timer "entropy projection" begin
@@ -68,8 +68,7 @@ end
 # TODO: dispatch on element type instead of the passed in discrete data
 # TODO: refactor with NodewiseScaledExtrapolation
 function entropy_projection_element!(vq_k, v_tilde_k, u_tilde_k, Uq_k, l_k, param, discrete_data, prealloc)
-    (; Nh, Nq, Nfp) = discrete_data.sizes
-    (; Vf, Vf_low, Pq, VhPq) = discrete_data.ops
+    (; Nq, Nfp) = discrete_data.sizes
 
     calculate_entropy_var!(vq_k, Uq_k, param, discrete_data)    # TODO: move calculating entropy var out of entropy projection
     # For nodal collocation, quad values are the same
@@ -94,7 +93,7 @@ function entropy_projection_volume_node!(v_tilde_k, u_tilde_k, vq_k, Uq_k, i, pa
 end
 
 function entropy_projection_face_node!(v_tilde_k, u_tilde_k, vq_k, i, l_k_i, param, discrete_data, prealloc)
-    (; Nh, Nq) = discrete_data.sizes
+    (; Nq) = discrete_data.sizes
     (; Vf, Vf_low) = discrete_data.ops
     # TODO: v_tilde_k[i+Nq] = @views sum(Vf_new[i,:].*vq_k)
     #       requires allocation... why?
@@ -108,8 +107,7 @@ end
 # TODO: ugly dispatch
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::NoEntropyProjectionLimiter, discrete_data, nstage, timer)
     (; Uq, vq, v_tilde, u_tilde) = prealloc
-    (; Nh, Nq, Nfp) = discrete_data.sizes
-    K = get_num_elements(param)
+    (; K) = discrete_data.sizes
 
     @batch for k = 1:K
         vq_k = view(vq, :, k)
@@ -125,8 +123,7 @@ end
 # TODO: ugly dispatch
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::NodewiseScaledExtrapolation, discrete_data, nstage, timer)
     (; Uq, vq, v_tilde, u_tilde) = prealloc
-    (; Nh, Nq, Nfp) = discrete_data.sizes
-    K = get_num_elements(param)
+    (; K, Nq, Nfp) = discrete_data.sizes
 
     @batch for k = 1:K
         vq_k = view(vq, :, k)
