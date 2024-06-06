@@ -58,7 +58,7 @@ end
 # n - normalized normal
 @inline function wavespeed_estimate(equation::CompressibleIdealGas{Dim2}, U, n)
     Un = SVector(U[1], n[1] * U[2] + n[2] * U[3], U[4])
-    return wavespeed_estimate(get_equation_1D(equation), Un)
+    return wavespeed_estimate(to_equation_1D(equation), Un)
 end
 
 @inline function sfun(equation::CompressibleIdealGas{Dim}, U) where {Dim}

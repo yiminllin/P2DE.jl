@@ -52,7 +52,7 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
     @batch for k = 1:K
         epsk = smooth_factor[k, nstage]
         for i = 1:N1D
-            stencil = get_low_order_stencil(i, k, N1D, Nfp, discrete_data, bcdata, dim)
+            stencil = low_order_stencil(i, k, N1D, Nfp, discrete_data, bcdata, dim)
             lbound_s_modified[i, k] = s_modified[i, k]
             for s in stencil
                 lbound_s_modified[i, k] = min(lbound_s_modified[i, k], s_modified[s...])
@@ -80,7 +80,7 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
         epsk = smooth_factor[k, nstage]
         for j = 1:N1D
             for i = 1:N1D
-                stencil = get_low_order_stencil((i, j), k, N1D, Nfp, discrete_data, bcdata, dim)
+                stencil = low_order_stencil((i, j), k, N1D, Nfp, discrete_data, bcdata, dim)
                 lbound_s_modified_k[i, j] = s_modified[i, j, k]
                 for s in stencil
                     lbound_s_modified_k[i, j] = min(lbound_s_modified_k[i, j], s_modified[s...])
@@ -121,7 +121,7 @@ function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas,
     # Compute TVD bounds
     @batch for k = 1:K
         for i = 1:N1D
-            stencil = get_low_order_stencil(i, k, N1D, Nfp, discrete_data, bcdata, dim)
+            stencil = low_order_stencil(i, k, N1D, Nfp, discrete_data, bcdata, dim)
             lbound_rho[i, k] = rhoL[i, k]
             ubound_rho[i, k] = rhoL[i, k]
             for s in stencil
@@ -156,7 +156,7 @@ function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas,
         ubound_rho_k = reshape(view(ubound_rho, :, k), N1D, N1D)
         for j = 1:N1D
             for i = 1:N1D
-                stencil = get_low_order_stencil((i, j), k, N1D, Nfp, discrete_data, bcdata, dim)
+                stencil = low_order_stencil((i, j), k, N1D, Nfp, discrete_data, bcdata, dim)
                 lbound_rho_k[i, j] = rhoL[i, j, k]
                 ubound_rho_k[i, j] = rhoL[i, j, k]
                 for s in stencil
@@ -244,7 +244,6 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
     (; rhs_limiter_type) = param
-    bound_type = get_bound_type(param)
 
     K = num_elements(param)
     Nq = size(Uq, 1)
@@ -261,16 +260,16 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
         for i = 1:Nq
             wJq_i = (wq[i] * Jq[i, k])
             Lphi_i = lbound_s_modified[i, k]
-            Lrho_i, Urho_i = get_rho_bound(bound_type, param, limiter_cache, i, k, tid, dim)
+            Lrho_i, Urho_i = rho_bound(bound_type(param), param, limiter_cache, i, k, tid, dim)
             bound = (Lrho_i, Lrhoe(uL_k[i, tid]), Lphi_i, Urho_i, Urhoe)
-            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], get_limiting_param(rhs_limiter_type, bound_type, param, uL_k[i, tid], -2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_i, bound))
+            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(rhs_limiter_type, bound_type(param), param, uL_k[i, tid], -2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_i, bound))
         end
         for i = 2:Nq+1
             wJq_im1 = (wq[i-1] * Jq[i-1, k])
             Lphi_i = lbound_s_modified[i-1, k]
-            Lrho_i, Urho_i = get_rho_bound(bound_type, param, limiter_cache, i - 1, k, tid, dim)
+            Lrho_i, Urho_i = rho_bound(bound_type(param), param, limiter_cache, i - 1, k, tid, dim)
             bound = (Lrho_i, Lrhoe(uL_k[i-1, tid]), Lphi_i, Urho_i, Urhoe)
-            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], get_limiting_param(rhs_limiter_type, bound_type, param, uL_k[i-1, tid], 2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_im1, bound))
+            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(rhs_limiter_type, bound_type(param), param, uL_k[i-1, tid], 2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_im1, bound))
         end
 
         # Apply shock capturing
@@ -288,7 +287,6 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
     (; rhs_limiter_type) = param
-    bound_type = get_bound_type(param)
 
     K = num_elements(param)
     Nq = size(Uq, 1)
@@ -334,9 +332,9 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = get_rho_bound(bound_type, param, limiter_cache, (iq, jq), k, tid, dim)
+                Lrho_i, Urho_i = rho_bound(bound_type(param), param, limiter_cache, (iq, jq), k, tid, dim)
                 bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], get_limiting_param(rhs_limiter_type, bound_type, param, uL_k_i, -4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound))
+                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], limiting_param(rhs_limiter_type, bound_type(param), param, uL_k_i, -4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound))
             end
             # For each right subcell face
             for si = 2:N1Dp1
@@ -346,9 +344,9 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = get_rho_bound(bound_type, param, limiter_cache, (iq, jq), k, tid, dim)
+                Lrho_i, Urho_i = rho_bound(bound_type(param), param, limiter_cache, (iq, jq), k, tid, dim)
                 bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], get_limiting_param(rhs_limiter_type, bound_type, param, uL_k_i, 4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound))
+                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], limiting_param(rhs_limiter_type, bound_type(param), param, uL_k_i, 4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound))
             end
         end
 
@@ -362,9 +360,9 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = get_rho_bound(bound_type, param, limiter_cache, (iq, jq), k, tid, dim)
+                Lrho_i, Urho_i = rho_bound(bound_type(param), param, limiter_cache, (iq, jq), k, tid, dim)
                 bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], get_limiting_param(rhs_limiter_type, bound_type, param, uL_k_i, -4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound))
+                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], limiting_param(rhs_limiter_type, bound_type(param), param, uL_k_i, -4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound))
             end
             # For each top subcell face
             for sj = 2:N1Dp1
@@ -374,9 +372,9 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = get_rho_bound(bound_type, param, limiter_cache, (iq, jq), k, tid, dim)
+                Lrho_i, Urho_i = rho_bound(bound_type(param), param, limiter_cache, (iq, jq), k, tid, dim)
                 bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], get_limiting_param(rhs_limiter_type, bound_type, param, uL_k_i, 4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound))
+                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], limiting_param(rhs_limiter_type, bound_type(param), param, uL_k_i, 4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound))
             end
         end
 
@@ -388,14 +386,14 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
 end
 
 # TODO: refactor
-function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim1)
+function rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim1)
     (; lbound_rho, ubound_rho) = cache
     Lrho = lbound_rho[i, k]
     Urho = ubound_rho[i, k]
     return (Lrho, Urho)
 end
 
-function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim2)
+function rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim2)
     (; lbound_rho, ubound_rho) = cache
     iq, jq = i
     N1D = param.N + 1
@@ -406,7 +404,7 @@ function get_rho_bound(bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndR
     return (Lrho, Urho)
 end
 
-function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim1)
+function rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim1)
     (; uL_k) = cache
     (; ζ) = param.limiting_param
     Lrho = ζ * uL_k[i, tid][1]
@@ -414,7 +412,7 @@ function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntrop
     return (Lrho, Urho)
 end
 
-function get_rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim2)
+function rho_bound(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, param, cache, i, k, tid, dim::Dim2)
     (; uL_k) = cache
     (; ζ) = param.limiting_param
     iq, jq = i
@@ -471,7 +469,7 @@ function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::D
         for sj = 1:N1D
             # For each subcell index on boundary
             for si = 1:N1D:N1Dp1
-                siP, sjP, kP = get_subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
+                siP, sjP, kP = subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
                 idx = si + (sj - 1) * N1Dp1
                 idxP = siP + (sjP - 1) * N1Dp1
                 l = min(Lx_local[idx, k], Lx_local[idxP, kP])
@@ -484,7 +482,7 @@ function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::D
         for si = 1:N1D
             # For each subcell index on boundary
             for sj = 1:N1D:N1Dp1
-                siP, sjP, kP = get_subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
+                siP, sjP, kP = subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
                 idx = si + (sj - 1) * N1D
                 idxP = siP + (sjP - 1) * N1D
                 l = min(Ly_local[idx, k], Ly_local[idxP, kP])
@@ -524,7 +522,7 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
             uf = Uq[iq, k]
             vf[i, k] = v_ufun(equation, uf)
             psif[i, k] = psi_ufun(equation, uf)
-            Bxy_i = get_Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim)
             sum_Bpsi[k] += @. Bxy_i * psif[i, k]
         end
 
@@ -569,7 +567,7 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
             uf = Uq[iq, k]
             vf[i, k] = v_ufun(equation, uf)
             psif[i, k] = psi_ufun(equation, uf)
-            Bxy_i = get_Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim)
             sum_Bpsi[k] += @. Bxy_i * psif[i, k]
         end
 
@@ -613,7 +611,6 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
     (; dvdf, sum_Bpsi, sum_dvfbarL) = cache
     (; dvdf_order, smooth_factor) = cache
     (; Nq) = discrete_data.sizes
-    bound_type = get_bound_type(param)
 
     K = num_elements(param)
     @batch for k = 1:K
@@ -633,7 +630,7 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
             li = L_local_k[si]
             sum_dvdf_k_poslim += li * dvdf_k[si-1]
         end
-        rhs = get_rhs_es(bound_type, sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
+        rhs = rhs_es(bound_type(param), sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
         entropy_estimate_poslim = sum_dvdf_k_poslim - rhs
 
         tol = max(0.0, sum_dvfbarL[k][1] - sum_Bpsi[k][1])
@@ -678,7 +675,6 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
     (; dvdf, sum_Bpsi, sum_dvfbarL) = cache
     (; dvdf_order, smooth_factor) = cache
     (; Nq) = discrete_data.sizes
-    bound_type = get_bound_type(param)
 
     K = num_elements(param)
     N1D = param.N + 1
@@ -707,7 +703,7 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
                 sum_dvdfx_k_poslim += lij * dvdfx_k[si-1, sj]
             end
         end
-        rhsx = get_rhs_es(bound_type, sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
+        rhsx = rhs_es(bound_type(param), sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
         entropy_estimate_poslim_x = sum_dvdfx_k_poslim - rhsx
 
         sum_dvdfy_k_poslim = 0.0
@@ -717,7 +713,7 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
                 sum_dvdfy_k_poslim += lij * dvdfy_k[si, sj-1]
             end
         end
-        rhsy = get_rhs_es(bound_type, sum_Bpsi[k][2], sum_dvfbarL[k][2], epsk)
+        rhsy = rhs_es(bound_type(param), sum_Bpsi[k][2], sum_dvfbarL[k][2], epsk)
         entropy_estimate_poslim_y = sum_dvdfy_k_poslim - rhsy
 
         tolx = max(0.0, sum_dvfbarL[k][1] - sum_Bpsi[k][1])
@@ -792,11 +788,11 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
     end
 end
 
-function get_rhs_es(bound_type::Union{PositivityAndCellEntropyBound,TVDAndCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
+function rhs_es(bound_type::Union{PositivityAndCellEntropyBound,TVDAndCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
     return sum_Bpsi_k - sum_dvfbarL_k
 end
 
-function get_rhs_es(bound_type::Union{PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
+function rhs_es(bound_type::Union{PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
     beta = bound_type.beta
     return (1 - beta * epsk) * (sum_Bpsi_k - sum_dvfbarL_k)
 end
@@ -823,7 +819,7 @@ function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bc
             # For each subcell index on boundary
             # TODO: calculation of limiting param, redundant across subcell faces
             for si = 1:N1D:N1Dp1
-                siP, sjP, kP = get_subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
+                siP, sjP, kP = subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
                 idx = si + (sj - 1) * N1Dp1
                 idxP = siP + (sjP - 1) * N1Dp1
                 ifq = subcell_face_idx_to_quad_face_index_x(si, sj, k, N1D)
@@ -842,7 +838,7 @@ function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bc
             # For each subcell index on boundary
             # TODO: calculation of limiting param, redundant across subcell faces
             for sj = 1:N1D:N1Dp1
-                siP, sjP, kP = get_subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
+                siP, sjP, kP = subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
                 idx = si + (sj - 1) * N1D
                 idxP = siP + (sjP - 1) * N1D
                 ifq = subcell_face_idx_to_quad_face_index_y(si, sj, k, N1D)
@@ -992,8 +988,8 @@ function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, 
     K = num_elements(param)
     N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
-    Nd = get_dim(equation)
-    dim = get_dim_type(equation)
+    Nd = dim(equation)
+    dim = dim_type(equation)
 
     # Accumulate volume and surface subcell part
     @batch for k = 1:K
@@ -1117,7 +1113,7 @@ function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, 
             iq = fq2q[i]
             uf = Uq[iq, k]
             vf = v_ufun(equation, uf)
-            Bxy_i = get_Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim)
             sum_Bpsi += Bxy_i .* psi_ufun(equation, uf)
             sum_Bpsitilde += Bxy_i .* psi_ufun(equation, u_tilde[Nq+i, k])
             vftildeBfH += Bxy_i .* SVector(sum(v_tilde[Nq+i, k] .* fstar_H[i, k][1]), sum(v_tilde[Nq+i, k] .* fstar_H[i, k][2]))

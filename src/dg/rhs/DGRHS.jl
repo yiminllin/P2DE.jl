@@ -4,19 +4,19 @@ include("./LowOrderPositivityRHS.jl")
 
 function rhs!(param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     @timeit_debug timer "initialize rhs" begin
-        init_get_rhs!(param, param.entropyproj_limiter_type, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+        init_rhs!(param, param.entropyproj_limiter_type, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     end
     @timeit_debug timer "rhs calculation" begin
-        dt = get_rhs!(param.rhs_type, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+        dt = rhs!(param.rhs_type, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     end
     return dt
 end
 
-function init_get_rhs!(param, entropyproj_limiter_type::NoEntropyProjectionLimiter, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function init_rhs!(param, entropyproj_limiter_type::NoEntropyProjectionLimiter, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     return nothing
 end
 
-function init_get_rhs!(param, entropyproj_limiter_type::ScaledExtrapolation, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function init_rhs!(param, entropyproj_limiter_type::ScaledExtrapolation, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; approximation_basis_type) = param
     (; entropyproj_limiter_cache) = caches
 
@@ -25,7 +25,7 @@ function init_get_rhs!(param, entropyproj_limiter_type::ScaledExtrapolation, dis
     end
 end
 
-function get_rhs!(rhs_type::LowOrderPositivity, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function rhs!(rhs_type::LowOrderPositivity, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; rhsL, rhsU) = prealloc
     (; rhs_cache) = caches
 
@@ -36,7 +36,7 @@ function get_rhs!(rhs_type::LowOrderPositivity, param, discrete_data, bcdata, pr
     return dt
 end
 
-function get_rhs!(rhs_type::FluxDiffRHS, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function rhs!(rhs_type::FluxDiffRHS, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; rhsH, rhsU) = prealloc
     (; rhs_cache) = caches
 
@@ -47,7 +47,7 @@ function get_rhs!(rhs_type::FluxDiffRHS, param, discrete_data, bcdata, prealloc,
     return dt
 end
 
-function get_rhs!(rhs_type::LimitedDG, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function rhs!(rhs_type::LimitedDG, param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; rhs_cache) = caches
 
     @timeit_debug timer "entropy projection" begin

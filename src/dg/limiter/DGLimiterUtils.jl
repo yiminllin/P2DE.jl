@@ -1,29 +1,29 @@
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
 # TODO: refactor
-function get_limiting_param(rhs_limiter_type::ZhangShuLimiter, bound_type, param, UL, P, bound)
+function limiting_param(rhs_limiter_type::ZhangShuLimiter, bound_type, param, UL, P, bound)
     Lrho, Lrhoe, Urho, Urhoe = bound
-    l = min(1.0, get_limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe))
+    l = min(1.0, limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe))
     return l
 end
 
-function get_limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, param, UL, P, bound)
+function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, param, UL, P, bound)
     Lrho, Lrhoe, Lphi, Urho, Urhoe = bound
-    l = get_limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe)
+    l = limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe)
     return l
 end
 
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
 #             phi(UL + lP)  ∈ [Lphi, inf),    phi = rhoe rho^{-\gamma}, modified specific entropy
-function get_limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, UL, P, bound)
+function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, UL, P, bound)
     Lrho, Lrhoe, Lphi, Urho, Urhoe = bound
-    lpos = get_limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe)
-    l = get_limiting_param_bound_phi(param, UL, P, Lphi, lpos)   # TODO: assume for l \in [0,lpos] gives positive quantities
+    lpos = limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe)
+    l = limiting_param_bound_phi(param, UL, P, Lphi, lpos)   # TODO: assume for l \in [0,lpos] gives positive quantities
     return l
 end
 
-function get_limiting_param_bound_rho_rhoe(param, U, P, Lrho, Lrhoe, Urho, Urhoe)
+function limiting_param_bound_rho_rhoe(param, U, P, Lrho, Lrhoe, Urho, Urhoe)
     l = 1.0
     # Limit density, lower bound
     if U[1] + P[1] < Lrho
@@ -39,7 +39,7 @@ function get_limiting_param_bound_rho_rhoe(param, U, P, Lrho, Lrhoe, Urho, Urhoe
     return l
 end
 
-function get_limiting_param_bound_phi(param, U, P, Lphi, lpos)
+function limiting_param_bound_phi(param, U, P, Lphi, lpos)
     (; equation) = param
     (; POSTOL) = param.global_constants
 
@@ -52,13 +52,13 @@ end
 function rhoe_quadratic_solve(param, UL, P, Lrhoe)
     (; ZEROTOL) = param.global_constants
 
-    dim = get_dim_type(param.equation)
+    dim = dim_type(param.equation)
     if Lrhoe == Inf
         return 1.0
     end
 
     # limiting internal energy (via quadratic function) lower bound
-    a, b, c = get_rhoe_quadratic_coefficients(UL, P, Lrhoe, dim)
+    a, b, c = rhoe_quadratic_coefficients(UL, P, Lrhoe, dim)
 
     l_eps_ij = 1.0
     if b^2 - 4 * a * c >= 0
@@ -76,14 +76,14 @@ function rhoe_quadratic_solve(param, UL, P, Lrhoe)
     return l_eps_ij
 end
 
-function get_rhoe_quadratic_coefficients(U, P, Lrhoe, dim::Dim1)
+function rhoe_quadratic_coefficients(U, P, Lrhoe, dim::Dim1)
     a = P[1] * P[3] - 1.0 / 2.0 * P[2]^2
     b = U[3] * P[1] + U[1] * P[3] - U[2] * P[2] - P[1] * Lrhoe
     c = U[3] * U[1] - 1.0 / 2.0 * U[2]^2 - U[1] * Lrhoe
     return a, b, c
 end
 
-function get_rhoe_quadratic_coefficients(U, P, Lrhoe, dim::Dim2)
+function rhoe_quadratic_coefficients(U, P, Lrhoe, dim::Dim2)
     a = P[1] * P[4] - 1.0 / 2.0 * (P[2]^2 + P[3]^2)
     b = U[4] * P[1] + U[1] * P[4] - U[2] * P[2] - U[3] * P[3] - P[1] * Lrhoe
     c = U[4] * U[1] - 1.0 / 2.0 * (U[2]^2 + U[3]^2) - U[1] * Lrhoe
@@ -119,7 +119,7 @@ function subcell_face_idx_to_quad_face_index_y(si, sj, k, N1D)
 end
 
 # TODO: refactor
-function get_subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
+function subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
     (; mapP) = bcdata
 
     N1D = N1Dp1 - 1
@@ -149,7 +149,7 @@ function get_subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
 end
 
 # TODO: refactor
-function get_subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
+function subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
     (; mapP) = bcdata
 
     N1D = N1Dp1 - 1
@@ -200,7 +200,7 @@ function quad_index_to_quad_index_P(idx, k, N1D, Nfp, q2fq, direction, fq2q, map
     return iP, jP, kP
 end
 
-function get_low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim1)
+function low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim1)
     (; q2fq, fq2q) = discrete_data.ops
     (; mapP) = bcdata
     i = idx
@@ -209,7 +209,7 @@ function get_low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim
     return (sl, sr)
 end
 
-function get_low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim2)
+function low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim2)
     (; q2fq, fq2q) = discrete_data.ops
     (; mapP) = bcdata
     i, j = idx

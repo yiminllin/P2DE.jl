@@ -82,7 +82,7 @@ function apply_transfer_limiter!(prealloc, param, discrete_data, T, L, k)
     (; uL_k, P_k) = prealloc
 
     Uk = view(prealloc.Uq, :, k)
-    avg_k = get_average(Uk, discrete_data.ops.wq)
+    avg_k = average(Uk, discrete_data.ops.wq)
     for i = 1:size(uL_k, 1)
         uL_k[i] = avg_k
     end
@@ -91,7 +91,7 @@ function apply_transfer_limiter!(prealloc, param, discrete_data, T, L, k)
 
     Lrho = param.global_constants.POSTOL
     Lrhoe = param.global_constants.POSTOL
-    Urho, Urhoe = get_upper_bound(Uk, param)
+    Urho, Urhoe = upper_bound(Uk, param)
 
     zhang_shu_bound_limiter!(L, param, uL_k, P_k, k, Lrho, Lrhoe, Urho, Urhoe, 1)
     for i = 1:size(Uk, 1)
@@ -99,7 +99,7 @@ function apply_transfer_limiter!(prealloc, param, discrete_data, T, L, k)
     end
 end
 
-function get_average(Uk, wq)
+function average(Uk, wq)
     avg_k = zero(SVector{3,Float64})
     for i = 1:size(Uk, 1)
         avg_k = avg_k + wq[i] * Uk[i]
@@ -108,7 +108,7 @@ function get_average(Uk, wq)
     return avg_k
 end
 
-function get_upper_bound(Uk, param)
+function upper_bound(Uk, param)
     (; η) = param.limiting_param
 
     Urho = -Inf

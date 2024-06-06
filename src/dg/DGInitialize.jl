@@ -3,7 +3,7 @@ function initialize_preallocations(param, md, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
     K = num_elements(param)
-    Nd = get_dim(param.equation)
+    Nd = dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
 
     Uq = zeros(SVector{Nc,Float64}, Nq, K)
@@ -41,18 +41,9 @@ end
 
 function initialize_cache(param, md, sizes)
     (; rhs_type, rhs_limiter_type, entropyproj_limiter_type) = param
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    dim = get_dim_type(param.equation)
-    K = num_elements(param)
-    Nd = get_dim(param.equation)
+    dim = dim_type(param.equation)
 
-    rhs_cache = get_rhs_cache(rhs_type, param, sizes)
-    limiter_cache = get_limiter_cache(rhs_limiter_type, param, sizes)
-    shockcapture_cache = get_shockcapture_cache(get_shockcapture_type(rhs_limiter_type), param, sizes)
-    entropyproj_limiter_cache = get_entropyproj_limiter_cache(entropyproj_limiter_type, param, sizes)
-    postprocessing_cache = get_postprocessing_cache(param, md, dim)
-
-    return Caches(rhs_cache, limiter_cache, shockcapture_cache, entropyproj_limiter_cache, postprocessing_cache)
+    return Caches(rhs_cache(rhs_type, param, sizes), limiter_cache(rhs_limiter_type, param, sizes), shockcapture_cache(shockcapture_type(rhs_limiter_type), param, sizes), entropyproj_limiter_cache(entropyproj_limiter_type, param, sizes), postprocessing_cache(param, md, dim))
 end
 
 function initialize_DG(param, initial_condition, initial_boundary_conditions)
@@ -162,7 +153,7 @@ function initialize_operators(param, rd, quad_type)
     Vf = Matrix(Vf)
 
     # Construct geometric factors
-    Jq, GJh = get_geometric_factors(param, rd, md, rd.element_type)
+    Jq, GJh = geometric_factors(param, rd, md, rd.element_type)
 
     # Construct hybridized SBP operators
     Vh = [Vq; Vf]
@@ -175,7 +166,7 @@ function initialize_operators(param, rd, quad_type)
     Srsh_db = Tuple((A -> 2 * A).(Srsh))
 
     # Define sizes
-    Ns = 3   # TODO: define get_num_stage() for RK time stepper
+    Ns = 3   # TODO: define num_stage() for RK time stepper
     Nc = num_components(param.equation)
     Np = size(VDM, 2)
     Nq = length(wq)
@@ -192,7 +183,7 @@ function initialize_operators(param, rd, quad_type)
     VhPq = Vh * Pq
 
     # Low order operators
-    Srs0, Vf_low = get_low_order_operators(param, rd, rd.element_type, quad_type)
+    Srs0, Vf_low = low_order_operators(param, rd, rd.element_type, quad_type)
     Vf_low = Matrix(Vf_low)  # TODO: for type stability...
     # TODO: for LGL, there is value close to 1.0 but not exactly 1.0, hardcode for now...
     for i = 1:Nfp
@@ -268,7 +259,7 @@ function initialize_uniform_mesh_data(param, rd, element_type::Quad)
     return md
 end
 
-function get_geometric_factors(param, rd, md, element_type::Line)
+function geometric_factors(param, rd, md, element_type::Line)
     (; Vq, Vf) = rd
     (; J, rxJ) = md
 
@@ -279,7 +270,7 @@ function get_geometric_factors(param, rd, md, element_type::Line)
     return Jq, (rxJh,)
 end
 
-function get_geometric_factors(param, rd, md, element_type::Quad)
+function geometric_factors(param, rd, md, element_type::Quad)
     (; Vq, Vf) = rd
     (; J, rxJ, sxJ, ryJ, syJ) = md
 
@@ -311,22 +302,22 @@ function construct_low_order_operators_1D(param)
     return Qr0, Sr0, Vf_low
 end
 
-function get_low_order_operators(param, rd, element_type::Line, quad_type)
+function low_order_operators(param, rd, element_type::Line, quad_type)
     _, Sr0, Vf_low = construct_low_order_operators_1D(param)
     return (Sr0,), Vf_low
 end
 
-function get_low_order_operators(param, rd, element_type::Quad, quad_type::GaussQuadrature)
+function low_order_operators(param, rd, element_type::Quad, quad_type::GaussQuadrature)
     _, w1D = gauss_quad(0, 0, param.N)
-    return get_low_order_operators(param, rd, element_type, quad_type, w1D)
+    return low_order_operators(param, rd, element_type, quad_type, w1D)
 end
 
-function get_low_order_operators(param, rd, element_type::Quad, quad_type::LobattoQuadrature)
+function low_order_operators(param, rd, element_type::Quad, quad_type::LobattoQuadrature)
     _, w1D = gauss_lobatto_quad(0, 0, param.N)
-    return get_low_order_operators(param, rd, element_type, quad_type, w1D)
+    return low_order_operators(param, rd, element_type, quad_type, w1D)
 end
 
-function get_low_order_operators(param, rd, element_type::Quad, quad_type, w1D)
+function low_order_operators(param, rd, element_type::Quad, quad_type, w1D)
     ZEROTOL = param.global_constants.ZEROTOL
     M1D = diagm(w1D)
     Q01D, _, _ = construct_low_order_operators_1D(param)
@@ -334,11 +325,11 @@ function get_low_order_operators(param, rd, element_type::Quad, quad_type, w1D)
     Qs0 = droptol!(sparse(kron(Q01D, M1D)), ZEROTOL)
     Sr0 = droptol!(sparse(0.5 * (Qr0 - Qr0')), ZEROTOL)
     Ss0 = droptol!(sparse(0.5 * (Qs0 - Qs0')), ZEROTOL)
-    Vf_low = get_low_order_extrapolation(param, rd, element_type, quad_type)
+    Vf_low = low_order_extrapolation(param, rd, element_type, quad_type)
     return (Sr0, Ss0), Vf_low
 end
 
-function get_low_order_extrapolation(param, rd, element_type::Quad, quad_type::GaussQuadrature)
+function low_order_extrapolation(param, rd, element_type::Quad, quad_type::GaussQuadrature)
     N = param.N
     Nq1D = N + 1
     Nq = (N + 1) * (N + 1)
@@ -352,7 +343,7 @@ function get_low_order_extrapolation(param, rd, element_type::Quad, quad_type::G
     return sparse(Is, Js, Vs, Nfp, Nq)
 end
 
-function get_low_order_extrapolation(param, rd, element_type::Quad, quad_type::LobattoQuadrature)
+function low_order_extrapolation(param, rd, element_type::Quad, quad_type::LobattoQuadrature)
     return droptol!(sparse(rd.Vf), param.global_constants.ZEROTOL)
 end
 

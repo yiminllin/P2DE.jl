@@ -18,7 +18,7 @@ function entropy_projection!(prealloc, param, entropyproj_limiter_type::Union{Ad
     end
 end
 
-function init_get_rhs!(param, entropyproj_limiter_type::AdaptiveFilter, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
+function init_rhs!(param, entropyproj_limiter_type::AdaptiveFilter, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     (; approximation_basis_type) = param
     (; entropyproj_limiter_cache) = caches
 
@@ -37,10 +37,10 @@ function project_flux_difference_to_quad!(cache, prealloc, param, entropyproj_li
     project_flux_difference_to_quad_unlimited!(k, cache, prealloc, discrete_data)
 end
 
-function get_entropyproj_limiter_cache(entropyproj_limiter_type::AdaptiveFilter, param, sizes)
+function entropyproj_limiter_cache(entropyproj_limiter_type::AdaptiveFilter, param, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
     K = num_elements(param)
-    Nd = get_dim(param.equation)
+    Nd = dim(param.equation)
 
     return EntropyProjectionLimiterCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp)
 end

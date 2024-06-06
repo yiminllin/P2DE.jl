@@ -14,7 +14,7 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     for k = 1:K
         U_k = @views U[:, k]
         for i = 1:Nq
-            exact_U_k_i = get_exact_solution(prealloc, i, k, T, md, equation, exact_sol)
+            exact_U_k_i = exact_solution(prealloc, i, k, T, md, equation, exact_sol)
             wJq_i = discrete_data.ops.wq[i] * discrete_data.geom.Jq[i]
             L1err = L1err + wJq_i * @. abs(exact_U_k_i - U_k[i])
             L2err = L2err + wJq_i * @. abs(exact_U_k_i - U_k[i])^2
@@ -45,13 +45,13 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     return err
 end
 
-function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim1}, exact_sol)
+function exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim1}, exact_sol)
     (; xq) = md
     xq_i = xq[i, k]
     return primitive_to_conservative(equation, exact_sol(equation, xq_i, T))
 end
 
-function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim2}, exact_sol)
+function exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim2}, exact_sol)
     (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]
@@ -59,7 +59,7 @@ function get_exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGa
 end
 
 # TODO: hardcoded
-function get_exact_solution(prealloc, i, k, T, md, equation::KPP{Dim2}, exact_sol)
+function exact_solution(prealloc, i, k, T, md, equation::KPP{Dim2}, exact_sol)
     (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]
@@ -147,7 +147,7 @@ function visualize_error_data(df)
 end
 
 # TODO: hardcoded
-function get_postprocessing_cache(param, md, dim::Dim1)
+function postprocessing_cache(param, md, dim::Dim1)
     (; K) = param
     (; N) = param
     (; xq) = md
@@ -160,7 +160,7 @@ function get_postprocessing_cache(param, md, dim::Dim1)
 end
 
 # TODO: only works for rectangular 2D quad mesh
-function get_postprocessing_cache(param, md, dim::Dim2)
+function postprocessing_cache(param, md, dim::Dim2)
     (; K) = param
     (; N) = param
     (; xq, yq) = md

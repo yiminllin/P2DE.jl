@@ -265,8 +265,8 @@ end
 function calculate_dvB_i_k(i, k, θ_i, prealloc, param, discrete_data)
     (; VUfH, VUfL) = prealloc
     (; equation) = param
-    dim = get_dim_type(equation)
-    Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
+    dim = dim_type(equation)
+    Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
     vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
     vf_i_k = VUfL[i, k]
     dv = vf_tilde_i_k - vf_i_k
@@ -284,7 +284,7 @@ end
 function calculate_dvBdf_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)
     (; VUfH, VUfL, VUPH, VUPL, fstar_L) = prealloc
     (; equation) = param
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
     vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
     vP_tilde_i_k = θP_i * VUPH[i, k] + (1.0 - θP_i) * VUPL[i, k]
     uf_tilde_i_k = u_vfun(equation, vf_tilde_i_k)
@@ -307,8 +307,8 @@ end
 function calculate_G_i_k(i, k, θ_i, prealloc, param, discrete_data)
     (; VUfH, VUfL, psif, fstar_L) = prealloc
     (; equation) = param
-    dim = get_dim_type(equation)
-    Bxy_i = get_Bx(i, k, discrete_data, dim)
+    dim = dim_type(equation)
+    Bxy_i = Bx(i, k, discrete_data, dim)
 
     vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
     uf_tilde_i_k = u_vfun(equation, vf_tilde_i_k)
@@ -331,7 +331,7 @@ function calc_face_values_ES!(prealloc, cache, param, equation, discrete_data, b
 
     K = num_elements(param)
     Nfp = discrete_data.sizes.Nfp
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
     # Initialize entropy variable and entropy potential
     @batch for k = 1:K
         mul!(view(UfL, :, k), Vf_low, view(Uq, :, k))
@@ -367,7 +367,7 @@ function calculate_numerical_flux(uf, uP, i, k, prealloc, param, discrete_data, 
     (; equation, N) = param
     (; UfL, UPL) = prealloc
     N1D = N + 1
-    Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
+    Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
     n_i = Bxy_i ./ n_i_norm
 
     flux = 0.5 .* (fluxes(equation, uf) .+ fluxes(equation, uP))
@@ -385,14 +385,13 @@ end
 ###################
 function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, dt, nstage, rhs_limiter_type::SubcellLimiter, timer)
     (; limiter_cache, shockcapture_cache) = caches
-    dim = get_dim_type(param.equation)
-    shockcapture_type = get_shockcapture_type(param)
-    bound_type = get_bound_type(param)
+    dim = dim_type(param.equation)
+    bound_type = bound_type(param)
     @timeit_debug timer "Initialize smoothness indicator" begin
-        initialize_smoothness_indicator!(shockcapture_type, bound_type, prealloc, param, discrete_data, nstage)
+        initialize_smoothness_indicator!(shockcapture_type(param), bound_type, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "calculate blending factor" begin
-        update_blending_factor!(shockcapture_type, shockcapture_cache, prealloc, param, discrete_data, nstage)
+        update_blending_factor!(shockcapture_type(param), shockcapture_cache, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "calculate smoothness factor" begin
         update_smoothness_factor!(bound_type, limiter_cache, prealloc, param, nstage)
@@ -494,7 +493,7 @@ function initialize_entropy_vars!(cache, prealloc, bound_type, param, discrete_d
         mul!(view(VUfL, :, k), Vf_low, view(vq, :, k))
         sum_Bpsi[k] = zero(sum_Bpsi[k])
         for i = 1:Nfp
-            Bxy_i = get_Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim)
             psif[i, k] = psi_ufun(equation, UfL[i, k])
             sum_Bpsi[k] += Bxy_i .* psif[i, k]
         end
@@ -752,7 +751,7 @@ function enforce_ES_subcell_flux!(cache, prealloc, param, discrete_data, bcdata,
             # For each subcell index on boundary
             # TODO: calculation of limiting param, redundant across subcell faces
             for si = 1:N1D:N1Dp1
-                siP, sjP, kP = get_subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
+                siP, sjP, kP = subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
                 idx = si + (sj - 1) * N1Dp1
                 idxP = siP + (sjP - 1) * N1Dp1
                 ifq = subcell_face_idx_to_quad_face_index_x(si, sj, k, N1D)
@@ -771,7 +770,7 @@ function enforce_ES_subcell_flux!(cache, prealloc, param, discrete_data, bcdata,
             # For each subcell index on boundary
             # TODO: calculation of limiting param, redundant across subcell faces
             for sj = 1:N1D:N1Dp1
-                siP, sjP, kP = get_subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
+                siP, sjP, kP = subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
                 idx = si + (sj - 1) * N1D
                 idxP = siP + (sjP - 1) * N1D
                 ifq = subcell_face_idx_to_quad_face_index_y(si, sj, k, N1D)
@@ -797,7 +796,7 @@ function initialize_preallocations(param, md, sizes)
     (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
     K = num_elements(param)
-    Nd = get_dim(param.equation)
+    Nd = dim(param.equation)
     N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
 
     Uq = zeros(SVector{Nc,Float64}, Nq, K)

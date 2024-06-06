@@ -8,7 +8,7 @@ end
 # Initialize smoothness indicator when using subcell limiter w/ min entropy bound
 #                              or when using modal shock capture scheme
 function initialize_smoothness_indicator!(shockcapture_type, bound_type, prealloc, param, discrete_data, nstage)
-    dim = get_dim_type(param.equation)
+    dim = dim_type(param.equation)
     initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage, dim)
 end
 

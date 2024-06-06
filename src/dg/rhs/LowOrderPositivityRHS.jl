@@ -4,7 +4,7 @@
 function rhs_pos_Gauss!(prealloc, rhs_cache, param, discrete_data, bcdata, t, dt, nstage, timer, need_proj=true)
     (; entropyproj_limiter_type, equation) = param
 
-    cache = get_low_order_cache(rhs_cache)
+    cache = low_order_cache(rhs_cache)
     @timeit_debug timer "entropy projection" begin
         if (need_proj)
             entropy_projection!(prealloc, param, entropyproj_limiter_type, discrete_data, nstage, timer)
@@ -38,7 +38,7 @@ function rhs_pos_Gauss!(prealloc, rhs_cache, param, discrete_data, bcdata, t, dt
         end
     end
 
-    # check_low_order_entropy_stability(cache,prealloc,param,discrete_data,get_dim_type(equation))
+    # check_low_order_entropy_stability(cache,prealloc,param,discrete_data,dim_type(equation))
 
     return dt
 end
@@ -46,7 +46,7 @@ end
 function calculate_wavespeed_and_inviscid_flux!(cache, prealloc, param, discrete_data)
     K = num_elements(param)
     @batch for k = 1:K
-        update_face_values!(cache, prealloc, k, discrete_data, get_low_order_surface_flux(param.rhs_type))
+        update_face_values!(cache, prealloc, k, discrete_data, low_order_surface_flux_type(param.rhs_type))
         update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete_data)
     end
 end
@@ -82,7 +82,7 @@ function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete
 
     Nq = size(Uq, 1)
     Nfp = size(Uf, 1)
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
 
     # Volume inviscid flux
     for i = 1:Nq
@@ -93,7 +93,7 @@ function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete
     # Surface wavespeed and inviscid flux
     for i = 1:Nfp
         u_i = Uf[i, k]
-        Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
+        Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
         n_i = @. Bxy_i / n_i_norm
         wavespeed_f[i, k] = wavespeed_estimate(equation, u_i, n_i)
         flux[i+Nq, k] = fluxes(equation, u_i)
@@ -145,7 +145,7 @@ function clear_low_order_rhs!(cache, prealloc, param)
 
     K = num_elements(param)
     Nc = num_components(param.equation)
-    Nd = get_dim(param.equation)
+    Nd = dim(param.equation)
     @batch for k = 1:K
         for i = 1:size(rhsxyL, 1)
             rhsxyL[i, k] = zero(rhsxyL[i, k])
@@ -160,7 +160,7 @@ function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
     (; flux, λarr, Q0F1) = cache
     (; Srs0_nnz) = discrete_data.ops
 
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
     K = num_elements(param)
     Nq = size(Q0F1, 1)
     @batch for k = 1:K
@@ -171,14 +171,14 @@ function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
             Fxyij = @. 0.5 * (flux[i, k] + flux[j, k])
             # TODO: assume Sxy0J_ij = -Sxy0J_ji
             #              n_ij_norm = n_ji_norm
-            #              Sxy0J_ji,n_ji_norm = get_Sx0_with_n(j,i,k,discrete_data,dim)
-            Sxy0J_ij, n_ij_norm = get_Sx0_with_n(i, j, k, discrete_data, dim)
+            #              Sxy0J_ji,n_ji_norm = Sx0_with_n(j,i,k,discrete_data,dim)
+            Sxy0J_ij, n_ij_norm = Sx0_with_n(i, j, k, discrete_data, dim)
             n_ij = @. Sxy0J_ij / n_ij_norm
             n_ji = -n_ij
             wavespeed_ij = max(wavespeed_estimate(equation, u_i, n_ij), wavespeed_estimate(equation, u_j, n_ji))
             λarr[i, j, k] = n_ij_norm * wavespeed_ij
             λarr[j, i, k] = λarr[i, j, k]
-            ΛD_ij = get_graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim)
+            ΛD_ij = graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim)
             SFxy_ΛD_ij = @. 2.0 * Sxy0J_ij * Fxyij - ΛD_ij
             SFxy_ΛD_ji = -SFxy_ΛD_ij
             Q0F1[i, k] += SFxy_ΛD_ij
@@ -201,8 +201,7 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
     (; fq2q) = discrete_data.ops
 
     K = num_elements(param)
-    dim = get_dim_type(equation)
-    Nd = get_dim(equation)
+    dim = dim_type(equation)
     Nq = size(prealloc.Uq, 1)
     Nfp = size(bcdata.mapP, 1)
     @batch for k = 1:K
@@ -213,7 +212,7 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
             iP = mod1(mapP[i, k], Nfp)
             kP = div(mapP[i, k] - 1, Nfp) + 1
 
-            Bxy_i, n_i_norm = get_Bx_with_n(i, k, discrete_data, dim)
+            Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
             λBarr[i, k] = 0.5 * n_i_norm * max(wavespeed_f[i, k], wavespeed_f[iP, kP])
 
             flux_xy_P = fluxes(equation, uP[i, k])
@@ -221,8 +220,8 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
             BF_L[i, k] = @. Bxy_i * fstar_L[i, k]
 
             lf = λBarr[i, k] * (uP[i, k] - Uf[i, k])
-            apply_LF_dissipation_to_BF(BF_L, param, i, k, lf, get_dim_type(param.equation))
-            apply_LF_dissipation_to_fstar(fstar_L, param, i, k, Bxy_i, lf, get_dim_type(param.equation))
+            apply_LF_dissipation_to_BF(BF_L, param, i, k, lf, dim_type(param.equation))
+            apply_LF_dissipation_to_fstar(fstar_L, param, i, k, Bxy_i, lf, dim_type(param.equation))
 
             iq = fq2q[i]
             rhsxyL[iq, k] -= BF_L[i, k]
@@ -254,17 +253,16 @@ function calculate_lambda_and_low_order_CFL!(cache, prealloc, param, discrete_da
 
     K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
-    surface_flux_type = get_low_order_surface_flux(param.rhs_type)
+    surface_flux_type = low_order_surface_flux_type(param.rhs_type)
     @. dtarr = min(CFL * dt0, T - t)
     @batch for k = 1:K
         tid = Threads.threadid()
         dt = dtarr[tid]
         accumulate_alpha!(cache, prealloc, k, param, discrete_data, surface_flux_type)
         for i = 1:Nq
-            lambda_i = get_lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata)
             wq_i = wq[i]
             wJq_i = Jq[i, k] * wq_i
-            dt = min(dt, CFL * 0.5 * wJq_i / lambda_i)
+            dt = min(dt, CFL * 0.5 * wJq_i / lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata))
         end
         dtarr[tid] = dt
     end
@@ -292,12 +290,12 @@ function accumulate_alpha!(cache, prealloc, k, param, discrete_data, surface_flu
     end
 end
 
-function get_lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata)
+function lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata)
     (; equation) = param
     (; λarr) = cache
     (; q2fq) = discrete_data.ops
 
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
     Nq = size(prealloc.Uq, 1)
     Nfp = size(bcdata.mapP, 1)
 
@@ -307,20 +305,20 @@ function get_lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata)
         lambda_i += λarr[i, j, k]
     end
 
-    surface_flux_type = get_low_order_surface_flux(param.rhs_type)
+    surface_flux_type = low_order_surface_flux_type(param.rhs_type)
     for j in q2fq[i]
-        _, n_j_norm = get_Bx_with_n(j, k, discrete_data, dim)    # TODO: redundant
-        lambda_i += get_lambda_B_CFL(cache, j, n_j_norm, k, surface_flux_type)
+        _, n_j_norm = Bx_with_n(j, k, discrete_data, dim)    # TODO: redundant
+        lambda_i += lambda_B_CFL(cache, j, n_j_norm, k, surface_flux_type)
     end
 
     return lambda_i
 end
 
-function get_lambda_B_CFL(cache, i, n_i_norm, k, surface_flux_type::LaxFriedrichsOnNodalVal)
+function lambda_B_CFL(cache, i, n_i_norm, k, surface_flux_type::LaxFriedrichsOnNodalVal)
     return cache.λBarr[i, k]
 end
 
-function get_lambda_B_CFL(cache, i, n_i_norm, k, surface_flux_type::LaxFriedrichsOnProjectedVal)
+function lambda_B_CFL(cache, i, n_i_norm, k, surface_flux_type::LaxFriedrichsOnProjectedVal)
     (; λBarr, αarr, wavespeed_f) = cache
 
     return αarr[i, k] * λBarr[i, k] + 0.5 * n_i_norm * wavespeed_f[i, k]
@@ -377,20 +375,19 @@ function check_low_order_entropy_stability(cache, prealloc, param, discrete_data
     (; Nq, Nfp) = discrete_data.sizes
 
     K = num_elements(param)
-    Nd = get_dim(equation)
-    dim = get_dim_type(equation)
+    dim = dim_type(equation)
     @batch for k = 1:K
-        entropy_estimate = zero(SVector{Nd,Float64})   # vT rhs
+        entropy_estimate = zero(SVector{dim(equation),Float64})   # vT rhs
         # TODO: hardcoded
         update_face_values!(cache, prealloc, k, discrete_data, LaxFriedrichsOnNodalVal())
         for i = 1:Nq
             m_i = wq[i]
             entropy_estimate += m_i * Jq[i, k] * SVector(sum(vq[i, k] .* rhsxyL[i, k][1]), sum(vq[i, k] .* rhsxyL[i, k][2]))
         end
-        sum_Bpsi = zero(SVector{Nd,Float64})   # 1T B psi
-        vTBfstar = zero(SVector{Nd,Float64})   # vT B f*
+        sum_Bpsi = zero(SVector{dim(equation),Float64})   # 1T B psi
+        vTBfstar = zero(SVector{dim(equation),Float64})   # vT B f*
         for i = 1:Nfp
-            Bxy_i = get_Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim)
             sum_Bpsi += Bxy_i .* psi_ufun(equation, Uf[i, k])
             vi = v_ufun(equation, Uf[i, k])
             vTBfstar += Bxy_i .* SVector(sum(vi .* fstar_L[i, k][1]), sum(vi .* fstar_L[i, k][2]))
