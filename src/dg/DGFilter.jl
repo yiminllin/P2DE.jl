@@ -29,14 +29,14 @@ function calc_face_values!(prealloc, cache, param, equation::CompressibleEulerId
     (; Uq, vq) = prealloc
     (; Uf, VUf, rhoef) = cache
     (; Vf) = discrete_data.ops
+    (; K, Nq, Nfp) = discrete_data.sizes
 
-    K = num_elements(param)
     @batch for k = 1:K
         @views mul!(Uf[:, k], Vf, Uq[:, k])
-        for i = 1:size(vq, 1)
+        for i = 1:Nq
             vq[i, k] = v_ufun(equation, Uq[i, k])
         end
-        for i = 1:size(VUf, 1)
+        for i = 1:Nfp
             rhoef[i, k] = rhoe_ufun(equation, Uf[i, k])
         end
         @views mul!(VUf[:, k], Vf, vq[:, k])
@@ -49,7 +49,8 @@ function calc_face_values!(prealloc, cache, param, equation::KPP, discrete_data)
 end
 
 function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter_type::NodewiseScaledExtrapolation, equation::CompressibleIdealGas, param, discrete_data, tid)
-    for i = 1:discrete_data.sizes.Nfp
+    (; Nfp) = discrete_data.sizes
+    for i = 1:Nfp
         f(θ_i) = update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc, cache, θ_i, i, k, param, discrete_data, tid)
         prealloc.θ_local_arr[i, k, nstage] = bisection(f, 0.0, 1.0)
     end

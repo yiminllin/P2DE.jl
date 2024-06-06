@@ -14,7 +14,7 @@ function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, d
         update_blending_factor!(shockcapture_type(param), shockcapture_cache, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "Apply Zhang-Shu limiter" begin
-        apply_zhang_shu_limiter!(prealloc, limiter_cache, shockcapture_cache, param, dt, nstage)
+        apply_zhang_shu_limiter!(prealloc, limiter_cache, shockcapture_cache, param, discrete_data, dt, nstage)
     end
 end
 
@@ -29,7 +29,7 @@ function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, d
         update_blending_factor!(shockcapture_type(param), shockcapture_cache, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "calculate smoothness factor" begin
-        update_smoothness_factor!(bound_type(param), limiter_cache, prealloc, param, nstage)
+        update_smoothness_factor!(bound_type(param), limiter_cache, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "Precompute bounds on modified s" begin
         initialize_entropy_bounds!(limiter_cache, prealloc, equation, bound_type(param), param, discrete_data, bcdata, t, nstage, dim)
@@ -47,10 +47,10 @@ function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, d
         enforce_ES_subcell!(limiter_cache, prealloc, param, discrete_data, bcdata, nstage, bound_type(param), dim)
     end
     @timeit_debug timer "Symmetrize subcell limiting parameters" begin
-        symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim)
+        symmetrize_limiting_parameters!(prealloc, param, bcdata, discrete_data, nstage, dim)
     end
     @timeit_debug timer "Accumulate limited subcell fluxes" begin
-        accumulate_f_bar_limited!(limiter_cache, prealloc, param, nstage, dim)
+        accumulate_f_bar_limited!(limiter_cache, prealloc, param, discrete_data, nstage, dim)
     end
     @timeit_debug timer "Apply subcell limiter, accumulate limited rhs" begin
         apply_subcell_limiter!(prealloc, limiter_cache, param, discrete_data, dim)

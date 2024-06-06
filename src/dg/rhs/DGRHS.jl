@@ -68,8 +68,7 @@ end
 # TODO: dispatch on element type instead of the passed in discrete data
 # TODO: refactor with NodewiseScaledExtrapolation
 function entropy_projection_element!(vq_k, v_tilde_k, u_tilde_k, Uq_k, l_k, param, discrete_data, prealloc)
-    (; Nh, Nq, Nfp) = discrete_data.sizes
-    (; Vf, Vf_low, Pq, VhPq) = discrete_data.ops
+    (; Nq, Nfp) = discrete_data.sizes
 
     calculate_entropy_var!(vq_k, Uq_k, param, discrete_data)    # TODO: move calculating entropy var out of entropy projection
     # For nodal collocation, quad values are the same
@@ -94,7 +93,7 @@ function entropy_projection_volume_node!(v_tilde_k, u_tilde_k, vq_k, Uq_k, i, pa
 end
 
 function entropy_projection_face_node!(v_tilde_k, u_tilde_k, vq_k, i, l_k_i, param, discrete_data, prealloc)
-    (; Nh, Nq) = discrete_data.sizes
+    (; Nq) = discrete_data.sizes
     (; Vf, Vf_low) = discrete_data.ops
     # TODO: v_tilde_k[i+Nq] = @views sum(Vf_new[i,:].*vq_k)
     #       requires allocation... why?
@@ -108,8 +107,7 @@ end
 # TODO: ugly dispatch
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::NoEntropyProjectionLimiter, discrete_data, nstage, timer)
     (; Uq, vq, v_tilde, u_tilde) = prealloc
-    (; Nh, Nq, Nfp) = discrete_data.sizes
-    K = num_elements(param)
+    (; K) = discrete_data.sizes
 
     @batch for k = 1:K
         vq_k = view(vq, :, k)
@@ -125,8 +123,7 @@ end
 # TODO: ugly dispatch
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::NodewiseScaledExtrapolation, discrete_data, nstage, timer)
     (; Uq, vq, v_tilde, u_tilde) = prealloc
-    (; Nh, Nq, Nfp) = discrete_data.sizes
-    K = num_elements(param)
+    (; K, Nq, Nfp) = discrete_data.sizes
 
     @batch for k = 1:K
         vq_k = view(vq, :, k)

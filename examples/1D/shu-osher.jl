@@ -73,7 +73,7 @@ plot_component(param, discrete_data, md, prealloc,
     plot_path,
     true, weno_sol["x"], weno_sol["rho"], 1, size(weno_sol["x"], 2))
 
-plot_rho_animation(md, param, prealloc, data_hist, data_hist.θhist, 0, 6,
+plot_rho_animation(md, param, prealloc, discrete_data, data_hist, data_hist.θhist, 0, 6,
     gif_path)
 
 df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)..., :data_history)])

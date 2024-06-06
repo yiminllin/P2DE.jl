@@ -422,6 +422,9 @@ end
 
 # TODO: define iterator to loop instead of size
 struct SizeData
+    K::Int64
+    N1D::Int64
+    Nd::Int64
     Nc::Int64
     Np::Int64
     Nq::Int64

@@ -16,7 +16,6 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
     (; indicator, indicator_modal, smooth_indicator) = prealloc
     (; N, equation) = param
     (; VDM_inv) = discrete_data.ops
-    (; Nq, Np) = discrete_data.sizes
 
     initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
 
@@ -50,7 +49,6 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
     (; indicator, indicator_modal, smooth_indicator) = prealloc
     (; N, equation) = param
     (; VDM_inv) = discrete_data.ops
-    (; Nq, Np) = discrete_data.sizes
 
     initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
 

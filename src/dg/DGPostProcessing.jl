@@ -1,8 +1,7 @@
 function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     (; equation, N) = param
-    (; Nq, Nc) = discrete_data.sizes
+    (; K, Nq, Nc) = discrete_data.sizes
 
-    K = num_elements(param)
     T = param.timestepping_param.T
 
     L1err = zero(SVector{Nc,Float64})
@@ -87,11 +86,11 @@ function plot_component(param, discrete_data, md, prealloc,
     savefig(output_filename)
 end
 
-function plot_rho_animation(md, param, prealloc, data_hist, limiting_hist, PlotL, PlotU, output_filename)
+function plot_rho_animation(md, param, prealloc, discrete_data, data_hist, limiting_hist, PlotL, PlotU, output_filename)
     (; xL, xR) = param
     (; Uhist) = data_hist
+    (; K) = discrete_data.sizes
 
-    K = num_elements(param)
     gr(x_lim=[xL, xR], ylim=[PlotL, PlotU], label=false, legend=false)
     anim = Animation()
     normalization_factor = reduce(max, map(x -> maximum(x), limiting_hist))

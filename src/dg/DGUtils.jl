@@ -1,5 +1,6 @@
-function check_positivity(U, param)
+function check_positivity(U, param, discrete_data)
     (; equation) = param
+    (; K, Nq) = discrete_data.sizes
 
     K = num_elements(param)
     rhomin = Inf
@@ -7,7 +8,7 @@ function check_positivity(U, param)
     rhomax = -Inf
     rhoemax = -Inf
     for k = 1:K
-        for i = 1:size(U, 1)
+        for i = 1:Nq
             is_positive, rho, p = check_positivity_node(U[i, k], param)
             if !is_positive
                 @show k, i, "negative", U[i, k], rho, p
@@ -38,11 +39,11 @@ end
 
 function check_conservation(prealloc, param, discrete_data)
     (; Uq) = prealloc
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
     total = zero(prealloc.Uq[1])
     for k = 1:K
-        for i = 1:size(Uq, 1)
+        for i = 1:Nq
             total += discrete_data.geom.J[i, k] * discrete_data.ops.wq[i] * Uq[i, k]
         end
     end

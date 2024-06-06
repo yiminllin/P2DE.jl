@@ -19,7 +19,7 @@ function rhs_pos_Gauss!(prealloc, rhs_cache, param, discrete_data, bcdata, t, dt
 
     # Assemble RHS
     @timeit_debug timer "clear cache" begin
-        clear_low_order_rhs!(cache, prealloc, param)
+        clear_low_order_rhs!(cache, prealloc, param, discrete_data)
     end
     @timeit_debug timer "Low order volume kernel" begin
         accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
@@ -44,7 +44,7 @@ function rhs_pos_Gauss!(prealloc, rhs_cache, param, discrete_data, bcdata, t, dt
 end
 
 function calculate_wavespeed_and_inviscid_flux!(cache, prealloc, param, discrete_data)
-    K = num_elements(param)
+    (; K) = discrete_data.sizes
     @batch for k = 1:K
         update_face_values!(cache, prealloc, k, discrete_data, low_order_surface_flux_type(param.rhs_type))
         update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete_data)
@@ -55,8 +55,8 @@ function update_face_values!(cache, prealloc, k, discrete_data, surface_flux_typ
     (; Uf) = cache
     (; Uq) = prealloc
     (; fq2q) = discrete_data.ops
+    (; Nfp) = discrete_data.sizes
 
-    Nfp = size(Uf, 1)
     for i = 1:Nfp
         iq = fq2q[i]
         Uf[i, k] = Uq[iq, k]
@@ -66,9 +66,8 @@ end
 function update_face_values!(cache, prealloc, k, discrete_data, surface_flux_type::LaxFriedrichsOnProjectedVal)
     (; Uf) = cache
     (; u_tilde) = prealloc
+    (; Nq, Nfp) = discrete_data.sizes
 
-    Nfp = size(Uf, 1)
-    Nq = size(prealloc.Uq, 1)
     for i = 1:Nfp
         Uf[i, k] = u_tilde[i+Nq, k]
     end
@@ -79,10 +78,7 @@ function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete
     (; Uq) = prealloc
     (; Srs0_nnz) = discrete_data.ops
     (; Uf, wavespeed_f, flux) = cache
-
-    Nq = size(Uq, 1)
-    Nfp = size(Uf, 1)
-    dim = dim_type(equation)
+    (; Nq, Nfp) = discrete_data.sizes
 
     # Volume inviscid flux
     for i = 1:Nq
@@ -93,7 +89,7 @@ function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete
     # Surface wavespeed and inviscid flux
     for i = 1:Nfp
         u_i = Uf[i, k]
-        Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
+        Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim_type(equation))
         n_i = @. Bxy_i / n_i_norm
         wavespeed_f[i, k] = wavespeed_estimate(equation, u_i, n_i)
         flux[i+Nq, k] = fluxes(equation, u_i)
@@ -106,9 +102,8 @@ function get_uP_and_enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     (; equation) = param
     (; mapP, mapI, mapO, Ival) = bcdata
     (; fq2q) = discrete_data.ops
+    (; K, Nfp) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nfp = size(mapP, 1)
     # Initialize uP
     @batch for k = 1:K
         for i = 1:Nfp
@@ -139,15 +134,13 @@ function get_uP_and_enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     end
 end
 
-function clear_low_order_rhs!(cache, prealloc, param)
+function clear_low_order_rhs!(cache, prealloc, param, discrete_data)
     (; rhsxyL) = prealloc
-    (; Q0F1, λarr, λBarr) = cache
+    (; Q0F1) = cache
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nc = num_components(param.equation)
-    Nd = dim(param.equation)
     @batch for k = 1:K
-        for i = 1:size(rhsxyL, 1)
+        for i = 1:Nq
             rhsxyL[i, k] = zero(rhsxyL[i, k])
             Q0F1[i, k] = zero(Q0F1[i, k])
         end
@@ -159,10 +152,8 @@ function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
     (; rhsxyL, Uq) = prealloc
     (; flux, λarr, Q0F1) = cache
     (; Srs0_nnz) = discrete_data.ops
+    (; K, Nq) = discrete_data.sizes
 
-    dim = dim_type(equation)
-    K = num_elements(param)
-    Nq = size(Q0F1, 1)
     @batch for k = 1:K
         # Volume contributions
         for (i, j) in Srs0_nnz
@@ -171,14 +162,14 @@ function accumulate_low_order_rhs_volume!(cache, prealloc, param, discrete_data)
             Fxyij = @. 0.5 * (flux[i, k] + flux[j, k])
             # TODO: assume Sxy0J_ij = -Sxy0J_ji
             #              n_ij_norm = n_ji_norm
-            #              Sxy0J_ji,n_ji_norm = Sx0_with_n(j,i,k,discrete_data,dim)
-            Sxy0J_ij, n_ij_norm = Sx0_with_n(i, j, k, discrete_data, dim)
+            #              Sxy0J_ji,n_ji_norm = Sx0_with_n(j,i,k,discrete_data,dim_type(equation))
+            Sxy0J_ij, n_ij_norm = Sx0_with_n(i, j, k, discrete_data, dim_type(equation))
             n_ij = @. Sxy0J_ij / n_ij_norm
             n_ji = -n_ij
             wavespeed_ij = max(wavespeed_estimate(equation, u_i, n_ij), wavespeed_estimate(equation, u_j, n_ji))
             λarr[i, j, k] = n_ij_norm * wavespeed_ij
             λarr[j, i, k] = λarr[i, j, k]
-            ΛD_ij = graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim)
+            ΛD_ij = graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim_type(equation))
             SFxy_ΛD_ij = @. 2.0 * Sxy0J_ij * Fxyij - ΛD_ij
             SFxy_ΛD_ji = -SFxy_ΛD_ij
             Q0F1[i, k] += SFxy_ΛD_ij
@@ -199,11 +190,8 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
     (; Uf, uP, flux, wavespeed_f, λBarr) = cache
     (; mapP) = bcdata
     (; fq2q) = discrete_data.ops
+    (; K, Nq, Nfp) = discrete_data.sizes
 
-    K = num_elements(param)
-    dim = dim_type(equation)
-    Nq = size(prealloc.Uq, 1)
-    Nfp = size(bcdata.mapP, 1)
     @batch for k = 1:K
         # Surface contributions
         for i = 1:Nfp
@@ -212,7 +200,7 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
             iP = mod1(mapP[i, k], Nfp)
             kP = div(mapP[i, k] - 1, Nfp) + 1
 
-            Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
+            Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim_type(equation))
             λBarr[i, k] = 0.5 * n_i_norm * max(wavespeed_f[i, k], wavespeed_f[iP, kP])
 
             flux_xy_P = fluxes(equation, uP[i, k])
@@ -220,8 +208,8 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
             BF_L[i, k] = @. Bxy_i * fstar_L[i, k]
 
             lf = λBarr[i, k] * (uP[i, k] - Uf[i, k])
-            apply_LF_dissipation_to_BF(BF_L, param, i, k, lf, dim_type(param.equation))
-            apply_LF_dissipation_to_fstar(fstar_L, param, i, k, Bxy_i, lf, dim_type(param.equation))
+            apply_LF_dissipation_to_BF(BF_L, param, i, k, lf, dim_type(equation))
+            apply_LF_dissipation_to_fstar(fstar_L, param, i, k, Bxy_i, lf, dim_type(equation))
 
             iq = fq2q[i]
             rhsxyL[iq, k] -= BF_L[i, k]
@@ -233,11 +221,11 @@ function scale_low_order_rhs_by_mass!(prealloc, param, discrete_data)
     (; Jq) = discrete_data.geom
     (; wq) = discrete_data.ops
     (; rhsL, rhsxyL) = prealloc
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
     @batch for k = 1:K
         # Divide by mass
-        for i = 1:size(rhsxyL, 1)
+        for i = 1:Nq
             wJq_i = Jq[i, k] * wq[i]
             rhsxyL[i, k] = rhsxyL[i, k] / wJq_i
             rhsL[i, k] = sum(rhsxyL[i, k])
@@ -250,15 +238,13 @@ function calculate_lambda_and_low_order_CFL!(cache, prealloc, param, discrete_da
     (; Jq) = discrete_data.geom
     (; wq) = discrete_data.ops
     (; dtarr) = cache
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nq = size(prealloc.Uq, 1)
-    surface_flux_type = low_order_surface_flux_type(param.rhs_type)
     @. dtarr = min(CFL * dt0, T - t)
     @batch for k = 1:K
         tid = Threads.threadid()
         dt = dtarr[tid]
-        accumulate_alpha!(cache, prealloc, k, param, discrete_data, surface_flux_type)
+        accumulate_alpha!(cache, prealloc, k, param, discrete_data, low_order_surface_flux_type(param.rhs_type))
         for i = 1:Nq
             wq_i = wq[i]
             wJq_i = Jq[i, k] * wq_i
@@ -277,11 +263,9 @@ function accumulate_alpha!(cache, prealloc, k, param, discrete_data, surface_flu
     (; αarr) = cache
     (; Uq, u_tilde) = prealloc
     (; fq2q) = discrete_data.ops
+    (; Nq, Nfp, Nh) = discrete_data.sizes
     (; equation) = param
 
-    Nq = size(Uq, 1)
-    Nfp = size(αarr, 1)
-    Nh = Nq + Nfp
     utilde_f = @view u_tilde[Nq+1:Nh, :]
     for i = 1:Nfp
         # TODO: preallocate into Fmask, refactor
@@ -294,10 +278,7 @@ function lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata)
     (; equation) = param
     (; λarr) = cache
     (; q2fq) = discrete_data.ops
-
-    dim = dim_type(equation)
-    Nq = size(prealloc.Uq, 1)
-    Nfp = size(bcdata.mapP, 1)
+    (; Nq) = discrete_data.sizes
 
     lambda_i = 0.0
     # TODO: can only consider upper diagonal
@@ -307,7 +288,7 @@ function lambda_i(i, k, cache, prealloc, param, discrete_data, bcdata)
 
     surface_flux_type = low_order_surface_flux_type(param.rhs_type)
     for j in q2fq[i]
-        _, n_j_norm = Bx_with_n(j, k, discrete_data, dim)    # TODO: redundant
+        _, n_j_norm = Bx_with_n(j, k, discrete_data, dim_type(equation))    # TODO: redundant
         lambda_i += lambda_B_CFL(cache, j, n_j_norm, k, surface_flux_type)
     end
 
@@ -372,10 +353,8 @@ function check_low_order_entropy_stability(cache, prealloc, param, discrete_data
     (; Uf) = cache
     (; Jq) = discrete_data.geom
     (; wq) = discrete_data.ops
-    (; Nq, Nfp) = discrete_data.sizes
+    (; K, Nq, Nfp) = discrete_data.sizes
 
-    K = num_elements(param)
-    dim = dim_type(equation)
     @batch for k = 1:K
         entropy_estimate = zero(SVector{dim(equation),Float64})   # vT rhs
         # TODO: hardcoded
@@ -387,7 +366,7 @@ function check_low_order_entropy_stability(cache, prealloc, param, discrete_data
         sum_Bpsi = zero(SVector{dim(equation),Float64})   # 1T B psi
         vTBfstar = zero(SVector{dim(equation),Float64})   # vT B f*
         for i = 1:Nfp
-            Bxy_i = Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim_type(equation))
             sum_Bpsi += Bxy_i .* psi_ufun(equation, Uf[i, k])
             vi = v_ufun(equation, Uf[i, k])
             vTBfstar += Bxy_i .* SVector(sum(vi .* fstar_L[i, k][1]), sum(vi .* fstar_L[i, k][2]))

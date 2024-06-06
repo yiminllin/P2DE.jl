@@ -12,20 +12,18 @@ end
 # TODO: only precompute s_modified now, unnecessary to precompute bound for
 #       density and internal energy?
 function initialize_entropy_bounds!(cache, prealloc, equation::CompressibleIdealGas, bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, discrete_data, bcdata, t, nstage, dim)
-    initialize_s_modified!(cache, prealloc, param, t, nstage)
+    initialize_s_modified!(cache, prealloc, discrete_data, param, t, nstage)
     initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, nstage, dim)
 end
 
-function initialize_s_modified!(cache, prealloc, param, t, nstage)
+function initialize_s_modified!(cache, prealloc, discrete_data, param, t, nstage)
     (; equation) = param
     (; t0) = param.timestepping_param
     (; s_modified) = cache
     (; s_modified_min) = cache
     (; Uq) = prealloc
+    (; K, Nq) = discrete_data.sizes
 
-    N1D = param.N + 1
-    K = num_elements(param)
-    Nq = size(Uq, 1)
     # Preallocate s_modified at nodes
     @batch for k = 1:K
         for i = 1:Nq
@@ -43,12 +41,9 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
     (; Uq) = prealloc
     (; mapP) = bcdata
     (; q2fq, fq2q) = discrete_data.ops
+    (; K, N1D, Nfp) = discrete_data.sizes
     (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
-    N1D = param.N + 1
-    K = num_elements(param)
-    Nq = size(Uq, 1)
-    Nfp = size(mapP, 1)
     @batch for k = 1:K
         epsk = smooth_factor[k, nstage]
         for i = 1:N1D
@@ -68,12 +63,9 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
     (; Uq) = prealloc
     (; mapP) = bcdata
     (; q2fq, fq2q) = discrete_data.ops
+    (; K, N1D, Nfp) = discrete_data.sizes
     (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
-    N1D = param.N + 1
-    K = num_elements(param)
-    Nq = size(Uq, 1)
-    Nfp = size(mapP, 1)
     s_modified = reshape(s_modified, N1D, N1D, K)
     @batch for k = 1:K
         lbound_s_modified_k = reshape(view(lbound_s_modified, :, k), N1D, N1D)
@@ -103,13 +95,8 @@ end
 
 function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, discrete_data, bcdata, t, dt, nstage, dim::Dim1)
     (; Uq, rhsL) = prealloc
-    (; mapP) = bcdata
+    (; K, N1D, Nq, Nfp) = discrete_data.sizes
     (; rhoL, lbound_rho, ubound_rho) = cache
-
-    N1D = param.N + 1
-    K = num_elements(param)
-    Nq = size(Uq, 1)
-    Nfp = size(mapP, 1)
 
     # Accumulate low order update
     @batch for k = 1:K
@@ -134,13 +121,8 @@ end
 
 function initialize_TVD_bounds!(cache, prealloc, equation::CompressibleIdealGas, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, discrete_data, bcdata, t, dt, nstage, dim::Dim2)
     (; Uq, rhsL) = prealloc
-    (; mapP) = bcdata
+    (; K, N1D, Nq, Nfp) = discrete_data.sizes
     (; rhoL, lbound_rho, ubound_rho) = cache
-
-    N1D = param.N + 1
-    K = num_elements(param)
-    Nq = size(Uq, 1)
-    Nfp = size(mapP, 1)
 
     # Accumulate low order update
     @batch for k = 1:K
@@ -174,9 +156,8 @@ function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim1)
     (; rhsL, rhsH, BF_H, BF_L) = prealloc
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nq = size(prealloc.Uq, 1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache?
     @batch for k = 1:K
         f_bar_H[1][1, k] = BF_H[1, k][1]
@@ -194,10 +175,8 @@ function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim2)
     (; rhsL, rhsH, rhsxyH, rhsxyL, BF_H, BF_L) = prealloc
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
+    (; K, N1D) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nq = size(prealloc.Uq, 1)
-    N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
     @batch for k = 1:K
         # TODO: hardcoding views
@@ -244,9 +223,8 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
     (; rhs_limiter_type) = param
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nq = size(Uq, 1)
     ζ = param.limiting_param.ζ
     Lrhoe(uL_i) = ζ * rhoe_ufun(param.equation, uL_i)
     @views @. L_local_arr[:, :, :, nstage] = 1.0
@@ -283,14 +261,11 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     (; lbound_s_modified) = limiter_cache
     (; Uq, rhsL, L_local_arr) = prealloc
     (; blending_factor) = shockcapture_cache
-    (; mapP) = bcdata
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
+    (; K, N1D) = discrete_data.sizes
     (; rhs_limiter_type) = param
 
-    K = num_elements(param)
-    Nq = size(Uq, 1)
-    N1D = param.N + 1
     N1Dp1 = N1D + 1
     ζ = param.limiting_param.ζ
     Lrhoe(uL_i) = ζ * rhoe_ufun(param.equation, uL_i)
@@ -426,8 +401,7 @@ end
 function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equation::KPP, param, discrete_data, bcdata, dt, nstage, dim)
     (; L_local_arr) = prealloc
     (; blending_factor) = shockcapture_cache
-
-    K = num_elements(param)
+    (; K) = discrete_data.sizes
 
     @views @. L_local_arr[:, :, :, nstage] = 1.0
     @batch for k = 1:K
@@ -441,9 +415,9 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
     end
 end
 
-function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::Dim1)
+function symmetrize_limiting_parameters!(prealloc, param, bcdata, discrete_data, nstage, dim::Dim1)
     (; L_local_arr) = prealloc
-    K = num_elements(param)
+    (; K) = discrete_data.sizes
 
     # Symmetrize limiting parameter TODO: hardcoded, should use mapP
     @batch for k = 1:K
@@ -453,12 +427,11 @@ function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::D
     end
 end
 
-function symmetrize_limiting_parameters!(prealloc, param, bcdata, nstage, dim::Dim2)
+function symmetrize_limiting_parameters!(prealloc, param, bcdata, discrete_data, nstage, dim::Dim2)
     (; L_local_arr) = prealloc
+    (; K, N1D) = discrete_data.sizes
 
     # TODO: refactor
-    K = num_elements(param)
-    N1D = param.N + 1
     N1Dp1 = N1D + 1
     Lx_local = view(L_local_arr, :, 1, :, nstage)
     Ly_local = view(L_local_arr, :, 2, :, nstage)
@@ -507,10 +480,9 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
     (; equation) = param
     (; Uq, vq) = prealloc
     (; fq2q) = discrete_data.ops
-    (; Nfp, Nq) = discrete_data.sizes
+    (; K, Nfp, Nq) = discrete_data.sizes
     (; vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL) = cache
 
-    K = num_elements(param)
     @batch for k = 1:K
         # TODO: redundant
         for i = 1:Nq
@@ -549,11 +521,9 @@ function initialize_ES_subcell_limiting!(cache, prealloc, param, discrete_data, 
     (; equation) = param
     (; Uq, vq) = prealloc
     (; fq2q) = discrete_data.ops
-    (; Nfp, Nq) = discrete_data.sizes
+    (; K, N1D, Nfp, Nq) = discrete_data.sizes
     (; vf, psif, dvdf, f_bar_H, f_bar_L, sum_Bpsi, sum_dvfbarL) = cache
 
-    K = num_elements(param)
-    N1D = param.N + 1
     N1Dm1 = N1D - 1
     N1Dp1 = N1D + 1
     @batch for k = 1:K
@@ -610,9 +580,8 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
     (; L_local_arr) = prealloc
     (; dvdf, sum_Bpsi, sum_dvfbarL) = cache
     (; dvdf_order, smooth_factor) = cache
-    (; Nq) = discrete_data.sizes
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
     @batch for k = 1:K
         tid = Threads.threadid()
 
@@ -674,10 +643,8 @@ function enforce_ES_subcell_volume!(cache, prealloc, param, discrete_data, bcdat
     (; L_local_arr) = prealloc
     (; dvdf, sum_Bpsi, sum_dvfbarL) = cache
     (; dvdf_order, smooth_factor) = cache
-    (; Nq) = discrete_data.sizes
+    (; K, N1D, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
-    N1D = param.N + 1
     N1Dp1 = N1D + 1
     N1Dm1 = N1D - 1
     @batch for k = 1:K
@@ -805,12 +772,11 @@ function enforce_ES_subcell_interface!(cache, prealloc, param, discrete_data, bc
     (; fstar_H, fstar_L, L_local_arr) = prealloc
     (; vf, psif) = cache
     (; mapP) = bcdata
+    (; K, N1D) = discrete_data
 
     Lx_local = view(L_local_arr, :, 1, :, nstage)
     Ly_local = view(L_local_arr, :, 2, :, nstage)
 
-    K = num_elements(param)
-    N1D = param.N + 1
     N1Dp1 = N1D + 1
     @batch for k = 1:K
         # Enforce entropy stability on subcell interfaces
@@ -868,9 +834,10 @@ function solve_l_es_interface!(L_local, idx, k, idxP, kP, dvfH, dvfL, dpsi)
 end
 
 # TODO: not necessary
-function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim1)
+function accumulate_f_bar_limited!(cache, prealloc, param, discrete_data, nstage, dim::Dim1)
     (; f_bar_H, f_bar_L, f_bar_lim) = cache
     (; L_local_arr) = prealloc
+    (; K, Nq) = discrete_data.sizes
 
     K = num_elements(param)
     Nq = size(prealloc.Uq, 1)
@@ -883,13 +850,11 @@ function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim1)
 end
 
 # TODO: not necessary
-function accumulate_f_bar_limited!(cache, prealloc, param, nstage, dim::Dim2)
+function accumulate_f_bar_limited!(cache, prealloc, param, discrete_data, nstage, dim::Dim2)
     (; f_bar_H, f_bar_L, f_bar_lim) = cache
     (; L_local_arr) = prealloc
+    (; K, N1D) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nq = size(prealloc.Uq, 1)
-    N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
     @batch for k = 1:K
         # TODO: hardcoding views
@@ -926,9 +891,8 @@ function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim1
     (; f_bar_lim) = cache
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nq = size(prealloc.Uq, 1)
     # Update step
     @batch for k = 1:K
         for i = 1:Nq
@@ -943,12 +907,9 @@ function apply_subcell_limiter!(prealloc, cache, param, discrete_data, dim::Dim2
     (; rhsU, rhsxyU) = prealloc
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
+    (; K, N1D) = discrete_data.sizes
 
-    K = num_elements(param)
-    N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
-    Nq = size(prealloc.Uq, 1)
-
     # Update step
     @batch for k = 1:K
         # TODO: hardcoding views
@@ -983,14 +944,9 @@ function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, 
     (; dfH_surf, dfL_surf, df_surf) = cache
     (; fq2q, wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
-    (; Nq, Nfp) = discrete_data.sizes
+    (; K, N1D, Nd, Nq, Nfp) = discrete_data.sizes
 
-    K = num_elements(param)
-    N1D = param.N + 1    # TODO: hardcoded
     N1Dp1 = N1D + 1
-    Nd = dim(equation)
-    dim = dim_type(equation)
-
     # Accumulate volume and surface subcell part
     @batch for k = 1:K
         # TODO: hardcoding views
@@ -1113,7 +1069,7 @@ function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, 
             iq = fq2q[i]
             uf = Uq[iq, k]
             vf = v_ufun(equation, uf)
-            Bxy_i = Bx(i, k, discrete_data, dim)
+            Bxy_i = Bx(i, k, discrete_data, dim_type(equation))
             sum_Bpsi += Bxy_i .* psi_ufun(equation, uf)
             sum_Bpsitilde += Bxy_i .* psi_ufun(equation, u_tilde[Nq+i, k])
             vftildeBfH += Bxy_i .* SVector(sum(v_tilde[Nq+i, k] .* fstar_H[i, k][1]), sum(v_tilde[Nq+i, k] .* fstar_H[i, k][2]))
@@ -1146,22 +1102,22 @@ end
 ### Smoothness factor ###
 #########################
 # (69) in https://arxiv.org/pdf/2004.08503.pdf
-function update_smoothness_factor!(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,TVDBound,TVDAndCellEntropyBound}, cache, prealloc, param, nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,TVDBound,TVDAndCellEntropyBound}, cache, prealloc, param, discrete_data, nstage)
     # Use global minimum bound by default
     @views @. cache.smooth_factor[:, nstage] = 0.0
 end
 
-function update_smoothness_factor!(bound_type::Union{PositivityAndMinEntropyBound,TVDAndMinEntropyBound}, cache, prealloc, param, nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityAndMinEntropyBound,TVDAndMinEntropyBound}, cache, prealloc, param, discrete_data, nstage)
     # Use global minimum bound by default
     @views @. cache.smooth_factor[:, nstage] = 1.0
 end
 
-function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndRelaxedMinEntropyBound}, cache, prealloc, param, nstage)
+function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndRelaxedMinEntropyBound}, cache, prealloc, param, discrete_data, nstage)
     (; N) = param
     (; smooth_factor) = cache
     (; smooth_indicator) = prealloc
+    (; K) = discrete_data.sizes
 
-    K = num_elements(param)
     kappa = 1.0
     s0 = log(10, N^-4)
     @batch for k = 1:K

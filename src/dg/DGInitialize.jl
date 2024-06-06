@@ -166,6 +166,9 @@ function initialize_operators(param, rd, quad_type)
     Srsh_db = Tuple((A -> 2 * A).(Srsh))
 
     # Define sizes
+    K = num_elements(param)
+    N1D = N + 1
+    Nd = dim(param.equation)
     Ns = 3   # TODO: define num_stage() for RK time stepper
     Nc = num_components(param.equation)
     Np = size(VDM, 2)
@@ -227,7 +230,7 @@ function initialize_operators(param, rd, quad_type)
         end
     end
 
-    sizes = SizeData(Nc, Np, Nq, Nfp, Nh, Ns)
+    sizes = SizeData(K, N1D, Nd, Nc, Np, Nq, Nfp, Nh, Ns)
     geom = GeomData(J, Jq, GJh)
     ops = Operators(Srsh_db, Srs0, Srsh_nnz, Srs0_nnz, Brs, Vh, MinvVhT, inv(VDM), VDMinvPq, VqVDM, VhPq, Vq, Vf, Vf_low, Pq, MinvVfT, wq, q2fq, fq2q)
     discrete_data = DiscretizationData(sizes, geom, ops)
@@ -348,9 +351,8 @@ function low_order_extrapolation(param, rd, element_type::Quad, quad_type::Lobat
 end
 
 function init_U!(param, discrete_data, md, prealloc, initial_condition)
-    (; Nq) = discrete_data.sizes
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
     for k = 1:K
         for i = 1:Nq
             set_initial_condition!(prealloc, i, k, param, initial_condition, md, param.equation)
