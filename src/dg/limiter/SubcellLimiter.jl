@@ -37,10 +37,6 @@ function initialize_s_modified!(cache, prealloc, discrete_data, param, t, nstage
 end
 
 function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim1)
-    (; equation) = param
-    (; Uq) = prealloc
-    (; mapP) = bcdata
-    (; q2fq, fq2q) = discrete_data.ops
     (; K, N1D, Nfp) = discrete_data.sizes
     (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
@@ -59,10 +55,6 @@ function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, 
 end
 
 function initialize_lower_bound!(cache, prealloc, param, discrete_data, bcdata, nstage, dim::Dim2)
-    (; equation) = param
-    (; Uq) = prealloc
-    (; mapP) = bcdata
-    (; q2fq, fq2q) = discrete_data.ops
     (; K, N1D, Nfp) = discrete_data.sizes
     (; s_modified, s_modified_min, lbound_s_modified, smooth_factor) = cache
 
@@ -172,7 +164,7 @@ end
 # TODO: use views instead of index flattening
 function accumulate_f_bar!(cache, prealloc, param, discrete_data, dim::Dim2)
     (; f_bar_H, f_bar_L) = cache
-    (; rhsL, rhsH, rhsxyH, rhsxyL, BF_H, BF_L) = prealloc
+    (; rhsxyH, rhsxyL, BF_H, BF_L) = prealloc
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
     (; K, N1D) = discrete_data.sizes
@@ -405,8 +397,6 @@ function subcell_bound_limiter!(limiter_cache, shockcapture_cache, prealloc, equ
 
     @views @. L_local_arr[:, :, :, nstage] = 1.0
     @batch for k = 1:K
-        tid = Threads.threadid()
-
         L_local_k = view(L_local_arr, :, :, k, nstage)
 
         # Apply shock capturing
@@ -839,8 +829,6 @@ function accumulate_f_bar_limited!(cache, prealloc, param, discrete_data, nstage
     (; L_local_arr) = prealloc
     (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
-    Nq = size(prealloc.Uq, 1)
     # TODO: f_bar_H, f_bar_L could be combine into a single cache? df_bar?
     @batch for k = 1:K
         for i = 1:Nq+1

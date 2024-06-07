@@ -26,16 +26,9 @@ end
 
 # TODO: refactor
 function initialize_total_variation!(cache, prealloc, param, discrete_data, bcdata, dim::Dim2)
-    (; equation) = param
-    (; Uq) = prealloc
-    (; mapP) = bcdata
-    (; q2fq, fq2q) = discrete_data.ops
-    (; s_modified, var_s_modified, lbound_s_modified) = cache
+    (; s_modified, var_s_modified) = cache
+    (; K, N1D, Nfp) = discrete_data.sizes
 
-    N1D = param.N + 1
-    K = num_elements(param)
-    Nq = size(Uq, 1)
-    Nfp = size(mapP, 1)
     # Preallocate total variation of s_modified at nodes: 
     # Section 4.7.1 https://arxiv.org/pdf/1710.00417.pdf 
     @batch for k = 1:K

@@ -28,8 +28,6 @@ const StdDGLimitedLowOrderPos{LOWSURFACEFLUXTYPE} = LimitedDG{LOWSURFACEFLUXTYPE
 
 EntropyStable(; surface_flux_type=LaxFriedrichsOnProjectedVal()) =
     FluxDiffRHS(ChandrashekarFlux(), surface_flux_type)
-StandardDG() =
-    FluxDiffRHS(CentralFlux(), LaxFriedrichsOnProjectedVal())
 ESLimitedLowOrderPos(; low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
     high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()) =
     LimitedDG(low_order_surface_flux_type, high_order_surface_flux_type, ChandrashekarFlux())
@@ -129,25 +127,19 @@ end
 
 # TODO: pass in SizeData
 function rhs_cache(rhs_type::LowOrderPositivity, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = num_elements(param)
-    Nd = dim(param.equation)
+    (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     return LowOrderPositivityCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
 end
 
 function rhs_cache(rhs_type::FluxDiffRHS, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = num_elements(param)
-    Nd = dim(param.equation)
+    (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     return FluxDiffCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
 end
 
 function rhs_cache(rhs_type::LimitedDG, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = num_elements(param)
-    Nd = dim(param.equation)
+    (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     cacheH = FluxDiffCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
     cacheL = LowOrderPositivityCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
@@ -513,7 +505,7 @@ struct SubcellLimiterCache{DIM,Nc} <: LimiterCache{DIM,Nc}
     dvdf_order::Array{Tuple{Float64,Int64},2}
 end
 
-SubcellLimiterCache{DIM,Nc}(; K=0, Nq=0, Nfp=0, N1D=0, Ns=Ns, Nthread=1, s_modified_min=0) where {DIM,Nc} =
+SubcellLimiterCache{DIM,Nc}(; K=0, Nq=0, Nfp=0, N1D=0, Ns=Ns, Nthread=1) where {DIM,Nc} =
     SubcellLimiterCache{DIM,Nc}(zeros(Float64, Nq, K),
         zeros(SVector{Nc,Float64}, Nfp, K),
         zeros(SVector{DIM,Float64}, Nfp, K),
@@ -555,7 +547,7 @@ struct EntropyProjectionLimiterCache{DIM,Nc} <: EntropyProjLimiterCache{DIM,Nc}
     rhoef::Array{Float64,2}
 end
 
-EntropyProjectionLimiterCache{DIM,Nc}(; K=0, Np=0, Nq=0, Nh=0, Nfp=0, Nthread=1) where {DIM,Nc} =
+EntropyProjectionLimiterCache{DIM,Nc}(; K=0, Nq=0, Nh=0, Nfp=0, Nthread=1) where {DIM,Nc} =
     EntropyProjectionLimiterCache{DIM,Nc}(zeros(SVector{Nc,Float64}, Nq, Nthread),
         zeros(SVector{Nc,Float64}, Nh, Nthread),
         zeros(SVector{Nc,Float64}, Nh, Nthread),
@@ -567,48 +559,37 @@ EntropyProjectionLimiterCache{DIM,Nc}(; K=0, Np=0, Nq=0, Nh=0, Nfp=0, Nthread=1)
         zeros(Float64, Nfp, K))
 
 function shockcapture_cache(shockcapture_type, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    Nd = dim(param.equation)
-    K = num_elements(param)
+    (; Nc, Ns, Nd, K) = sizes
 
     return ShockCaptureCache{Nd,Nc}(K=K, Ns=Ns)
 end
 
 function limiter_cache(limiter_type::NoRHSLimiter, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    Nd = dim(param.equation)
+    (; Nd, Nc) = sizes
 
     return NoRHSLimiterCache{Nd,Nc}()
 end
 
 function limiter_cache(limiter_type::ZhangShuLimiter, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = num_elements(param)
-    Nd = dim(param.equation)
+    (; Nq, Nc, Nd) = sizes
 
     return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq, Nthread=Threads.nthreads())
 end
 
 function limiter_cache(limiter_type::SubcellLimiter, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = num_elements(param)
-    Nd = dim(param.equation)
-    N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
+    (; K, Nd, N1D, Nq, Nfp, Nc, Ns) = sizes
 
     return SubcellLimiterCache{Nd,Nc}(K=K, Nq=Nq, Nfp=Nfp, N1D=N1D, Ns=Ns, Nthread=Threads.nthreads())
 end
 
 function entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    Nd = dim(param.equation)
+    (; Nc, Nd) = sizes
 
     return NoEntropyProjectionLimiterCache{Nd,Nc}()
 end
 
 function entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapolation, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-    K = num_elements(param)
-    Nd = dim(param.equation)
+    (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     return EntropyProjectionLimiterCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
 end
@@ -649,99 +630,99 @@ function Base.show(io::IO, ::MIME"text/plain", param::Param)
 end
 
 function Base.show(io::IO, rhs_type::ESLimitedLowOrderPos)
-    text = print(io, "ESLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs_type), ",FBH=", high_order_surface_flux_type(rhs_type), ")")
+    print(io, "ESLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs_type), ",FBH=", high_order_surface_flux_type(rhs_type), ")")
 end
 
 function Base.show(io::IO, rhs_type::StdDGLimitedLowOrderPos)
-    text = print(io, "StdDGLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs_type), ")")
+    print(io, "StdDGLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs_type), ")")
 end
 
 function Base.show(io::IO, rhs_type::LowOrderPositivity)
-    text = print(io, "LowOrderPositivity(FBL=", low_order_surface_flux_type(rhs_type), ")")
+    print(io, "LowOrderPositivity(FBL=", low_order_surface_flux_type(rhs_type), ")")
 end
 
 function Base.show(io::IO, rhs_type::EntropyStable)
-    text = print(io, "EntropyStable(FBL=", high_order_surface_flux_type(rhs_type), ")")
+    print(io, "EntropyStable(FBL=", high_order_surface_flux_type(rhs_type), ")")
 end
 
 function Base.show(io::IO, rhs_type::StandardDG)
-    text = print(io, "StandardDG()")
+    print(io, "StandardDG()")
 end
 
 function Base.show(io::IO, flux_type::LaxFriedrichsOnNodalVal)
-    text = print(io, "LFNodal")
+    print(io, "LFNodal")
 end
 
 function Base.show(io::IO, flux_type::LaxFriedrichsOnProjectedVal)
-    text = print(io, "LFProjected")
+    print(io, "LFProjected")
 end
 
 function Base.show(io::IO, flux_type::ChandrashekarOnProjectedVal)
-    text = print(io, "ECProjected")
+    print(io, "ECProjected")
 end
 
 function Base.show(io::IO, entropyproj_limiter_type::NoEntropyProjectionLimiter)
-    text = print(io, "None")
+    print(io, "None")
 end
 
 function Base.show(io::IO, entropyproj_limiter_type::NodewiseScaledExtrapolation)
-    text = print(io, "NodeOpBlend")
+    print(io, "NodeOpBlend")
 end
 
 function Base.show(io::IO, bound_type::PositivityBound)
-    text = print(io, "PosBound")
+    print(io, "PosBound")
 end
 
 function Base.show(io::IO, bound_type::PositivityAndMinEntropyBound)
-    text = print(io, "PosMinEntropyBound")
+    print(io, "PosMinEntropyBound")
 end
 
 function Base.show(io::IO, bound_type::PositivityAndRelaxedMinEntropyBound)
-    text = print(io, "PosRelaxMinEntropyBound")
+    print(io, "PosRelaxMinEntropyBound")
 end
 
 function Base.show(io::IO, bound_type::PositivityAndCellEntropyBound)
-    text = print(io, "PosCellEntropyBound")
+    print(io, "PosCellEntropyBound")
 end
 
 function Base.show(io::IO, bound_type::PositivityAndRelaxedCellEntropyBound)
-    text = print(io, "PosRelaxCellEntropyBound(beta=", bound_type.beta, ")")
+    print(io, "PosRelaxCellEntropyBound(beta=", bound_type.beta, ")")
 end
 
 function Base.show(io::IO, bound_type::TVDBound)
-    text = print(io, "TVDBound")
+    print(io, "TVDBound")
 end
 
 function Base.show(io::IO, bound_type::TVDAndMinEntropyBound)
-    text = print(io, "TVDMinEntropyBound")
+    print(io, "TVDMinEntropyBound")
 end
 
 function Base.show(io::IO, bound_type::TVDAndRelaxedMinEntropyBound)
-    text = print(io, "TVDRelaxMinEntropyBound")
+    print(io, "TVDRelaxMinEntropyBound")
 end
 
 function Base.show(io::IO, bound_type::TVDAndCellEntropyBound)
-    text = print(io, "TVDCellEntropyBound")
+    print(io, "TVDCellEntropyBound")
 end
 
 function Base.show(io::IO, bound_type::TVDAndRelaxedCellEntropyBound)
-    text = print(io, "TVDRelaxCellEntropyBound(beta=", bound_type.beta, ")")
+    print(io, "TVDRelaxCellEntropyBound(beta=", bound_type.beta, ")")
 end
 
 function Base.show(io::IO, shockcapture_type::NoShockCapture)
-    text = print(io, "None")
+    print(io, "None")
 end
 
 function Base.show(io::IO, shockcapture_type::HennemannShockCapture)
-    text = print(io, "Modal")
+    print(io, "Modal")
 end
 
 function Base.show(io::IO, limiter_type::SubcellLimiter)
-    text = print(io, "Subcell(bound=", bound_type(limiter_type), ",shockcapture=", shockcapture_type(limiter_type), ")")
+    print(io, "Subcell(bound=", bound_type(limiter_type), ",shockcapture=", shockcapture_type(limiter_type), ")")
 end
 
 function Base.show(io::IO, limiter_type::ZhangShuLimiter)
-    text = print(io, "ZhangShu(bound=", bound_type(limiter_type), ",shockcapture=", shockcapture_type(limiter_type), ")")
+    print(io, "ZhangShu(bound=", bound_type(limiter_type), ",shockcapture=", shockcapture_type(limiter_type), ")")
 end
 
 ###################

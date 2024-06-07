@@ -3,8 +3,6 @@ using StartUpDG
 
 using P2DE
 
-@show "=========================="
-
 function exact_sol(eqn, x, y, t)
     γ = get_γ(eqn)
     x0 = 4.5

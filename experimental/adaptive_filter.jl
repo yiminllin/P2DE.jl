@@ -4,8 +4,7 @@ struct ZhangShuFilter <: AdaptiveFilter end
 
 function entropy_projection!(prealloc, param, entropyproj_limiter_type::Union{AdaptiveFilter,NoEntropyProjectionLimiter}, discrete_data, nstage, timer)
     (; Uq, vq, v_tilde, u_tilde) = prealloc
-    (; Nh, Nq, Nfp) = discrete_data.sizes
-    K = num_elements(param)
+    (; K) = discrete_data.sizes
 
     for k = 1:K
         vq_k = view(vq, :, k)
@@ -38,7 +37,7 @@ function project_flux_difference_to_quad!(cache, prealloc, param, entropyproj_li
 end
 
 function entropyproj_limiter_cache(entropyproj_limiter_type::AdaptiveFilter, param, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
+    (; Np, Nh, Nq, Nfp, Nc) = sizes
     K = num_elements(param)
     Nd = dim(param.equation)
 

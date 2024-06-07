@@ -1,10 +1,6 @@
 # TODO: change file names
 function initialize_preallocations(param, md, sizes)
-    (; Np, Nh, Nq, Nfp, Nc, Ns) = sizes
-
-    K = num_elements(param)
-    Nd = dim(param.equation)
-    N1D = Nd == 1 ? 1 : param.N + 1      # TODO: hardcoded
+    (; K, Nd, N1D, Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
     Uq = zeros(SVector{Nc,Float64}, Nq, K)
     vq = zeros(SVector{Nc,Float64}, Nq, K)
@@ -43,7 +39,7 @@ function initialize_cache(param, md, sizes)
     (; rhs_type, rhs_limiter_type, entropyproj_limiter_type) = param
     dim = dim_type(param.equation)
 
-    return Caches(rhs_cache(rhs_type, param, sizes), limiter_cache(rhs_limiter_type, param, sizes), shockcapture_cache(shockcapture_type(rhs_limiter_type), param, sizes), entropyproj_limiter_cache(entropyproj_limiter_type, param, sizes), postprocessing_cache(param, md, dim))
+    return Caches(rhs_cache(rhs_type, param, sizes), limiter_cache(rhs_limiter_type, param, sizes), shockcapture_cache(shockcapture_type(rhs_limiter_type), param, sizes), entropyproj_limiter_cache(entropyproj_limiter_type, param, sizes), postprocessing_cache(param, md, sizes, dim))
 end
 
 function initialize_DG(param, initial_condition, initial_boundary_conditions)
@@ -65,8 +61,7 @@ function initialize_DG(param, initial_condition, initial_boundary_conditions)
 end
 
 function initialize_data(param)
-    (; N, equation, approximation_basis_type) = param
-    return initialize_reference_data(param, equation, approximation_basis_type)
+    return initialize_reference_data(param, param.equation, param.approximation_basis_type)
 end
 
 function initialize_reference_data(param, equation::EquationType{Dim1}, approx_basis_type::GaussCollocation)
@@ -129,7 +124,6 @@ function construct_gauss_reference_data(rd)
     Vf = rd.Vf * gauss_to_lobatto
     M = gauss_to_lobatto' * rd.M * gauss_to_lobatto
     Pq = I         # lobatto_to_gauss*rd.Pq
-    Dr = lobatto_to_gauss * rd.Dr * gauss_to_lobatto
     Drst = (x -> lobatto_to_gauss * x * gauss_to_lobatto).(rd.Drst)
     LIFT = rd.M \ (rd.Vf' * diagm(rd.wf))
 
@@ -148,8 +142,8 @@ function initialize_operators(param, rd, quad_type)
     # TODO: Assume uniform mesh
     # Construct mesh
     md = initialize_uniform_mesh_data(param, rd, rd.element_type)
-    (; x, xq, rxJ, nxJ, J, mapP) = md
-    (; r, rq, wq, wf, M, Pq, Vq, Vf, LIFT, nrstJ, Drst, VDM) = rd
+    (; x, J) = md
+    (; wq, wf, M, Pq, Vq, Vf, nrstJ, Drst, VDM) = rd
     Vf = Matrix(Vf)
 
     # Construct geometric factors

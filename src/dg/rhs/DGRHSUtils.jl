@@ -114,7 +114,7 @@ function graph_viscosity(cache, prealloc, param, i, j, k, Sxy0J_ij, dim::Dim2)
     (; Uq) = prealloc
 
     Nc = num_components(param.equation)
-    Sx0J_ij, Sy0J_ij = Sxy0J_ij
+    Sx0J_ij, _ = Sxy0J_ij
     visc_term = λarr[i, j, k] * (Uq[j, k] - Uq[i, k])
     # If it is the dissipation in x-direction
     # TODO: hardcoded tolerance
