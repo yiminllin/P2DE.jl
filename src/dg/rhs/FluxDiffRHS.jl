@@ -122,14 +122,13 @@ function calculate_interface_dissipation_coeff!(cache, prealloc, param, bcdata, 
 end
 
 function enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
-    (; Uq, u_tilde) = prealloc
+    (; Uq) = prealloc
     (; equation) = param
     (; mapP, mapI, mapO, Ival) = bcdata
     (; LFc, uP, betaP, rhologP, betalogP) = cache
     (; fq2q) = discrete_data.ops
-    (; Nq, Nh) = discrete_data.sizes
+    (; Nfp) = discrete_data.sizes
 
-    Nfp = size(mapP, 1)
     # zero dissipation on the boundary
     @batch for i in mapI
         LFc[i] = 0.0
@@ -139,7 +138,6 @@ function enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     end
 
     # Enforce inflow BC
-    uf = @view u_tilde[Nq+1:Nh, :]
     @batch for i = 1:size(mapI, 1)
         ii = mapI[i]
         uP[ii] = Ival[i]
@@ -346,10 +344,9 @@ end
 # TODO: dispatch
 function assemble_rhs!(cache, prealloc, param, discrete_data, nstage)
     (; entropyproj_limiter_type) = param
-    (; QF1, MinvVhTQF1, MinvVfTBF1) = cache
-    (; BF_H, rhsH, rhsxyH) = prealloc
+    (; MinvVhTQF1, MinvVfTBF1) = cache
+    (; rhsH, rhsxyH) = prealloc
     (; Jq) = discrete_data.geom
-    (; MinvVhT, MinvVfT, Vq) = discrete_data.ops
     (; K, Nq) = discrete_data.sizes
 
     # Assemble RHS
@@ -379,9 +376,9 @@ end
 
 function check_flux_diff_entropy_stability(cache, prealloc, param, discrete_data, dim::Dim2)
     (; equation) = param
-    (; v_tilde, psi_tilde, Uq, vq) = prealloc
+    (; v_tilde, psi_tilde, vq) = prealloc
     (; fstar_H, rhsxyH) = prealloc
-    (; QF1, MinvVhTQF1, MinvVfTBF1) = cache
+    (; MinvVhTQF1, MinvVfTBF1) = cache
     (; wq) = discrete_data.ops
     (; Jq) = discrete_data.geom
     (; K, Nd, Nq, Nfp) = discrete_data.sizes

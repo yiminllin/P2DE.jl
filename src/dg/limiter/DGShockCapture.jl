@@ -16,10 +16,10 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
     (; indicator, indicator_modal, smooth_indicator) = prealloc
     (; N, equation) = param
     (; VDM_inv) = discrete_data.ops
+    (; K) = discrete_data.sizes
 
     initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
 
-    K = num_elements(param)
     @batch for k = 1:K
         @views mul!(indicator_modal[:, k], VDM_inv, indicator[:, k])
     end
@@ -49,10 +49,10 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
     (; indicator, indicator_modal, smooth_indicator) = prealloc
     (; N, equation) = param
     (; VDM_inv) = discrete_data.ops
+    (; K) = discrete_data.sizes
 
     initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
 
-    K = num_elements(param)
     @batch for k = 1:K
         @views mul!(indicator_modal[:, k], VDM_inv, indicator[:, k])
     end
@@ -84,9 +84,8 @@ function initialize_indicator!(equation::CompressibleIdealGas, prealloc, param, 
     (; indicator) = prealloc
     (; equation) = param
     (; Uq) = prealloc
-    (; Nq) = discrete_data.sizes
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
     @batch for k = 1:K
         for i = 1:Nq
             Ui = Uq[i, k]
@@ -101,9 +100,8 @@ function initialize_indicator!(equation::KPP, prealloc, param, discrete_data, ns
     (; indicator) = prealloc
     (; equation) = param
     (; Uq) = prealloc
-    (; Nq) = discrete_data.sizes
+    (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
     @batch for k = 1:K
         for i = 1:Nq
             Ui = Uq[i, k][1]
@@ -126,8 +124,8 @@ function update_blending_factor!(shockcapture::HennemannShockCapture, cache, pre
     (; smooth_indicator) = prealloc
     (; a, c) = shockcapture
     (; N) = param
+    (; K) = discrete_data.sizes
 
-    K = num_elements(param)
     TN = a * 10^(-c * (N + 1)^0.25)
     alphamax = 0.5
     alphaE0 = 0.0001

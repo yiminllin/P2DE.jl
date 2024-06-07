@@ -66,7 +66,7 @@ export TVDBound, TVDAndMinEntropyBound, TVDAndRelaxedMinEntropyBound
 export TVDAndCellEntropyBound, TVDAndRelaxedCellEntropyBound
 export NoShockCapture, HennemannShockCapture
 export GaussCollocation, LobattoCollocation
-export Dim1, Dim2, Dim3
+export Dim1, Dim2
 export CompressibleEulerIdealGas, CompressibleNavierStokesIdealGas, KPP
 
 ##################

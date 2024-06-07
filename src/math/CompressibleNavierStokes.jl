@@ -144,7 +144,7 @@ end
 end
 
 @inline function u_vfun(equation::CompressibleIdealGas{Dim1}, V)
-    v1, vu, vE = V
+    _, vu, vE = V
     rhoeV = rhoe_vfun(equation, V)
     rho = -rhoeV * vE
     rhou = rhoeV * vu
@@ -153,7 +153,7 @@ end
 end
 
 @inline function u_vfun(equation::CompressibleIdealGas{Dim2}, V)
-    v1, vu, vv, vE = V
+    _, vu, vv, vE = V
     rhoeV = rhoe_vfun(equation, V)
     rho = -rhoeV * vE
     rhou = rhoeV * vu

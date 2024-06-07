@@ -5,7 +5,7 @@ end
 # TODO: put into entropy projection to avoid an extra projection step
 function compute_entropyproj_limiting_param!(param, discrete_data, prealloc, cache, approx_basis_type::GaussCollocation, nstage)
     (; equation) = param
-    K = num_elements(param)
+    (; K) = discrete_data.sizes
     clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
     calc_face_values!(prealloc, cache, param, equation, discrete_data)
@@ -108,9 +108,9 @@ function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc, 
 end
 
 function update_limited_entropyproj_vars_on_face_node!(prealloc, cache, θ_i, i, k, entropyproj_limiter_type::NodewiseScaledExtrapolation, param, discrete_data, tid)
-    (; Uq, vq) = prealloc
+    (; vq) = prealloc
     (; v_tilde_k, u_tilde_k) = cache
-    (; Nh, Nq) = discrete_data.sizes
+    (; Nq) = discrete_data.sizes
     (; Vf, Vf_low) = discrete_data.ops
     ϵ = param.global_constants.POSTOL
 

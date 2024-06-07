@@ -2,7 +2,6 @@ function check_positivity(U, param, discrete_data)
     (; equation) = param
     (; K, Nq) = discrete_data.sizes
 
-    K = num_elements(param)
     rhomin = Inf
     rhoemin = Inf
     rhomax = -Inf
@@ -28,7 +27,6 @@ function check_positivity_node(Ui, param)
     is_positive = true
     rho = Ui[1]
     p = pfun(equation, Ui)
-    rhoe = rhoe_ufun(equation, Ui)
     if (rho < 0.0 || p < 0.0)
         display("!!!!! Negativity detected !!!!!")
         @show Ui

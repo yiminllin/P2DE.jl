@@ -8,7 +8,6 @@ function apply_zhang_shu_limiter!(prealloc, limiter_cache, shockcapture_cache, p
     (; blending_factor) = shockcapture_cache
     (; K) = discrete_data.sizes
 
-    K = num_elements(param)
     ζ = param.limiting_param.ζ
     Lrho(uL_i) = ζ * uL_i[1]
     Lrhoe(uL_i) = ζ * rhoe_ufun(param.equation, uL_i)
@@ -48,11 +47,10 @@ end
 
 function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, L, param, discrete_data, uL, P, k, Lrho::Real, Lrhoe::Real, Urho, Urhoe, nstage)
     (; rhs_limiter_type) = param
-    (; K) = discrete_data.sizes
+    (; Nq) = discrete_data.sizes
 
     l = 1.0
     for i = 1:Nq
-        uL_i = uL[i]
         bound = (Lrho, Lrhoe, Urho, Urhoe)
         l = min(l, limiting_param(rhs_limiter_type, bound_type(param), param, uL[i], P[i], bound))
     end

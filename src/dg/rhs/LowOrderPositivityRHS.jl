@@ -2,7 +2,7 @@
 ### RHS of positivity preserving Gauss ###
 ##########################################
 function rhs_pos_Gauss!(prealloc, rhs_cache, param, discrete_data, bcdata, t, dt, nstage, timer, need_proj=true)
-    (; entropyproj_limiter_type, equation) = param
+    (; entropyproj_limiter_type) = param
 
     cache = low_order_cache(rhs_cache)
     @timeit_debug timer "entropy projection" begin
@@ -76,7 +76,6 @@ end
 function update_wavespeed_and_inviscid_flux!(cache, prealloc, k, param, discrete_data)
     (; equation) = param
     (; Uq) = prealloc
-    (; Srs0_nnz) = discrete_data.ops
     (; Uf, wavespeed_f, flux) = cache
     (; Nq, Nfp) = discrete_data.sizes
 
@@ -99,7 +98,6 @@ end
 function get_uP_and_enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     (; Uf, uP) = cache
     (; Uq, u_tilde) = prealloc
-    (; equation) = param
     (; mapP, mapI, mapO, Ival) = bcdata
     (; fq2q) = discrete_data.ops
     (; K, Nfp) = discrete_data.sizes
@@ -117,14 +115,9 @@ function get_uP_and_enforce_BC!(cache, prealloc, param, bcdata, discrete_data)
     # Enforce inflow BC
     @batch for i = 1:size(mapI, 1)
         ii = mapI[i]
-        iP = mod1(mapP[ii], Nfp)
-        kP = div(mapP[ii] - 1, Nfp) + 1
         uP[ii] = Ival[i]
     end
 
-    Nq = size(Uq, 1)
-    Nh = size(u_tilde, 1)
-    uf = @view u_tilde[Nq+1:Nh, :]
     @batch for i = 1:size(mapO, 1)
         io = mapO[i]
         iP = mod1(io, Nfp)
@@ -196,7 +189,6 @@ function accumulate_low_order_rhs_surface!(cache, prealloc, param, discrete_data
         # Surface contributions
         for i = 1:Nfp
             # TODO: refactor
-            idx = i + Nfp * (k - 1)
             iP = mod1(mapP[i, k], Nfp)
             kP = div(mapP[i, k] - 1, Nfp) + 1
 
