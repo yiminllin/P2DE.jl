@@ -37,7 +37,13 @@ using WriteVTK
 ########################
 # Include source files #
 ########################
-include("./types.jl")
+include("./common/Solver.jl")
+include("./common/State.jl")
+include("./common/Param.jl")
+include("./common/PostprocessData.jl")
+include("./common/traits.jl")
+include("./common/show.jl")
+include("./common/getproperty.jl")
 include("./math/nonlinear_solvers.jl")
 include("./math/CompressibleNavierStokes.jl")
 include("./math/KPP.jl")
@@ -54,8 +60,7 @@ include("./timestepping/TimeStepping.jl")
 # Export types #
 ################
 export Param, BCData, DataHistory, ErrorData
-export GlobalConstant, TimesteppingParameter, PostprocessingParameter,
-    LimitingParameter
+export GlobalConstant, TimesteppingParameter, PostprocessingParameter, LimitingParameter
 export LowOrderPositivity, EntropyStable, StandardDG, ESLimitedLowOrderPos, StdDGLimitedLowOrderPos
 export ChandrashekarOnProjectedVal, LaxFriedrichsOnNodalVal, LaxFriedrichsOnProjectedVal
 export NoEntropyProjectionLimiter, NodewiseScaledExtrapolation
