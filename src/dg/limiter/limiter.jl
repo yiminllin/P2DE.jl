@@ -1,6 +1,6 @@
-include("./DGLimiterUtils.jl")
-include("./ZhangShuLimiter.jl")
-include("./SubcellLimiter.jl")
+include("./limiter_utils.jl")
+include("./zhangshu.jl")
+include("./subcell.jl")
 
 ########################
 ### Appy RHS limiter ###

@@ -1,6 +1,6 @@
-include("./DGRHSUtils.jl")
-include("./FluxDiffRHS.jl")
-include("./LowOrderPositivityRHS.jl")
+include("./rhs_utils.jl")
+include("./flux_differencing.jl")
+include("./low_order_graph_viscosity.jl")
 
 function rhs!(param, discrete_data, bcdata, prealloc, caches, t, dt, nstage, timer)
     @timeit_debug timer "initialize rhs" begin

@@ -37,24 +37,24 @@ using WriteVTK
 ########################
 # Include source files #
 ########################
-include("./common/Solver.jl")
-include("./common/State.jl")
-include("./common/Param.jl")
-include("./common/PostprocessData.jl")
+include("./common/types/Solver.jl")
+include("./common/types/State.jl")
+include("./common/types/Param.jl")
+include("./common/types/PostprocessData.jl")
 include("./common/traits.jl")
 include("./common/show.jl")
 include("./common/getproperty.jl")
 include("./math/nonlinear_solvers.jl")
-include("./math/CompressibleNavierStokes.jl")
+include("./math/compressible_Navier_Stokes.jl")
 include("./math/KPP.jl")
-include("./dg/DGInitialize.jl")
-include("./dg/DGPostProcessing.jl")
-include("./dg/DGFilter.jl")
-include("./dg/limiter/DGLimiter.jl")
-include("./dg/limiter/DGShockCapture.jl")
-include("./dg/rhs/DGRHS.jl")
-include("./dg/DGUtils.jl")
-include("./timestepping/TimeStepping.jl")
+include("./dg/init.jl")
+include("./dg/postprocess.jl")
+include("./dg/filter.jl")
+include("./dg/limiter/limiter.jl")
+include("./dg/limiter/shock_capture.jl")
+include("./dg/rhs/rhs.jl")
+include("./dg/utils.jl")
+include("./timestepping/SSPRK33.jl")
 
 ################
 # Export types #
