@@ -18,16 +18,16 @@ jobs:
           echo "PR Body: $PR_BODY"
 
           REQUIRED_CHECKBOXES=(
-            '- \[x\] Run Integration/Convergence Tests'
-            '- \[x\] `julia --project=@. --threads=30 examples/convergence/isentropic-vortex-convergence.jl`'
-            '- \[x\] `julia --project=@. --threads=30 examples/convergence/leblanc-convergence.jl`'
-            '- \[x\] `julia --project=@. --threads=30 examples/convergence/wall-convergence.jl`'
+            "- \[x\] Run Integration/Convergence Tests"
+            "- \[x\] `julia --project=@. --threads=30 examples/convergence/isentropic-vortex-convergence.jl`"
+            "- \[x\] `julia --project=@. --threads=30 examples/convergence/leblanc-convergence.jl`"
+            "- \[x\] `julia --project=@. --threads=30 examples/convergence/wall-convergence.jl`"
           )
 
           for CHECKBOX in "${REQUIRED_CHECKBOXES[@]}"
           do
-            if ! echo "$PR_BODY" | grep -q "$CHECKBOX"; then
-              echo "Checkbox '$CHECKBOX' should be checked before landing."
+            if ! echo "$PR_BODY" | grep -F "$CHECKBOX"; then
+              echo "All checkboxes should be checked before landing."
               exit 1
             fi
           done
