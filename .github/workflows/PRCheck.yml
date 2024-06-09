@@ -19,9 +19,9 @@ jobs:
 
           REQUIRED_CHECKBOXES=(
             "- \[x\] Run Integration/Convergence Tests"
-            "- \[x\] `julia --project=@. --threads=30 examples/convergence/isentropic-vortex-convergence.jl`"
-            "- \[x\] `julia --project=@. --threads=30 examples/convergence/leblanc-convergence.jl`"
-            "- \[x\] `julia --project=@. --threads=30 examples/convergence/wall-convergence.jl`"
+            "- \[x\] \`julia --project=@. --threads=30 examples/convergence/isentropic-vortex-convergence.jl\`"
+            "- \[x\] \`julia --project=@. --threads=30 examples/convergence/leblanc-convergence.jl\`"
+            "- \[x\] \`julia --project=@. --threads=30 examples/convergence/wall-convergence.jl\`"
           )
 
           for CHECKBOX in "${REQUIRED_CHECKBOXES[@]}"
