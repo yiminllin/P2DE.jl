@@ -57,7 +57,7 @@ function initialize_DG(param, initial_condition, initial_boundary_conditions)
 
     init_U!(param, discrete_data, md, prealloc, initial_condition)
 
-    return rd, md, discrete_data, bcdata, prealloc, caches
+    return Solver(rd=rd, md=md, discrete_data=discrete_data, param=param), State(preallocation=prealloc, cache=caches), StateParam(bcdata=bcdata)
 end
 
 function initialize_data(param)

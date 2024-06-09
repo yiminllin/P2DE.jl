@@ -1,16 +1,17 @@
-function SSP33!(param, discrete_data, bcdata, prealloc, caches)
-    (; CFL, dt0, t0, T) = param.timestepping_param
-    (; output_interval) = param.postprocessing_param
-    (; θ_arr, Larr, rhsU, resW, resZ) = prealloc
-    (; Uq) = prealloc
+function SSP33!(state, solver, state_param)
+    (; CFL, dt0, t0, T) = solver.param.timestepping_param
+    (; output_interval) = solver.param.postprocessing_param
+    (; θ_arr, Larr, rhsU, resW, resZ, Uq) = state.preallocation
 
     # TODO: very ugly hack... seems like I need to warm up the threads to avoid allocations?
     timer_dummy = TimerOutput()
     dt_dummy = dt0
     t_dummy = 0.0
-    @benchmark rhs!($param, $discrete_data, $bcdata, $prealloc, $caches, $t_dummy, $dt_dummy, 1, $timer_dummy)
+    timer_dummy = TimerOutput()
+    time_param = TimeParam(t=t_dummy, dt=dt_dummy, nstage=1, timer=timer_dummy)
+    @benchmark rhs!($state, $solver, $state_param, $time_param)
 
-    Nc = num_components(param.equation)
+    Nc = num_components(solver)
     Uhist = []
     Lhist = []
     θhist = []
@@ -28,12 +29,12 @@ function SSP33!(param, discrete_data, bcdata, prealloc, caches)
         @timeit_debug timer "SSP stages" begin
             dt = min(CFL * dt0, T - t)
             @. resW = Uq    # TODO: rename, resW is now the copy of previous time step Uq, and Uq is wi in paper
-            dt = rhs!(param, discrete_data, bcdata, prealloc, caches, t, dt, 1, timer)
+            dt = rhs!(state, solver, state_param, TimeParam(t=t, dt=dt, nstage=1, timer=timer))
             @. Uq = resW + dt * rhsU
-            rhs!(param, discrete_data, bcdata, prealloc, caches, t, dt, 2, timer)
+            rhs!(state, solver, state_param, TimeParam(t=t, dt=dt, nstage=2, timer=timer))
             @. resZ = Uq + dt * rhsU
             @. Uq = 3 / 4 * resW + 1 / 4 * resZ
-            rhs!(param, discrete_data, bcdata, prealloc, caches, t, dt, 3, timer)
+            rhs!(state, solver, state_param, TimeParam(t=t, dt=dt, nstage=3, timer=timer))
             @. resZ = Uq + dt * rhsU
             @. Uq = 1 / 3 * resW + 2 / 3 * resZ
         end
@@ -49,7 +50,7 @@ function SSP33!(param, discrete_data, bcdata, prealloc, caches)
             push!(θhist, copy(θ_arr))
             println("Current time $t with time step size $dt, and final time $T, step $i")
             flush(stdout)
-            total_conservation = check_conservation(prealloc, param, discrete_data)
+            total_conservation = check_conservation(state, solver)
             @show total_conservation
         end
     end

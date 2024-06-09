@@ -1,29 +1,29 @@
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
 # TODO: refactor
-function limiting_param(rhs_limiter_type::ZhangShuLimiter, bound_type, param, UL, P, bound)
+function limiting_param(rhs_limiter_type::ZhangShuLimiter, bound_type, solver, UL, P, bound)
     Lrho, Lrhoe, Urho, Urhoe = bound
-    l = min(1.0, limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe))
+    l = min(1.0, limiting_param_bound_rho_rhoe(solver, UL, P, Lrho, Lrhoe, Urho, Urhoe))
     return l
 end
 
-function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, param, UL, P, bound)
+function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, solver, UL, P, bound)
     Lrho, Lrhoe, Urho, Urhoe = bound
-    l = limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe)
+    l = limiting_param_bound_rho_rhoe(solver, UL, P, Lrho, Lrhoe, Urho, Urhoe)
     return l
 end
 
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
 #             phi(UL + lP)  ∈ [Lphi, inf),    phi = rhoe rho^{-\gamma}, modified specific entropy
-function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, param, UL, P, bound)
+function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, solver, UL, P, bound)
     Lrho, Lrhoe, Lphi, Urho, Urhoe = bound
-    lpos = limiting_param_bound_rho_rhoe(param, UL, P, Lrho, Lrhoe, Urho, Urhoe)
-    l = limiting_param_bound_phi(param, UL, P, Lphi, lpos)   # TODO: assume for l \in [0,lpos] gives positive quantities
+    lpos = limiting_param_bound_rho_rhoe(solver, UL, P, Lrho, Lrhoe, Urho, Urhoe)
+    l = limiting_param_bound_phi(solver, UL, P, Lphi, lpos)   # TODO: assume for l \in [0,lpos] gives positive quantities
     return l
 end
 
-function limiting_param_bound_rho_rhoe(param, U, P, Lrho, Lrhoe, Urho, Urhoe)
+function limiting_param_bound_rho_rhoe(solver, U, P, Lrho, Lrhoe, Urho, Urhoe)
     l = 1.0
     # Limit density, lower bound
     if U[1] + P[1] < Lrho
@@ -34,14 +34,14 @@ function limiting_param_bound_rho_rhoe(param, U, P, Lrho, Lrhoe, Urho, Urhoe)
         l = min(l, max((Urho - U[1]) / P[1], 0.0))
     end
 
-    l = min(l, rhoe_quadratic_solve(param, U, P, Lrhoe),
-        rhoe_quadratic_solve(param, U, P, Urhoe))
+    l = min(l, rhoe_quadratic_solve(solver, U, P, Lrhoe),
+        rhoe_quadratic_solve(solver, U, P, Urhoe))
     return l
 end
 
-function limiting_param_bound_phi(param, U, P, Lphi, lpos)
-    (; equation) = param
-    (; POSTOL) = param.global_constants
+function limiting_param_bound_phi(solver, U, P, Lphi, lpos)
+    (; equation) = solver.param
+    (; POSTOL) = solver.param.global_constants
 
     # TODO: refactor
     f(l) = s_modified_ufun(equation, U + l * P) >= Lphi - POSTOL
@@ -49,16 +49,15 @@ function limiting_param_bound_phi(param, U, P, Lphi, lpos)
     return l
 end
 
-function rhoe_quadratic_solve(param, UL, P, Lrhoe)
-    (; ZEROTOL) = param.global_constants
+function rhoe_quadratic_solve(solver, UL, P, Lrhoe)
+    (; ZEROTOL) = solver.param.global_constants
 
-    dim = dim_type(param.equation)
     if Lrhoe == Inf
         return 1.0
     end
 
     # limiting internal energy (via quadratic function) lower bound
-    a, b, c = rhoe_quadratic_coefficients(UL, P, Lrhoe, dim)
+    a, b, c = rhoe_quadratic_coefficients(dim_type(solver), UL, P, Lrhoe)
 
     l_eps_ij = 1.0
     if b^2 - 4 * a * c >= 0
@@ -76,14 +75,14 @@ function rhoe_quadratic_solve(param, UL, P, Lrhoe)
     return l_eps_ij
 end
 
-function rhoe_quadratic_coefficients(U, P, Lrhoe, dim::Dim1)
+function rhoe_quadratic_coefficients(dim::Dim1, U, P, Lrhoe)
     a = P[1] * P[3] - 1.0 / 2.0 * P[2]^2
     b = U[3] * P[1] + U[1] * P[3] - U[2] * P[2] - P[1] * Lrhoe
     c = U[3] * U[1] - 1.0 / 2.0 * U[2]^2 - U[1] * Lrhoe
     return a, b, c
 end
 
-function rhoe_quadratic_coefficients(U, P, Lrhoe, dim::Dim2)
+function rhoe_quadratic_coefficients(dim::Dim2, U, P, Lrhoe)
     a = P[1] * P[4] - 1.0 / 2.0 * (P[2]^2 + P[3]^2)
     b = U[4] * P[1] + U[1] * P[4] - U[2] * P[2] - U[3] * P[3] - P[1] * Lrhoe
     c = U[4] * U[1] - 1.0 / 2.0 * (U[2]^2 + U[3]^2) - U[1] * Lrhoe
@@ -95,7 +94,8 @@ end
 ### Subcell limiter Utils ###
 #############################
 # TODO: refactor
-function subcell_face_idx_to_quad_face_index_x(si, sj, k, N1D)
+function subcell_face_idx_to_quad_face_index_x(si, sj, solver)
+    (; N1D) = solver.discrete_data.sizes
     iface = 0
     if (si == 1)
         iface = sj
@@ -107,7 +107,8 @@ function subcell_face_idx_to_quad_face_index_x(si, sj, k, N1D)
 end
 
 # TODO: refactor
-function subcell_face_idx_to_quad_face_index_y(si, sj, k, N1D)
+function subcell_face_idx_to_quad_face_index_y(si, sj, solver)
+    (; N1D) = solver.discrete_data.sizes
     iface = 0
     if (sj == 1)
         iface = si + 2 * N1D
@@ -119,10 +120,11 @@ function subcell_face_idx_to_quad_face_index_y(si, sj, k, N1D)
 end
 
 # TODO: refactor
-function subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
-    (; mapP) = bcdata
+function subcell_index_P_x(si, sj, k, solver, state_param)
+    (; mapP) = state_param.bcdata
+    (; N1D) = solver.discrete_data.sizes
 
-    N1D = N1Dp1 - 1
+    N1Dp1 = N1D + 1
     Nfp = 4 * N1D
 
     # map subcell index to face quad index
@@ -149,10 +151,11 @@ function subcell_index_P_x(si, sj, k, N1Dp1, bcdata)
 end
 
 # TODO: refactor
-function subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
-    (; mapP) = bcdata
+function subcell_index_P_y(si, sj, k, solver, state_param)
+    (; mapP) = state_param.bcdata
+    (; N1D) = solver.discrete_data.sizes
 
-    N1D = N1Dp1 - 1
+    N1Dp1 = N1D + 1
     Nfp = 4 * N1D
 
     iface = 0
@@ -178,7 +181,11 @@ function subcell_index_P_y(si, sj, k, N1Dp1, bcdata)
 end
 
 # TODO: refactor
-function quad_index_to_quad_index_P(idx, k, N1D, Nfp, q2fq, fq2q, mapP, dim::Dim1)
+function quad_index_to_quad_index_P(dim::Dim1, idx, k, solver, state_param)
+    (; mapP) = state_param.bcdata
+    (; Nfp) = solver.discrete_data.sizes
+    (; q2fq, fq2q) = solver.discrete_data.ops
+
     i = idx
     iface = q2fq[i][1]
     iP = mod1(mapP[iface, k], Nfp)
@@ -189,7 +196,11 @@ end
 
 # TODO: hardcoding... Assume q2fq come in with order: first vertical face nodes
 #                     then horizontal face nodes
-function quad_index_to_quad_index_P(idx, k, N1D, Nfp, q2fq, direction, fq2q, mapP, dim::Dim2)
+function quad_index_to_quad_index_P(dim::Dim2, idx, k, direction, solver, state_param)
+    (; mapP) = state_param.bcdata
+    (; N1D, Nfp) = solver.discrete_data.sizes
+    (; q2fq, fq2q) = solver.discrete_data.ops
+
     i = idx
     iface = length(q2fq[i]) == 1 ? q2fq[i][1] : q2fq[i][direction]
     iP = mod1(mapP[iface, k], Nfp)
@@ -200,23 +211,21 @@ function quad_index_to_quad_index_P(idx, k, N1D, Nfp, q2fq, direction, fq2q, map
     return iP, jP, kP
 end
 
-function low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim1)
-    (; q2fq, fq2q) = discrete_data.ops
-    (; mapP) = bcdata
+function low_order_stencil(dim::Dim1, idx, k, solver, state_param)
+    (; N1D) = solver.discrete_data.sizes
     i = idx
-    sl = i - 1 >= 1 ? (i - 1, k) : quad_index_to_quad_index_P(i, k, N1D, Nfp, q2fq, fq2q, mapP, dim)
-    sr = i + 1 <= N1D ? (i + 1, k) : quad_index_to_quad_index_P(i, k, N1D, Nfp, q2fq, fq2q, mapP, dim)
+    sl = i - 1 >= 1 ? (i - 1, k) : quad_index_to_quad_index_P(dim, i, k, solver, state_param)
+    sr = i + 1 <= N1D ? (i + 1, k) : quad_index_to_quad_index_P(dim, i, k, solver, state_param)
     return (sl, sr)
 end
 
-function low_order_stencil(idx, k, N1D, Nfp, discrete_data, bcdata, dim::Dim2)
-    (; q2fq, fq2q) = discrete_data.ops
-    (; mapP) = bcdata
+function low_order_stencil(dim::Dim2, idx, k, solver, state_param)
+    (; N1D) = solver.discrete_data.sizes
     i, j = idx
     idxq = i + (j - 1) * N1D
-    sl = i - 1 >= 1 ? (i - 1, j, k) : quad_index_to_quad_index_P(idxq, k, N1D, Nfp, q2fq, 1, fq2q, mapP, dim)
-    sr = i + 1 <= N1D ? (i + 1, j, k) : quad_index_to_quad_index_P(idxq, k, N1D, Nfp, q2fq, 1, fq2q, mapP, dim)
-    sb = j - 1 >= 1 ? (i, j - 1, k) : quad_index_to_quad_index_P(idxq, k, N1D, Nfp, q2fq, 2, fq2q, mapP, dim)
-    st = j + 1 <= N1D ? (i, j + 1, k) : quad_index_to_quad_index_P(idxq, k, N1D, Nfp, q2fq, 2, fq2q, mapP, dim)
+    sl = i - 1 >= 1 ? (i - 1, j, k) : quad_index_to_quad_index_P(dim, idxq, k, 1, solver, state_param)
+    sr = i + 1 <= N1D ? (i + 1, j, k) : quad_index_to_quad_index_P(dim, idxq, k, 1, solver, state_param)
+    sb = j - 1 >= 1 ? (i, j - 1, k) : quad_index_to_quad_index_P(dim, idxq, k, 2, solver, state_param)
+    st = j + 1 <= N1D ? (i, j + 1, k) : quad_index_to_quad_index_P(dim, idxq, k, 2, solver, state_param)
     return (sl, sr, sb, st)
 end

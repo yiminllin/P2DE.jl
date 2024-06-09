@@ -1,8 +1,9 @@
-function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
-    (; equation, N) = param
-    (; K, Nq, Nc) = discrete_data.sizes
+function calculate_error(state, solver, exact_sol)
+    (; Uq) = state.preallocation
+    (; N) = solver.param
+    (; K, Nq, Nc) = solver.discrete_data.sizes
 
-    T = param.timestepping_param.T
+    T = solver.param.timestepping_param.T
 
     L1err = zero(SVector{Nc,Float64})
     L2err = zero(SVector{Nc,Float64})
@@ -11,10 +12,10 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     L2exact = zero(SVector{Nc,Float64})
     Linfexact = zero(SVector{Nc,Float64})
     for k = 1:K
-        U_k = @views U[:, k]
+        U_k = @views Uq[:, k]
         for i = 1:Nq
-            exact_U_k_i = exact_solution(prealloc, i, k, T, md, equation, exact_sol)
-            wJq_i = discrete_data.ops.wq[i] * discrete_data.geom.Jq[i]
+            exact_U_k_i = exact_solution(equation(solver), i, k, T, solver.md, exact_sol)
+            wJq_i = solver.discrete_data.ops.wq[i] * solver.discrete_data.geom.Jq[i]
             L1err = L1err + wJq_i * @. abs(exact_U_k_i - U_k[i])
             L2err = L2err + wJq_i * @. abs(exact_U_k_i - U_k[i])^2
             Linferr = @. max(Linferr, abs(exact_U_k_i - U_k[i]))
@@ -44,13 +45,13 @@ function calculate_error(U, param, discrete_data, md, prealloc, exact_sol)
     return err
 end
 
-function exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim1}, exact_sol)
+function exact_solution(equation::CompressibleIdealGas{Dim1}, i, k, T, md, exact_sol)
     (; xq) = md
     xq_i = xq[i, k]
     return primitive_to_conservative(equation, exact_sol(equation, xq_i, T))
 end
 
-function exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Dim2}, exact_sol)
+function exact_solution(equation::CompressibleIdealGas{Dim2}, i, k, T, md, exact_sol)
     (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]
@@ -58,7 +59,7 @@ function exact_solution(prealloc, i, k, T, md, equation::CompressibleIdealGas{Di
 end
 
 # TODO: hardcoded
-function exact_solution(prealloc, i, k, T, md, equation::KPP{Dim2}, exact_sol)
+function exact_solution(equation::KPP{Dim2}, i, k, T, md, exact_sol)
     (; xq, yq) = md
     xq_i = xq[i, k]
     yq_i = yq[i, k]

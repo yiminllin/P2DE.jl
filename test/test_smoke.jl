@@ -71,11 +71,11 @@ for limiter_type in [
             K = param.K
             equation = param.equation
 
-            rd, md, discrete_data, bcdata, prealloc, caches = initialize_DG(param, initial_condition, initial_boundary_conditions)
+            solver, state, state_param = initialize_DG(param, initial_condition, initial_boundary_conditions)
 
-            data_hist = SSP33!(param, discrete_data, bcdata, prealloc, caches)
+            data_hist = SSP33!(state, solver, state_param)
 
-            err_data = calculate_error(prealloc.Uq, param, discrete_data, md, prealloc, exact_sol)
+            err_data = calculate_error(state, solver, exact_sol)
         end
     end
 end
