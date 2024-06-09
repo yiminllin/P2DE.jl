@@ -25,6 +25,7 @@ jobs:
           )
 
           for CHECKBOX in "${REQUIRED_CHECKBOXES[@]}"
+          echo "Searching for checkbox: \"$CHECKBOX\""  # Add this line for debugging
           do
             if ! echo "$PR_BODY" | grep -F "$CHECKBOX"; then
               echo "All checkboxes should be checked before landing."
