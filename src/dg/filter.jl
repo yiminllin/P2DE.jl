@@ -1,96 +1,95 @@
-function compute_entropyproj_limiting_param!(param, discrete_data, prealloc, cache, approx_basis_type::LobattoCollocation, nstage)
+function compute_entropyproj_limiting_param!(approx_basis_type::LobattoCollocation, state, solver, time_param)
     clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
 end
 
 # TODO: put into entropy projection to avoid an extra projection step
-function compute_entropyproj_limiting_param!(param, discrete_data, prealloc, cache, approx_basis_type::GaussCollocation, nstage)
-    (; equation) = param
-    (; K) = discrete_data.sizes
-    clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
+function compute_entropyproj_limiting_param!(approx_basis_type::GaussCollocation, state, solver, time_param)
+    (; K) = solver.discrete_data.sizes
+    clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter(solver), state, time_param)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
-    calc_face_values!(prealloc, cache, param, equation, discrete_data)
+    calc_face_values!(equation(solver), state, solver)
     @batch for k = 1:K
         tid = Threads.threadid()
-        solve_theta!(prealloc, cache, k, nstage, param.entropyproj_limiter_type, equation, param, discrete_data, tid)
+        solve_theta!(entropyproj_limiter(solver), equation(solver), state, k, solver, time_param, tid)
     end
 end
 
 # TODO: unnecessary?
-function clear_entropyproj_limiting_parameter_cache!(prealloc, entropyproj_limiter_type::NodewiseScaledExtrapolation, nstage)
-    view(prealloc.θ_local_arr, :, :, nstage) .= 1.0
+function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, time_param)
+    view(state.preallocation.θ_local_arr, :, :, time_param.nstage) .= 1.0
 end
 
-function clear_entropyproj_limiting_parameter_cache!(prealloc, entropyproj_limiter_type::NoEntropyProjectionLimiter, nstage)
+function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, time_param)
     # Do nothing
 end
 
-function calc_face_values!(prealloc, cache, param, equation::CompressibleEulerIdealGas, discrete_data)
-    (; equation) = param
-    (; Uq, vq) = prealloc
-    (; Uf, VUf, rhoef) = cache
-    (; Vf) = discrete_data.ops
-    (; K, Nq, Nfp) = discrete_data.sizes
+function calc_face_values!(equation::CompressibleEulerIdealGas, state, solver)
+    (; Uq, vq) = state.preallocation
+    (; Uf, VUf, rhoef) = state.cache.entropyproj_limiter_cache
+    (; Vf) = solver.discrete_data.ops
+    (; K, Nq, Nfp) = solver.discrete_data.sizes
 
     @batch for k = 1:K
         @views mul!(Uf[:, k], Vf, Uq[:, k])
         for i = 1:Nq
-            vq[i, k] = v_ufun(equation, Uq[i, k])
+            vq[i, k] = v_ufun(equation(solver), Uq[i, k])
         end
         for i = 1:Nfp
-            rhoef[i, k] = rhoe_ufun(equation, Uf[i, k])
+            rhoef[i, k] = rhoe_ufun(equation(solver), Uf[i, k])
         end
         @views mul!(VUf[:, k], Vf, vq[:, k])
     end
 end
 
 # TODO: do nothing for KPP now
-function calc_face_values!(prealloc, cache, param, equation::KPP, discrete_data)
+function calc_face_values!(equation::KPP, state, solver)
     return nothing
 end
 
-function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter_type::NodewiseScaledExtrapolation, equation::CompressibleIdealGas, param, discrete_data, tid)
-    (; Nfp) = discrete_data.sizes
+function solve_theta!(entropyproj_limiter_type::NodewiseScaledExtrapolation, equation::CompressibleIdealGas, state, k, solver, time_param, tid)
+    (; θ_arr, θ_local_arr) = state.preallocation
+    (; Nfp) = solver.discrete_data.sizes
+    (; nstage) = time_param
     for i = 1:Nfp
-        f(θ_i) = update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc, cache, θ_i, i, k, param, discrete_data, tid)
-        prealloc.θ_local_arr[i, k, nstage] = bisection(f, 0.0, 1.0)
+        f(θ_i) = update_and_check_bound_limited_entropyproj_var_on_face_node!(state, θ_i, i, k, tid, solver)
+        θ_local_arr[i, k, nstage] = bisection(f, 0.0, 1.0)
     end
     # TODO: hardcode for post postprocessing
-    prealloc.θ_arr[k, nstage] = sum(view(prealloc.θ_local_arr, :, k, nstage)) / discrete_data.sizes.Nfp
+    θ_arr[k, nstage] = sum(view(θ_local_arr, :, k, nstage)) / Nfp
 end
 
-function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter_type::NoEntropyProjectionLimiter, equation::CompressibleIdealGas, param, discrete_data, tid)
+function solve_theta!(entropyproj_limiter_type::NoEntropyProjectionLimiter, equation::CompressibleIdealGas, state, k, solver, time_param, tid)
     return 1.0
 end
 
 # TODO: do nothing for KPP now
-function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter_type, equation::KPP, param, discrete_data, tid)
+function solve_theta!(entropyproj_limiter_type, equation::KPP, state, k, solver, time_param, tid)
     return nothing
 end
 
-function update_limited_entropyproj_vars!(prealloc, cache, θ, k, entropyproj_limiter_type::NoEntropyProjectionLimiter, param, discrete_data, tid)
+function update_limited_entropyproj_vars!(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, θ_i, i, k, tid, solver)
     # Do nothing
 end
 
 # TODO: better to define custom index type for hybridized, quad, and surface nodes...
-function calculate_limited_entropyproj_vars_on_node!(cache, i, param, tid)
-    (; v3tilde, rhotilde, rhoetilde, v_tilde_k, u_tilde_k) = cache
+function calculate_limited_entropyproj_vars_on_node!(state, i, tid, solver)
+    (; v3tilde, rhotilde, rhoetilde, v_tilde_k, u_tilde_k) = state.cache.entropyproj_limiter_cache
     v3tilde[i, tid] = v_tilde_k[i, tid][end]
     rhotilde[i, tid] = u_tilde_k[i, tid][1]
-    rhoetilde[i, tid] = rhoe_ufun(param.equation, u_tilde_k[i, tid])
+    rhoetilde[i, tid] = rhoe_ufun(equation(solver), u_tilde_k[i, tid])
 end
 
-function calculate_limited_entropyproj_vars_on_face_node!(cache, i, param, tid)
-    Nq = size(cache.vq_k, 1)
-    calculate_limited_entropyproj_vars_on_node!(cache, i + Nq, param, tid)
+function calculate_limited_entropyproj_vars_on_face_node!(state, i, tid, solver)
+    calculate_limited_entropyproj_vars_on_node!(state, i + solver.discrete_data.sizes.Nq, tid, solver)
 end
 
 # TODO: skip volume quadrature points
-function check_bound_on_face_node(i, k, cache, param, sizes, tid)
-    (; v3tilde, rhotilde, rhoetilde, VUf, rhoef, Uf) = cache
-    ϵ = param.global_constants.POSTOL
-    ζ = param.limiting_param.ζ
-    η = param.limiting_param.η
-    Nq = sizes.Nq
+function check_bound_on_face_node(state, i, k, tid, solver)
+    (; v3tilde, rhotilde, rhoetilde, VUf, rhoef, Uf) = state.cache.entropyproj_limiter_cache
+    (; Nq) = solver.discrete_data.sizes
+    ϵ = solver.param.global_constants.POSTOL
+    ζ = solver.param.limiting_param.ζ
+    η = solver.param.limiting_param.η
     return (v3tilde[Nq+i, tid] < min(ζ * VUf[i, k][end], -ϵ)
             && rhotilde[Nq+i, tid] > max((1 - η) * Uf[i, k][1], ϵ)
             && rhotilde[Nq+i, tid] < (1 + η) * Uf[i, k][1]
@@ -99,20 +98,20 @@ function check_bound_on_face_node(i, k, cache, param, sizes, tid)
 end
 
 # TODO: Refactor. element versus. node - use multiple dispatch
-function update_and_check_bound_limited_entropyproj_var_on_face_node!(prealloc, cache, θ_i, i, k, param, discrete_data, tid)
-    if update_limited_entropyproj_vars_on_face_node!(prealloc, cache, θ_i, i, k, param.entropyproj_limiter_type, param, discrete_data, tid)
-        return check_bound_on_face_node(i, k, cache, param, discrete_data.sizes, tid)
+function update_and_check_bound_limited_entropyproj_var_on_face_node!(state, θ_i, i, k, tid, solver)
+    if update_limited_entropyproj_vars_on_face_node!(entropyproj_limiter(solver), state, θ_i, i, k, tid, solver)
+        return check_bound_on_face_node(state, i, k, tid, solver)
     else
         return false
     end
 end
 
-function update_limited_entropyproj_vars_on_face_node!(prealloc, cache, θ_i, i, k, entropyproj_limiter_type::NodewiseScaledExtrapolation, param, discrete_data, tid)
-    (; vq) = prealloc
-    (; v_tilde_k, u_tilde_k) = cache
-    (; Nq) = discrete_data.sizes
-    (; Vf, Vf_low) = discrete_data.ops
-    ϵ = param.global_constants.POSTOL
+function update_limited_entropyproj_vars_on_face_node!(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, θ_i, i, k, tid, solver)
+    (; vq) = state.preallocation
+    (; v_tilde_k, u_tilde_k) = state.cache.entropyproj_limiter_cache
+    (; Nq) = solver.discrete_data.sizes
+    (; Vf, Vf_low) = solver.discrete_data.ops
+    ϵ = solver.param.global_constants.POSTOL
 
     # TODO: applying the function directly results in allocations
     # entropy_projection_face_node!(view(v_tilde_k,:,tid),view(u_tilde_k,:,tid),view(vq_k,:,tid),i,θ_i,param,discrete_data,prealloc)
@@ -122,8 +121,8 @@ function update_limited_entropyproj_vars_on_face_node!(prealloc, cache, θ_i, i,
     end
     # Check well-definedness
     if v_tilde_k[i+Nq, tid][end] < -ϵ
-        u_tilde_k[i+Nq, tid] = u_vfun(param.equation, v_tilde_k[i+Nq, tid])
-        calculate_limited_entropyproj_vars_on_face_node!(cache, i, param, tid)
+        u_tilde_k[i+Nq, tid] = u_vfun(equation(solver), v_tilde_k[i+Nq, tid])
+        calculate_limited_entropyproj_vars_on_face_node!(state, i, tid, solver)
         return true
     else
         return false

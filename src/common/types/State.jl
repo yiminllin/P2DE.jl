@@ -112,22 +112,6 @@ function rhs_cache(rhs_type::LimitedDG, param, sizes)
     return LimitedDGCache(cacheH=cacheH, cacheL=cacheL)
 end
 
-function low_order_cache(rhs_cache::LowOrderPositivityCache)
-    return rhs_cache
-end
-
-function low_order_cache(rhs_cache::LimitedDGCache)
-    return rhs_cache.cacheL
-end
-
-function high_order_cache(rhs_cache::FluxDiffCache)
-    return rhs_cache
-end
-
-function high_order_cache(rhs_cache::LimitedDGCache)
-    return rhs_cache.cacheH
-end
-
 struct ShockCaptureCache{DIM,Nc} <: Cache{DIM,Nc}
     blending_factor::Array{Float64,2}
 end
@@ -273,7 +257,7 @@ struct Caches{RHSCACHE,LIMITERCACHE,SHOCKCAPTURECACHE,ENTROPYPROJCACHE,POSTPROCE
     postprocessing_cache::POSTPROCESSCACHE
 end
 
-struct State{PREALLOCATION,CACHES}
+Base.@kwdef struct State{PREALLOCATION,CACHES}
     preallocation::PREALLOCATION
     cache::CACHES
 end

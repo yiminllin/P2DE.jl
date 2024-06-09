@@ -39,7 +39,8 @@ using WriteVTK
 ########################
 include("./common/types/Solver.jl")
 include("./common/types/State.jl")
-include("./common/types/Param.jl")
+include("./common/types/StateParam.jl")
+include("./common/types/TimeParam.jl")
 include("./common/types/PostprocessData.jl")
 include("./common/traits.jl")
 include("./common/show.jl")

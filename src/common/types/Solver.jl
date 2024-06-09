@@ -217,7 +217,7 @@ struct DiscretizationData{DIM,NGEO}
     ops::Operators{DIM}
 end
 
-struct Solver{PARAM,REFELEMDATA,MESHDATA,DISCRETIZATIONDATA}
+Base.@kwdef struct Solver{PARAM,REFELEMDATA,MESHDATA,DISCRETIZATIONDATA}
     param::PARAM
     rd::REFELEMDATA
     md::MESHDATA

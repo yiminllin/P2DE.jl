@@ -1,24 +1,23 @@
 ################################
 ###   Smoothness indicator   ###
 ################################
-function initialize_smoothness_indicator!(shockcapture_type::NoShockCapture, bound_type::PositivityBound, prealloc, param, discrete_data, nstage)
+function initialize_smoothness_indicator!(shockcapture_type::NoShockCapture, bound_type::PositivityBound, state, solver)
     # Do nothing
 end
 
 # Initialize smoothness indicator when using subcell limiter w/ min entropy bound
 #                              or when using modal shock capture scheme
-function initialize_smoothness_indicator!(shockcapture_type, bound_type, prealloc, param, discrete_data, nstage)
-    dim = dim_type(param.equation)
-    initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage, dim)
+function initialize_smoothness_indicator!(shockcapture_type, bound_type, state, solver)
+    initialize_smoothness_indicator!(dim_type(solver), state, solver)
 end
 
-function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage, dim::Dim1)
-    (; indicator, indicator_modal, smooth_indicator) = prealloc
-    (; N, equation) = param
-    (; VDM_inv) = discrete_data.ops
-    (; K) = discrete_data.sizes
+function initialize_smoothness_indicator!(dim::Dim1, state, solver)
+    (; indicator, indicator_modal, smooth_indicator) = state.preallocation
+    (; N) = solver.param
+    (; VDM_inv) = solver.discrete_data.ops
+    (; K) = solver.discrete_data.sizes
 
-    initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
+    initialize_indicator!(equation(solver), state, solver)
 
     @batch for k = 1:K
         @views mul!(indicator_modal[:, k], VDM_inv, indicator[:, k])
@@ -45,13 +44,13 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
     end
 end
 
-function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage, dim::Dim2)
-    (; indicator, indicator_modal, smooth_indicator) = prealloc
-    (; N, equation) = param
-    (; VDM_inv) = discrete_data.ops
-    (; K) = discrete_data.sizes
+function initialize_smoothness_indicator!(dim::Dim2, state, solver)
+    (; indicator, indicator_modal, smooth_indicator) = state.preallocation
+    (; N) = solver.param
+    (; VDM_inv) = solver.discrete_data.ops
+    (; K) = solver.discrete_data.sizes
 
-    initialize_indicator!(equation, prealloc, param, discrete_data, nstage)
+    initialize_indicator!(equation(solver), state, solver)
 
     @batch for k = 1:K
         @views mul!(indicator_modal[:, k], VDM_inv, indicator[:, k])
@@ -80,11 +79,9 @@ function initialize_smoothness_indicator!(prealloc, param, discrete_data, nstage
     end
 end
 
-function initialize_indicator!(equation::CompressibleIdealGas, prealloc, param, discrete_data, nstage)
-    (; indicator) = prealloc
-    (; equation) = param
-    (; Uq) = prealloc
-    (; K, Nq) = discrete_data.sizes
+function initialize_indicator!(equation::CompressibleIdealGas, state, solver)
+    (; Uq, indicator) = state.preallocation
+    (; K, Nq) = solver.discrete_data.sizes
 
     @batch for k = 1:K
         for i = 1:Nq
@@ -96,11 +93,9 @@ function initialize_indicator!(equation::CompressibleIdealGas, prealloc, param, 
     end
 end
 
-function initialize_indicator!(equation::KPP, prealloc, param, discrete_data, nstage)
-    (; indicator) = prealloc
-    (; equation) = param
-    (; Uq) = prealloc
-    (; K, Nq) = discrete_data.sizes
+function initialize_indicator!(equation::KPP, state, solver)
+    (; Uq, indicator) = state.preallocation
+    (; K, Nq) = solver.discrete_data.sizes
 
     @batch for k = 1:K
         for i = 1:Nq
@@ -113,18 +108,18 @@ end
 #############################
 ### shock blending factor ###
 #############################
-function update_blending_factor!(shockcapture::NoShockCapture, cache, prealloc, param, discrete_data, nstage)
+function update_blending_factor!(shockcapture::NoShockCapture, state, solver, time_param)
     # No blending by default
-    @views @. cache.blending_factor[:, nstage] = 1.0
+    @views @. state.cache.shockcapture_cache.blending_factor[:, time_param.nstage] = 1.0
 end
 
 # (46) in https://www.sciencedirect.com/science/article/pii/S0021999120307099
-function update_blending_factor!(shockcapture::HennemannShockCapture, cache, prealloc, param, discrete_data, nstage)
-    (; blending_factor) = cache
-    (; smooth_indicator) = prealloc
+function update_blending_factor!(shockcapture::HennemannShockCapture, state, solver, time_param)
+    (; blending_factor) = state.cache.shockcapture_cache
+    (; smooth_indicator) = state.preallocation
     (; a, c) = shockcapture
-    (; N) = param
-    (; K) = discrete_data.sizes
+    (; N) = solver.param
+    (; K) = solver.discrete_data.sizes
 
     TN = a * 10^(-c * (N + 1)^0.25)
     alphamax = 0.5
@@ -132,6 +127,6 @@ function update_blending_factor!(shockcapture::HennemannShockCapture, cache, pre
     s_factor = log((1 - alphaE0) / alphaE0)
     @batch for k = 1:K
         alpha = 1.0 / (1.0 + exp(-s_factor / TN * (smooth_indicator[k] - TN)))
-        blending_factor[k, nstage] = max(min(1.0 - alpha, 1.0), alphamax)
+        blending_factor[k, time_param.nstage] = max(min(1.0 - alpha, 1.0), alphamax)
     end
 end

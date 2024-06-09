@@ -1,24 +1,24 @@
 #################################
 ### Zhang-Shu limiter methods ###
 #################################
-function apply_zhang_shu_limiter!(prealloc, limiter_cache, shockcapture_cache, param, discrete_data, dt, nstage)
-    (; equation) = param
-    (; Uq, rhsL, rhsH, rhsU) = prealloc
-    (; uL_k, P_k) = limiter_cache
-    (; blending_factor) = shockcapture_cache
-    (; K) = discrete_data.sizes
+function apply_zhang_shu_limiter!(state, solver, time_param)
+    (; Uq, rhsL, rhsH, rhsU, Larr) = state.preallocation
+    (; uL_k, P_k) = state.cache.limiter_cache
+    (; blending_factor) = state.cache.shockcapture_cache
+    (; K) = solver.discrete_data.sizes
+    (; dt, nstage) = time_param
 
-    ζ = param.limiting_param.ζ
+    ζ = solver.param.limiting_param.ζ
     Lrho(uL_i) = ζ * uL_i[1]
-    Lrhoe(uL_i) = ζ * rhoe_ufun(param.equation, uL_i)
+    Lrhoe(uL_i) = ζ * rhoe_ufun(equation(solver), uL_i)
     @batch for k = 1:K
         tid = Threads.threadid()
         @views @. uL_k[:, tid] = Uq[:, k] + dt * rhsL[:, k]
         @views @. P_k[:, tid] = dt * (rhsH[:, k] - rhsL[:, k])
         Urho = Inf
         Urhoe = Inf
-        zhang_shu_bound_limiter!(equation, prealloc.Larr, param, discrete_data, view(uL_k, :, tid), view(P_k, :, tid), k, Lrho, Lrhoe, Urho, Urhoe, nstage)
-        l = min(prealloc.Larr[k, nstage], blending_factor[k, nstage])
+        zhang_shu_bound_limiter!(equation(solver), solver, Larr, view(uL_k, :, tid), view(P_k, :, tid), k, Lrho, Lrhoe, Urho, Urhoe, nstage)
+        l = min(Larr[k, nstage], blending_factor[k, nstage])
         @views @. rhsU[:, k] = (1 - l) * rhsL[:, k] + l * (rhsH[:, k])
     end
 end
@@ -32,31 +32,29 @@ end
 # TODO: generalize to arbitrary convex bound
 # TODO: generalize to any equation
 # TODO: pack bounds as a struct
-function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, L, param, discrete_data, uL, P, k, Lrho::Function, Lrhoe::Function, Urho, Urhoe, nstage)
-    (; rhs_limiter_type) = param
-    (; Nq) = discrete_data.sizes
+function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, solver, L, uL, P, k, Lrho::Function, Lrhoe::Function, Urho, Urhoe, nstage)
+    (; Nq) = solver.discrete_data.sizes
 
     l = 1.0
     for i = 1:Nq
         uL_i = uL[i]
         bound = (Lrho(uL_i), Lrhoe(uL_i), Urho, Urhoe)
-        l = min(l, limiting_param(rhs_limiter_type, bound_type(param), param, uL[i], P[i], bound))
+        l = min(l, limiting_param(limiter(solver), bound_type(solver), solver, uL[i], P[i], bound))
     end
     L[k, nstage] = l
 end
 
-function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, L, param, discrete_data, uL, P, k, Lrho::Real, Lrhoe::Real, Urho, Urhoe, nstage)
-    (; rhs_limiter_type) = param
-    (; Nq) = discrete_data.sizes
+function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, solver, L, uL, P, k, Lrho::Real, Lrhoe::Real, Urho, Urhoe, nstage)
+    (; Nq) = solver.discrete_data.sizes
 
     l = 1.0
     for i = 1:Nq
         bound = (Lrho, Lrhoe, Urho, Urhoe)
-        l = min(l, limiting_param(rhs_limiter_type, bound_type(param), param, uL[i], P[i], bound))
+        l = min(l, limiting_param(limiter(solver), bound_type(solver), solver, uL[i], P[i], bound))
     end
     L[k, nstage] = l
 end
 
-function zhang_shu_bound_limiter!(equation::KPP, L, param, uL, P, k, Lrho, Lrhoe, Urho, Urhoe, nstage)
+function zhang_shu_bound_limiter!(equation::KPP, L, P, k, Lrho, Lrhoe, Urho, Urhoe, nstage, solver)
     L[k, nstage] = 1.0
 end
