@@ -65,7 +65,7 @@ for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), Z
                 limiting_param=LimitingParameter(zeta=0.1, eta=0.5),
                 postprocessing_param=PostprocessingParameter(output_interval=100),
                 equation=CompressibleEulerIdealGas{Dim2}(gamma),
-                rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=low_order_flux_type,
+                rhs=ESLimitedLowOrderPos(low_order_surface_flux_type=low_order_flux_type,
                     high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
                 approximation_basis_type=discretization_type,
                 entropyproj_limiter_type=entropyproj_type,

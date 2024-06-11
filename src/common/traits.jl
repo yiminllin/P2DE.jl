@@ -7,7 +7,7 @@ function limiter(solver::Solver)
 end
 
 function rhs(solver::Solver)
-    return solver.param.rhs_type
+    return solver.param.rhs
 end
 
 function basis(solver::Solver)
@@ -22,36 +22,36 @@ function entropyproj_limiter(solver::Solver)
     return solver.param.entropyproj_limiter_type
 end
 
-function low_order_surface_flux_type(rhs_type::LowOrderPositivity)
-    return rhs_type.surface_flux_type
+function low_order_surface_flux_type(rhs::LowOrderPositivity)
+    return rhs.surface_flux_type
 end
 
-function low_order_surface_flux_type(rhs_type::LimitedDG)
-    return rhs_type.low_order_surface_flux_type
+function low_order_surface_flux_type(rhs::LimitedDG)
+    return rhs.low_order_surface_flux_type
 end
 
 function low_order_surface_flux_type(solver::Solver)
     return low_order_surface_flux_type(rhs(solver))
 end
 
-function high_order_surface_flux_type(rhs_type::FluxDiffRHS)
-    return rhs_type.surface_flux_type
+function high_order_surface_flux_type(rhs::FluxDiffRHS)
+    return rhs.surface_flux_type
 end
 
-function high_order_surface_flux_type(rhs_type::LimitedDG)
-    return rhs_type.high_order_surface_flux_type
+function high_order_surface_flux_type(rhs::LimitedDG)
+    return rhs.high_order_surface_flux_type
 end
 
 function high_order_surface_flux_type(solver::Solver)
     return high_order_surface_flux_type(rhs(solver))
 end
 
-function high_order_volume_flux_type(rhs_type::FluxDiffRHS)
-    return rhs_type.volume_flux_type
+function high_order_volume_flux_type(rhs::FluxDiffRHS)
+    return rhs.volume_flux_type
 end
 
-function high_order_volume_flux_type(rhs_type::LimitedDG)
-    return rhs_type.high_order_volume_flux_type
+function high_order_volume_flux_type(rhs::LimitedDG)
+    return rhs.high_order_volume_flux_type
 end
 
 function high_order_volume_flux_type(solver::Solver)

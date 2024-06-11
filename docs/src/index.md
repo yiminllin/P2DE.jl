@@ -29,7 +29,7 @@ struct Param
                                 # CompressibleNavierStokesIdealGas
     approximation_basis_type    # GaussCollocation,
                                 # LobattoCollocation
-    rhs_type                    # LowOrderPositivity
+    rhs                    # LowOrderPositivity
                                 # EntropyStable
                                 # StandardDG
                                 # ESLimitedLowOrderPos

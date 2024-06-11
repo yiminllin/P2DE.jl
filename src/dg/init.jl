@@ -36,10 +36,10 @@ function initialize_preallocations(param, md, sizes)
 end
 
 function initialize_cache(param, md, sizes)
-    (; rhs_type, rhs_limiter_type, entropyproj_limiter_type) = param
+    (; rhs, rhs_limiter_type, entropyproj_limiter_type) = param
     dim = dim_type(param.equation)
 
-    return Caches(rhs_cache(rhs_type, param, sizes), limiter_cache(rhs_limiter_type, param, sizes), shockcapture_cache(shockcapture_type(rhs_limiter_type), param, sizes), entropyproj_limiter_cache(entropyproj_limiter_type, param, sizes), postprocessing_cache(param, md, sizes, dim))
+    return Caches(rhs_cache(rhs, param, sizes), limiter_cache(rhs_limiter_type, param, sizes), shockcapture_cache(shockcapture_type(rhs_limiter_type), param, sizes), entropyproj_limiter_cache(entropyproj_limiter_type, param, sizes), postprocessing_cache(param, md, sizes, dim))
 end
 
 function initialize_DG(param, initial_condition, initial_boundary_conditions)

@@ -143,7 +143,7 @@ end
 
 function visualize_error_data(df)
     df[!, :num_steps] = [length(dthist) for dthist in [datahist.dthist for datahist in df[!, :data_history]]]
-    pretty_table(df[:, [:N, :K, :timestepping_param, :limiting_param, :approximation_basis_type, :rhs_type, :entropyproj_limiter_type, :rhs_limiter_type, :L1err, :L2err, :Linferr, :num_steps]])
+    pretty_table(df[:, [:N, :K, :timestepping_param, :limiting_param, :approximation_basis_type, :rhs, :entropyproj_limiter_type, :rhs_limiter_type, :L1err, :L2err, :Linferr, :num_steps]])
 end
 
 # TODO: hardcoded

@@ -1,12 +1,12 @@
-abstract type RHSType end
-Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE} <: RHSType
+abstract type RHS end
+Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE} <: RHS
     surface_flux_type::SURFACEFLUXTYPE
 end
-struct FluxDiffRHS{VOLUMEFLUXTYPE,SURFACEFLUXTYPE} <: RHSType
+struct FluxDiffRHS{VOLUMEFLUXTYPE,SURFACEFLUXTYPE} <: RHS
     volume_flux_type::VOLUMEFLUXTYPE
     surface_flux_type::SURFACEFLUXTYPE
 end
-struct LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,HIGHVOLUMEFLUXTYPE} <: RHSType
+struct LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,HIGHVOLUMEFLUXTYPE} <: RHS
     low_order_surface_flux_type::LOWSURFACEFLUXTYPE
     high_order_surface_flux_type::HIGHSURFACEFLUXTYPE
     high_order_volume_flux_type::HIGHVOLUMEFLUXTYPE
@@ -148,7 +148,7 @@ Base.@kwdef struct LimitingParameter
     eta::Float64           # Bound relaxation parameter ρ,ρe ∈ [(1-zeta)min, (1+zeta)max]
 end
 
-Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROPYPROJECTIONLIMITERTYPE,RHSLIMITERTYPE}
+Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHS,ENTROPYPROJECTIONLIMITERTYPE,RHSLIMITERTYPE}
     N::Int64
     K::KTYPE      # Number of elements in 1D.
     # In 2D, it is a tuple (Kx,Ky), number of elements along
@@ -164,7 +164,7 @@ Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROP
 
     equation::EQUATIONTYPE
     approximation_basis_type::APPROXBASISTYPE
-    rhs_type::RHSTYPE
+    rhs::RHS
     entropyproj_limiter_type::ENTROPYPROJECTIONLIMITERTYPE
     rhs_limiter_type::RHSLIMITERTYPE
 end

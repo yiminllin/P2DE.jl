@@ -46,7 +46,7 @@ param = Param(N=3, K=64, xL=-5.0, xR=5.0,
     limiting_param=LimitingParameter(zeta=0.1, eta=1.0),
     postprocessing_param=PostprocessingParameter(output_interval=1000),
     equation=CompressibleEulerIdealGas{Dim1}(gamma),
-    rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
+    rhs=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
         high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
     approximation_basis_type=GaussCollocation(),
     entropyproj_limiter_type=NodewiseScaledExtrapolation(),
@@ -64,8 +64,8 @@ data_hist = SSP33!(param, discrete_data, bcdata, prealloc, caches)
 
 err_data = calculate_error(prealloc.Uq, param, discrete_data, md, prealloc, exact_sol)
 
-plot_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),lim=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta).png"
-gif_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),lim=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta),zoom.png"
+plot_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs),vproj=$(param.entropyproj_limiter_type),lim=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta).png"
+gif_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs),vproj=$(param.entropyproj_limiter_type),lim=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta),zoom.png"
 
 weno_sol = matread("data/weno5_shuosher.mat")
 plot_component(param, discrete_data, md, prealloc,

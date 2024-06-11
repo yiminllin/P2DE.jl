@@ -90,19 +90,19 @@ Base.@kwdef struct LimitedDGCache{CACHEHTYPE,CACHELTYPE}
 end
 
 # TODO: pass in SizeData
-function rhs_cache(rhs_type::LowOrderPositivity, param, sizes)
+function rhs_cache(rhs::LowOrderPositivity, param, sizes)
     (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     return LowOrderPositivityCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
 end
 
-function rhs_cache(rhs_type::FluxDiffRHS, param, sizes)
+function rhs_cache(rhs::FluxDiffRHS, param, sizes)
     (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     return FluxDiffCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())
 end
 
-function rhs_cache(rhs_type::LimitedDG, param, sizes)
+function rhs_cache(rhs::LimitedDG, param, sizes)
     (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     cacheH = FluxDiffCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())

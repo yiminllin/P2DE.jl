@@ -2,28 +2,28 @@ function Base.show(io::IO, ::MIME"text/plain", param::Param)
     @nospecialize param
     println(io, "N=$(param.N),K=$(param.K),eta=$(param.limiting_param.eta),zeta=$(param.limiting_param.zeta)")
     println(io, "basis                      type: ", param.approximation_basis_type)
-    println(io, "rhs                        type: ", param.rhs_type)
+    println(io, "rhs                        type: ", param.rhs)
     println(io, "entropy projection limiter type: ", param.entropyproj_limiter_type)
     println(io, "rhs limiter                type: ", param.rhs_limiter_type)
 end
 
-function Base.show(io::IO, rhs_type::ESLimitedLowOrderPos)
-    print(io, "ESLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs_type), ",FBH=", high_order_surface_flux_type(rhs_type), ")")
+function Base.show(io::IO, rhs::ESLimitedLowOrderPos)
+    print(io, "ESLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs), ",FBH=", high_order_surface_flux_type(rhs), ")")
 end
 
-function Base.show(io::IO, rhs_type::StdDGLimitedLowOrderPos)
-    print(io, "StdDGLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs_type), ")")
+function Base.show(io::IO, rhs::StdDGLimitedLowOrderPos)
+    print(io, "StdDGLimitedLowOrderPos(FBL=", low_order_surface_flux_type(rhs), ")")
 end
 
-function Base.show(io::IO, rhs_type::LowOrderPositivity)
-    print(io, "LowOrderPositivity(FBL=", low_order_surface_flux_type(rhs_type), ")")
+function Base.show(io::IO, rhs::LowOrderPositivity)
+    print(io, "LowOrderPositivity(FBL=", low_order_surface_flux_type(rhs), ")")
 end
 
-function Base.show(io::IO, rhs_type::EntropyStable)
-    print(io, "EntropyStable(FBL=", high_order_surface_flux_type(rhs_type), ")")
+function Base.show(io::IO, rhs::EntropyStable)
+    print(io, "EntropyStable(FBL=", high_order_surface_flux_type(rhs), ")")
 end
 
-function Base.show(io::IO, rhs_type::StandardDG)
+function Base.show(io::IO, rhs::StandardDG)
     print(io, "StandardDG()")
 end
 

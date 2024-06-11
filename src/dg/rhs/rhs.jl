@@ -22,7 +22,7 @@ function init_rhs!(entropyproj_limiter_type::ScaledExtrapolation, state, solver,
     end
 end
 
-function rhs!(rhs_type::LowOrderPositivity, state, solver, state_param, time_param)
+function rhs!(rhs::LowOrderPositivity, state, solver, state_param, time_param)
     @timeit_debug time_param.timer "low order positivity" begin
         dt = rhs_low_graph_visc!(state, solver, state_param, time_param, true)
     end
@@ -30,7 +30,7 @@ function rhs!(rhs_type::LowOrderPositivity, state, solver, state_param, time_par
     return dt
 end
 
-function rhs!(rhs_type::FluxDiffRHS, state, solver, state_param, time_param)
+function rhs!(rhs::FluxDiffRHS, state, solver, state_param, time_param)
     @timeit_debug time_param.timer "high order ESDG" begin
         rhs_fluxdiff!(state, solver, state_param, time_param, true)
     end
@@ -38,7 +38,7 @@ function rhs!(rhs_type::FluxDiffRHS, state, solver, state_param, time_param)
     return time_param.dt
 end
 
-function rhs!(rhs_type::LimitedDG, state, solver, state_param, time_param)
+function rhs!(rhs::LimitedDG, state, solver, state_param, time_param)
     @timeit_debug time_param.timer "entropy projection" begin
         entropy_projection!(entropyproj_limiter(solver), state, solver, time_param)
     end
