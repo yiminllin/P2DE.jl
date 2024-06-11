@@ -1,15 +1,15 @@
 abstract type RHS end
 Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE} <: RHS
-    surface_flux_type::SURFACEFLUXTYPE
+    surface_flux::SURFACEFLUXTYPE
 end
 struct FluxDiffRHS{VOLUMEFLUXTYPE,SURFACEFLUXTYPE} <: RHS
-    volume_flux_type::VOLUMEFLUXTYPE
-    surface_flux_type::SURFACEFLUXTYPE
+    volume_flux::VOLUMEFLUXTYPE
+    surface_flux::SURFACEFLUXTYPE
 end
 struct LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,HIGHVOLUMEFLUXTYPE} <: RHS
-    low_order_surface_flux_type::LOWSURFACEFLUXTYPE
-    high_order_surface_flux_type::HIGHSURFACEFLUXTYPE
-    high_order_volume_flux_type::HIGHVOLUMEFLUXTYPE
+    low_order_surface_flux::LOWSURFACEFLUXTYPE
+    high_order_surface_flux::HIGHSURFACEFLUXTYPE
+    high_order_volume_flux::HIGHVOLUMEFLUXTYPE
 end
 
 abstract type VolumeFluxType end
@@ -26,14 +26,14 @@ const StandardDG = FluxDiffRHS{CentralFlux,LaxFriedrichsOnProjectedVal}
 const ESLimitedLowOrderPos{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE} = LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,ChandrashekarFlux}
 const StdDGLimitedLowOrderPos{LOWSURFACEFLUXTYPE} = LimitedDG{LOWSURFACEFLUXTYPE,LaxFriedrichsOnProjectedVal,CentralFlux}
 
-EntropyStable(; surface_flux_type=LaxFriedrichsOnProjectedVal()) =
-    FluxDiffRHS(ChandrashekarFlux(), surface_flux_type)
-ESLimitedLowOrderPos(; low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-    high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()) =
-    LimitedDG(low_order_surface_flux_type, high_order_surface_flux_type, ChandrashekarFlux())
-StdDGLimitedLowOrderPos(; low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-    high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()) =
-    LimitedDG(low_order_surface_flux_type, high_order_surface_flux_type, CentralFlux())
+EntropyStable(; surface_flux=LaxFriedrichsOnProjectedVal()) =
+    FluxDiffRHS(ChandrashekarFlux(), surface_flux)
+ESLimitedLowOrderPos(; low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+    high_order_surface_flux=LaxFriedrichsOnProjectedVal()) =
+    LimitedDG(low_order_surface_flux, high_order_surface_flux, ChandrashekarFlux())
+StdDGLimitedLowOrderPos(; low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+    high_order_surface_flux=LaxFriedrichsOnProjectedVal()) =
+    LimitedDG(low_order_surface_flux, high_order_surface_flux, CentralFlux())
 
 abstract type EntropyProjectionLimiterType end
 abstract type ScaledExtrapolation <: EntropyProjectionLimiterType end
@@ -74,17 +74,17 @@ end
 HennemannShockCapture(; a=0.5, c=1.8) = HennemannShockCapture(a, c)
 
 struct ZhangShuLimiter{SHOCKCAPTURETYPE<:ShockCaptureType} <: RHSLimiterType
-    shockcapture_type::SHOCKCAPTURETYPE
+    shockcapture::SHOCKCAPTURETYPE
 end
 
 struct SubcellLimiter{BOUNDTYPE<:LimiterBoundType,SHOCKCAPTURETYPE<:ShockCaptureType} <: RHSLimiterType
-    bound_type::BOUNDTYPE
-    shockcapture_type::SHOCKCAPTURETYPE
+    bound::BOUNDTYPE
+    shockcapture::SHOCKCAPTURETYPE
 end
 
-ZhangShuLimiter(; shockcapture_type=NoShockCapture()) = ZhangShuLimiter(shockcapture_type)
-SubcellLimiter(; bound_type=PositivityBound(),
-    shockcapture_type=NoShockCapture()) = SubcellLimiter(bound_type, shockcapture_type)
+ZhangShuLimiter(; shockcapture=NoShockCapture()) = ZhangShuLimiter(shockcapture)
+SubcellLimiter(; bound=PositivityBound(),
+    shockcapture=NoShockCapture()) = SubcellLimiter(bound, shockcapture)
 
 abstract type ApproxBasisType end
 struct GaussCollocation <: ApproxBasisType end
@@ -163,10 +163,10 @@ Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHS,ENTROPYPRO
     postprocessing_param::PostprocessingParameter
 
     equation::EQUATIONTYPE
-    approximation_basis_type::APPROXBASISTYPE
+    approximation_basis::APPROXBASISTYPE
     rhs::RHS
-    entropyproj_limiter_type::ENTROPYPROJECTIONLIMITERTYPE
-    rhs_limiter_type::RHSLIMITERTYPE
+    entropyproj_limiter::ENTROPYPROJECTIONLIMITERTYPE
+    rhs_limiter::RHSLIMITERTYPE
 end
 
 # TODO: define iterator to loop instead of size

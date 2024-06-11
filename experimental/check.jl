@@ -45,7 +45,7 @@ function check_flux_diff_entropy_stability(cache, prealloc, param, discrete_data
     (; K, Nd, Nq, Nfp) = discrete_data.sizes
 
     # Check entropy stability
-    dim = dim_type(equation)
+    dim = dim(equation)
     @batch for k = 1:K
         entropy_estimate_vol = zero(SVector{Nd,Float64})   # vT rhs_vol
         entropy_estimate_surf = zero(SVector{Nd,Float64})   # vT rhs_surf
@@ -92,7 +92,7 @@ function check_low_order_entropy_stability(cache, prealloc, param, discrete_data
         sum_Bpsi = zero(SVector{dim(equation),Float64})   # 1T B psi
         vTBfstar = zero(SVector{dim(equation),Float64})   # vT B f*
         for i = 1:Nfp
-            Bxy_i = Bx(i, k, discrete_data, dim_type(equation))
+            Bxy_i = Bx(i, k, discrete_data, dim(equation))
             sum_Bpsi += Bxy_i .* psi_ufun(equation, Uf[i, k])
             vi = v_ufun(equation, Uf[i, k])
             vTBfstar += Bxy_i .* SVector(sum(vi .* fstar_L[i, k][1]), sum(vi .* fstar_L[i, k][2]))

@@ -45,11 +45,11 @@ param = Param(N=3, K=(64, 64), xL=(-2.0, -2.0), xR=(2.0, 2.0),
     limiting_param=LimitingParameter(zeta=0.1, eta=1.0),
     postprocessing_param=PostprocessingParameter(output_interval=100),
     equation=KPP{Dim2}(),
-    rhs=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
-        high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-    approximation_basis_type=LobattoCollocation(),
-    entropyproj_limiter_type=NoEntropyProjectionLimiter(),
-    rhs_limiter_type=SubcellLimiter(shockcapture_type=HennemannShockCapture()))
+    rhs=ESLimitedLowOrderPos(low_order_surface_flux=LaxFriedrichsOnProjectedVal(),
+        high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+    approximation_basis=LobattoCollocation(),
+    entropyproj_limiter=NoEntropyProjectionLimiter(),
+    rhs_limiter=SubcellLimiter(shockcapture=HennemannShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N

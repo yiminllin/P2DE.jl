@@ -47,17 +47,17 @@ end
 # TODO: refactor convergence
 jld_path = "/data/yl184/outputs/jld2/isentropic-vortex.jld2"
 
-for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), LobattoCollocation());
-    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), GaussCollocation());
-    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), GaussCollocation());
+for limiter in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityBound()), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndMinEntropyBound()), LobattoCollocation());
+    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityBound()), GaussCollocation());
+    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndMinEntropyBound()), GaussCollocation());
     (NodewiseScaledExtrapolation(), LaxFriedrichsOnProjectedVal(), ZhangShuLimiter(), GaussCollocation())]
     for N in [1; 2; 3; 4]
         for K in [(5, 5), (10, 10), (20, 20), (40, 40), (80, 80)]
 
 
-            entropyproj_type, low_order_flux_type, rhs_lim_type, discretization_type = limiter_type
+            entropyproj, low_order_flux, rhs_lim, discretization = limiter
             gamma = 1.4
             param = Param(N=N, K=K, xL=(0.0, 0.0), xR=(10.0, 10.0),
                 global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
@@ -65,11 +65,11 @@ for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), Z
                 limiting_param=LimitingParameter(zeta=0.1, eta=0.5),
                 postprocessing_param=PostprocessingParameter(output_interval=100),
                 equation=CompressibleEulerIdealGas{Dim2}(gamma),
-                rhs=ESLimitedLowOrderPos(low_order_surface_flux_type=low_order_flux_type,
-                    high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-                approximation_basis_type=discretization_type,
-                entropyproj_limiter_type=entropyproj_type,
-                rhs_limiter_type=rhs_lim_type)
+                rhs=ESLimitedLowOrderPos(low_order_surface_flux=low_order_flux,
+                    high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+                approximation_basis=discretization,
+                entropyproj_limiter=entropyproj,
+                rhs_limiter=rhs_lim)
 
             T = param.timestepping_param.T
             N = param.N

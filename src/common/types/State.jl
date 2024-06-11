@@ -210,37 +210,37 @@ EntropyProjectionLimiterCache{DIM,Nc}(; K=0, Nq=0, Nh=0, Nfp=0, Nthread=1) where
         zeros(SVector{Nc,Float64}, Nfp, K),
         zeros(Float64, Nfp, K))
 
-function shockcapture_cache(shockcapture_type, param, sizes)
+function shockcapture_cache(shockcapture, param, sizes)
     (; Nc, Ns, Nd, K) = sizes
 
     return ShockCaptureCache{Nd,Nc}(K=K, Ns=Ns)
 end
 
-function limiter_cache(limiter_type::NoRHSLimiter, param, sizes)
+function limiter_cache(limiter::NoRHSLimiter, param, sizes)
     (; Nd, Nc) = sizes
 
     return NoRHSLimiterCache{Nd,Nc}()
 end
 
-function limiter_cache(limiter_type::ZhangShuLimiter, param, sizes)
+function limiter_cache(limiter::ZhangShuLimiter, param, sizes)
     (; Nq, Nc, Nd) = sizes
 
     return ZhangShuLimiterCache{Nd,Nc}(Nq=Nq, Nthread=Threads.nthreads())
 end
 
-function limiter_cache(limiter_type::SubcellLimiter, param, sizes)
+function limiter_cache(limiter::SubcellLimiter, param, sizes)
     (; K, Nd, N1D, Nq, Nfp, Nc, Ns) = sizes
 
     return SubcellLimiterCache{Nd,Nc}(K=K, Nq=Nq, Nfp=Nfp, N1D=N1D, Ns=Ns, Nthread=Threads.nthreads())
 end
 
-function entropyproj_limiter_cache(entropyproj_limiter_type::NoEntropyProjectionLimiter, param, sizes)
+function entropyproj_limiter_cache(entropyproj_limiter::NoEntropyProjectionLimiter, param, sizes)
     (; Nc, Nd) = sizes
 
     return NoEntropyProjectionLimiterCache{Nd,Nc}()
 end
 
-function entropyproj_limiter_cache(entropyproj_limiter_type::ScaledExtrapolation, param, sizes)
+function entropyproj_limiter_cache(entropyproj_limiter::ScaledExtrapolation, param, sizes)
     (; K, Nd, Np, Nh, Nq, Nfp, Nc) = sizes
 
     return EntropyProjectionLimiterCache{Nd,Nc}(K=K, Np=Np, Nq=Nq, Nh=Nh, Nfp=Nfp, Nthread=Threads.nthreads())

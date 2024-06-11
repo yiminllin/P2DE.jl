@@ -2,12 +2,12 @@
 # In DGFilter.jl #
 ##################
 
-function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis_type::LobattoCollocation, nstage)
-    clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
+function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis::LobattoCollocation, nstage)
+    clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter, nstage)
 end
 
 # TODO: put into entropy projection to avoid an extra projection step
-function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis_type::GaussCollocation, nstage)
+function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis::GaussCollocation, nstage)
     (; theta_local_arr) = prealloc
     (; equation) = param
     (; mapP) = bcdata
@@ -265,7 +265,7 @@ end
 function calculate_dvB_i_k(i, k, theta_i, prealloc, param, discrete_data)
     (; VUfH, VUfL) = prealloc
     (; equation) = param
-    dim = dim_type(equation)
+    dim = dim(equation)
     Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
     vf_tilde_i_k = theta_i * VUfH[i, k] + (1.0 - theta_i) * VUfL[i, k]
     vf_i_k = VUfL[i, k]
@@ -284,7 +284,7 @@ end
 function calculate_dvBdf_i_k(i, k, theta_i, thetaP_i, prealloc, param, discrete_data)
     (; VUfH, VUfL, VUPH, VUPL, fstar_L) = prealloc
     (; equation) = param
-    dim = dim_type(equation)
+    dim = dim(equation)
     vf_tilde_i_k = theta_i * VUfH[i, k] + (1.0 - theta_i) * VUfL[i, k]
     vP_tilde_i_k = thetaP_i * VUPH[i, k] + (1.0 - thetaP_i) * VUPL[i, k]
     uf_tilde_i_k = u_vfun(equation, vf_tilde_i_k)
@@ -307,7 +307,7 @@ end
 function calculate_G_i_k(i, k, theta_i, prealloc, param, discrete_data)
     (; VUfH, VUfL, psif, fstar_L) = prealloc
     (; equation) = param
-    dim = dim_type(equation)
+    dim = dim(equation)
     Bxy_i = Bx(i, k, discrete_data, dim)
 
     vf_tilde_i_k = theta_i * VUfH[i, k] + (1.0 - theta_i) * VUfL[i, k]
@@ -331,7 +331,7 @@ function calc_face_values_ES!(prealloc, cache, param, equation, discrete_data, b
 
     K = num_elements(param)
     Nfp = discrete_data.sizes.Nfp
-    dim = dim_type(equation)
+    dim = dim(equation)
     # Initialize entropy variable and entropy potential
     @batch for k = 1:K
         mul!(view(UfL, :, k), Vf_low, view(Uq, :, k))
@@ -383,24 +383,24 @@ end
 ###################
 # In DGLimiter.jl #
 ###################
-function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, dt, nstage, rhs_limiter_type::SubcellLimiter, timer)
+function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, dt, nstage, rhs_limiter::SubcellLimiter, timer)
     (; limiter_cache, shockcapture_cache) = caches
-    dim = dim_type(param.equation)
-    bound_type = bound_type(param)
+    dim = dim(param.equation)
+    bound = bound(param)
     @timeit_debug timer "Initialize smoothness indicator" begin
-        initialize_smoothness_indicator!(shockcapture_type(param), bound_type, prealloc, param, discrete_data, nstage)
+        initialize_smoothness_indicator!(shockcapture(param), bound, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "calculate blending factor" begin
-        update_blending_factor!(shockcapture_type(param), shockcapture_cache, prealloc, param, discrete_data, nstage)
+        update_blending_factor!(shockcapture(param), shockcapture_cache, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "calculate smoothness factor" begin
-        update_smoothness_factor!(bound_type, limiter_cache, prealloc, param, nstage)
+        update_smoothness_factor!(bound, limiter_cache, prealloc, param, nstage)
     end
     @timeit_debug timer "Precompute bounds" begin
-        initialize_bounds!(limiter_cache, prealloc, bound_type, param, discrete_data, bcdata, t, nstage, dim)
+        initialize_bounds!(limiter_cache, prealloc, bound, param, discrete_data, bcdata, t, nstage, dim)
     end
     @timeit_debug timer "Precompute entropy variables" begin
-        initialize_entropy_vars!(limiter_cache, prealloc, bound_type, param, discrete_data, bcdata, t, nstage, dim)
+        initialize_entropy_vars!(limiter_cache, prealloc, bound, param, discrete_data, bcdata, t, nstage, dim)
     end
     @timeit_debug timer "Accumulate low and high order subcell fluxes" begin
         accumulate_f_bar!(limiter_cache, prealloc, param, discrete_data, dim)
@@ -463,7 +463,7 @@ end
 # In SubcellLimiter.jl #
 ########################
 
-function initialize_entropy_vars!(cache, prealloc, bound_type, param, discrete_data, bcdata, t, nstage, dim)
+function initialize_entropy_vars!(cache, prealloc, bound, param, discrete_data, bcdata, t, nstage, dim)
     (; equation) = param
     (; t0) = param.timestepping_param
     (; Uq, vq, psiq) = prealloc
@@ -922,7 +922,7 @@ function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, 
             iq = fq2q[i]
             uf = Uq[iq, k]
             vf = v_ufun(equation, uf)
-            Bxy_i = Bx(i, k, discrete_data, dim_type(equation))
+            Bxy_i = Bx(i, k, discrete_data, dim(equation))
             sum_Bpsi += Bxy_i .* psi_ufun(equation, uf)
             sum_Bpsitilde += Bxy_i .* psi_ufun(equation, u_tilde[Nq+i, k])
             vftildeBfH += Bxy_i .* SVector(sum(v_tilde[Nq+i, k] .* fstar_H[i, k][1]), sum(v_tilde[Nq+i, k] .* fstar_H[i, k][2]))

@@ -41,18 +41,18 @@ function initial_condition(param, x, y)
     return primitive_to_conservative(param.equation, SVector(exact_sol(param.equation, x, y, t0)))
 end
 
-for limiter_type in [
+for limiter in [
     (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound(), shockcapture_type=HennemannShockCapture()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedMinEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndCellEntropyBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndRelaxedCellEntropyBound(beta=0.5)), LobattoCollocation())
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityBound()), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityBound(), shockcapture=HennemannShockCapture()), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndMinEntropyBound()), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndRelaxedMinEntropyBound()), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndCellEntropyBound()), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndRelaxedCellEntropyBound(beta=0.5)), LobattoCollocation())
 ]
     for N in [1; 2; 3; 4]
         for K in [(5, 5)]
-            entropyproj_type, low_order_flux_type, rhs_lim_type, discretization_type = limiter_type
+            entropyproj, low_order_flux, rhs_lim, discretization = limiter
             gamma = 1.4
             param = Param(N=N, K=K, xL=(0.0, 0.0), xR=(10.0, 10.0),
                 global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
@@ -60,11 +60,11 @@ for limiter_type in [
                 limiting_param=LimitingParameter(zeta=0.1, eta=0.5),
                 postprocessing_param=PostprocessingParameter(output_interval=10000),
                 equation=CompressibleEulerIdealGas{Dim2}(gamma),
-                rhs=ESLimitedLowOrderPos(low_order_surface_flux_type=low_order_flux_type,
-                    high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-                approximation_basis_type=discretization_type,
-                entropyproj_limiter_type=entropyproj_type,
-                rhs_limiter_type=rhs_lim_type)
+                rhs=ESLimitedLowOrderPos(low_order_surface_flux=low_order_flux,
+                    high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+                approximation_basis=discretization,
+                entropyproj_limiter=entropyproj,
+                rhs_limiter=rhs_lim)
 
             T = param.timestepping_param.T
             N = param.N

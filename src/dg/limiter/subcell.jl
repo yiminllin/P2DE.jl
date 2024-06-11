@@ -1,19 +1,19 @@
 ###############################
 ### Subcell limiter methods ###
 ###############################
-function initialize_entropy_bounds!(equation::CompressibleIdealGas, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, state, solver, state_param, time_param)
+function initialize_entropy_bounds!(equation::CompressibleIdealGas, bound::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, state, solver, state_param, time_param)
     @. state.cache.limiter_cache.lbound_s_modified = 0.0
 end
 
-function initialize_entropy_bounds!(equation::KPP, bound_type, state, solver, state_param, time_param)
+function initialize_entropy_bounds!(equation::KPP, bound, state, solver, state_param, time_param)
     # Do nothing
 end
 
 # TODO: only precompute s_modified now, unnecessary to precompute bound for
 #       density and internal energy?
-function initialize_entropy_bounds!(equation::CompressibleIdealGas, bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
+function initialize_entropy_bounds!(equation::CompressibleIdealGas, bound::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
     initialize_s_modified!(state, solver, time_param)
-    initialize_lower_bound!(dim_type(solver), state, solver, state_param, time_param)
+    initialize_lower_bound!(dim(solver), state, solver, state_param, time_param)
 end
 
 function initialize_s_modified!(state, solver, time_param)
@@ -74,16 +74,16 @@ function initialize_lower_bound!(dim::Dim2, state, solver, state_param, time_par
     end
 end
 
-function initialize_TVD_bounds!(dim, equation::KPP, bound_type, state, solver, state_param, time_param)
+function initialize_TVD_bounds!(dim, equation::KPP, bound, state, solver, state_param, time_param)
     # Do nothing
 end
 
 # TODO: refactor... can initialize lbound_rho and ubound_rho for positivity here
-function initialize_TVD_bounds!(dim, equation::CompressibleIdealGas, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
+function initialize_TVD_bounds!(dim, equation::CompressibleIdealGas, bound::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
     # Do nothing
 end
 
-function initialize_TVD_bounds!(dim::Dim1, equation::CompressibleIdealGas, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
+function initialize_TVD_bounds!(dim::Dim1, equation::CompressibleIdealGas, bound::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
     (; Uq, rhsL) = state.preallocation
     (; K, N1D, Nq) = solver.discrete_data.sizes
     (; rhoL, lbound_rho, ubound_rho) = state.cache.limiter_cache
@@ -109,7 +109,7 @@ function initialize_TVD_bounds!(dim::Dim1, equation::CompressibleIdealGas, bound
     end
 end
 
-function initialize_TVD_bounds!(dim::Dim2, equation::CompressibleIdealGas, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
+function initialize_TVD_bounds!(dim::Dim2, equation::CompressibleIdealGas, bound::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
     (; Uq, rhsL) = state.preallocation
     (; K, N1D, Nq) = solver.discrete_data.sizes
     (; rhoL, lbound_rho, ubound_rho) = state.cache.limiter_cache
@@ -227,16 +227,16 @@ function subcell_bound_limiter!(dim::Dim1, equation::CompressibleIdealGas, state
         for i = 1:Nq
             wJq_i = (wq[i] * Jq[i, k])
             Lphi_i = lbound_s_modified[i, k]
-            Lrho_i, Urho_i = rho_bound(dim_type(solver), bound_type(solver), state, solver, i, k, tid)
+            Lrho_i, Urho_i = rho_bound(dim(solver), bound(solver), state, solver, i, k, tid)
             bound = (Lrho_i, Lrhoe(uL_k[i, tid]), Lphi_i, Urho_i, Urhoe)
-            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(limiter(solver), bound_type(solver), solver, uL_k[i, tid], -2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_i, bound))
+            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(limiter(solver), bound(solver), solver, uL_k[i, tid], -2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_i, bound))
         end
         for i = 2:Nq+1
             wJq_im1 = (wq[i-1] * Jq[i-1, k])
             Lphi_i = lbound_s_modified[i-1, k]
-            Lrho_i, Urho_i = rho_bound(dim_type(solver), bound_type(solver), state, solver, i - 1, k, tid)
+            Lrho_i, Urho_i = rho_bound(dim(solver), bound(solver), state, solver, i - 1, k, tid)
             bound = (Lrho_i, Lrhoe(uL_k[i-1, tid]), Lphi_i, Urho_i, Urhoe)
-            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(limiter(solver), bound_type(solver), solver, uL_k[i-1, tid], 2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_im1, bound))
+            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(limiter(solver), bound(solver), solver, uL_k[i-1, tid], 2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_im1, bound))
         end
 
         # Apply shock capturing
@@ -295,9 +295,9 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = rho_bound(dim_type(solver), bound_type(solver), state, solver, (iq, jq), k, tid)
-                bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], limiting_param(limiter(solver), bound_type(solver), solver, uL_k_i, -4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound))
+                Lrho_i, Urho_i = rho_bound(dim, bound(solver), state, solver, (iq, jq), k, tid)
+                bound_val = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
+                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], limiting_param(limiter(solver), bound(solver), solver, uL_k_i, -4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound_val))
             end
             # For each right subcell face
             for si = 2:N1Dp1
@@ -307,9 +307,9 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = rho_bound(dim_type(solver), bound_type(solver), state, solver, (iq, jq), k, tid)
-                bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], limiting_param(limiter(solver), bound_type(solver), solver, uL_k_i, 4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound))
+                Lrho_i, Urho_i = rho_bound(dim, bound(solver), state, solver, (iq, jq), k, tid)
+                bound_val = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
+                Lx_local_k[si, sj] = min(Lx_local_k[si, sj], limiting_param(limiter(solver), bound(solver), solver, uL_k_i, 4 * dt * (fx_bar_H_k[si, sj] - fx_bar_L_k[si, sj]) / wJq_i, bound_val))
             end
         end
 
@@ -323,9 +323,9 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = rho_bound(dim_type(solver), bound_type(solver), state, solver, (iq, jq), k, tid)
-                bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], limiting_param(limiter(solver), bound_type(solver), solver, uL_k_i, -4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound))
+                Lrho_i, Urho_i = rho_bound(dim, bound(solver), state, solver, (iq, jq), k, tid)
+                bound_val = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
+                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], limiting_param(limiter(solver), bound(solver), solver, uL_k_i, -4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound_val))
             end
             # For each top subcell face
             for sj = 2:N1Dp1
@@ -335,9 +335,9 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
                 wJq_i = wq_k[iq, jq] * Jq_k[iq, jq]
                 uL_k_i = u_L_k[iq, jq]
                 Lphi_ij = lbound_s_modified_k[iq, jq]
-                Lrho_i, Urho_i = rho_bound(dim_type(solver), bound_type(solver), state, solver, (iq, jq), k, tid)
-                bound = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
-                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], limiting_param(limiter(solver), bound_type(solver), solver, uL_k_i, 4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound))
+                Lrho_i, Urho_i = rho_bound(dim, bound(solver), state, solver, (iq, jq), k, tid)
+                bound_val = (Lrho_i, Lrhoe(uL_k_i), Lphi_ij, Urho_i, Urhoe)
+                Ly_local_k[si, sj] = min(Ly_local_k[si, sj], limiting_param(limiter(solver), bound(solver), solver, uL_k_i, 4 * dt * (fy_bar_H_k[si, sj] - fy_bar_L_k[si, sj]) / wJq_i, bound_val))
             end
         end
 
@@ -349,14 +349,14 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
 end
 
 # TODO: refactor
-function rho_bound(dim::Dim1, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
+function rho_bound(dim::Dim1, bound::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
     (; lbound_rho, ubound_rho) = state.cache.limiter_cache
     Lrho = lbound_rho[i, k]
     Urho = ubound_rho[i, k]
     return (Lrho, Urho)
 end
 
-function rho_bound(dim::Dim2, bound_type::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
+function rho_bound(dim::Dim2, bound::Union{TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
     (; lbound_rho, ubound_rho) = state.cache.limiter_cache
     iq, jq = i
     N1D = solver.param.N + 1
@@ -367,7 +367,7 @@ function rho_bound(dim::Dim2, bound_type::Union{TVDBound,TVDAndCellEntropyBound,
     return (Lrho, Urho)
 end
 
-function rho_bound(dim::Dim1, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
+function rho_bound(dim::Dim1, bound::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
     (; uL_k) = state.cache.limiter_cache
     (; zeta) = solver.param.limiting_param
     Lrho = zeta * uL_k[i, tid][1]
@@ -375,7 +375,7 @@ function rho_bound(dim::Dim1, bound_type::Union{PositivityBound,PositivityAndCel
     return (Lrho, Urho)
 end
 
-function rho_bound(dim::Dim2, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
+function rho_bound(dim::Dim2, bound::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
     (; uL_k) = state.cache.limiter_cache
     (; zeta) = solver.param.limiting_param
     iq, jq = i
@@ -455,14 +455,14 @@ function symmetrize_limiting_parameters!(dim::Dim2, state, solver, state_param, 
     end
 end
 
-function enforce_ES_subcell!(bound_type::Union{PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
+function enforce_ES_subcell!(bound::Union{PositivityBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, state_param, time_param)
     # Do nothing
 end
 
-function enforce_ES_subcell!(bound_type::Union{PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, state, solver, state_param, time_param)
-    initialize_ES_subcell_limiting!(dim_type(solver), state, solver)
-    enforce_ES_subcell_volume!(dim_type(solver), state, solver, time_param)
-    enforce_ES_subcell_interface!(dim_type(solver), solver.param.approximation_basis_type, state, solver, state_param, time_param)
+function enforce_ES_subcell!(bound::Union{PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, state, solver, state_param, time_param)
+    initialize_ES_subcell_limiting!(dim(solver), state, solver)
+    enforce_ES_subcell_volume!(dim(solver), state, solver, time_param)
+    enforce_ES_subcell_interface!(dim(solver), solver.param.approximation_basis, state, solver, state_param, time_param)
 end
 
 function initialize_ES_subcell_limiting!(dim::Dim1, state, solver)
@@ -587,7 +587,7 @@ function enforce_ES_subcell_volume!(dim::Dim1, state, solver, time_param)
             li = L_local_k[si]
             sum_dvdf_k_poslim += li * dvdf_k[si-1]
         end
-        rhs = rhs_es(bound_type(solver), sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
+        rhs = rhs_es(bound(solver), sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
         entropy_estimate_poslim = sum_dvdf_k_poslim - rhs
 
         tol = max(0.0, sum_dvfbarL[k][1] - sum_Bpsi[k][1])
@@ -658,7 +658,7 @@ function enforce_ES_subcell_volume!(dim::Dim2, state, solver, time_param)
                 sum_dvdfx_k_poslim += lij * dvdfx_k[si-1, sj]
             end
         end
-        rhsx = rhs_es(bound_type(solver), sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
+        rhsx = rhs_es(bound(solver), sum_Bpsi[k][1], sum_dvfbarL[k][1], epsk)
         entropy_estimate_poslim_x = sum_dvdfx_k_poslim - rhsx
 
         sum_dvdfy_k_poslim = 0.0
@@ -668,7 +668,7 @@ function enforce_ES_subcell_volume!(dim::Dim2, state, solver, time_param)
                 sum_dvdfy_k_poslim += lij * dvdfy_k[si, sj-1]
             end
         end
-        rhsy = rhs_es(bound_type(solver), sum_Bpsi[k][2], sum_dvfbarL[k][2], epsk)
+        rhsy = rhs_es(bound(solver), sum_Bpsi[k][2], sum_dvfbarL[k][2], epsk)
         entropy_estimate_poslim_y = sum_dvdfy_k_poslim - rhsy
 
         tolx = max(0.0, sum_dvfbarL[k][1] - sum_Bpsi[k][1])
@@ -743,20 +743,20 @@ function enforce_ES_subcell_volume!(dim::Dim2, state, solver, time_param)
     end
 end
 
-function rhs_es(bound_type::Union{PositivityAndCellEntropyBound,TVDAndCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
+function rhs_es(bound::Union{PositivityAndCellEntropyBound,TVDAndCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
     return sum_Bpsi_k - sum_dvfbarL_k
 end
 
-function rhs_es(bound_type::Union{PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
-    beta = bound_type.beta
+function rhs_es(bound::Union{PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound}, sum_Bpsi_k, sum_dvfbarL_k, epsk)
+    beta = bound.beta
     return (1 - beta * epsk) * (sum_Bpsi_k - sum_dvfbarL_k)
 end
 
-function enforce_ES_subcell_interface!(dim, basis_type::LobattoCollocation, state, solver, state_param, time_param)
+function enforce_ES_subcell_interface!(dim, basis::LobattoCollocation, state, solver, state_param, time_param)
     # Do nothing for Lobatto, since interface flux coincide
 end
 
-function enforce_ES_subcell_interface!(dim::Dim2, basis_type::GaussCollocation, state, solver, state_param, time_param)
+function enforce_ES_subcell_interface!(dim::Dim2, basis::GaussCollocation, state, solver, state_param, time_param)
     (; fstar_H, fstar_L, L_local_arr) = state.preallocation
     (; vf, psif) = state.cache.limiter_cache
     (; mapP) = state_param.bcdata
@@ -924,17 +924,17 @@ function apply_subcell_limiter!(dim::Dim2, state, solver)
 end
 
 # (69) in https://arxiv.org/pdf/2004.08503.pdf
-function update_smoothness_factor!(bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,TVDBound,TVDAndCellEntropyBound}, state, solver, time_param)
+function update_smoothness_factor!(bound::Union{PositivityBound,PositivityAndCellEntropyBound,TVDBound,TVDAndCellEntropyBound}, state, solver, time_param)
     # Use global minimum bound by default
     @views @. state.cache.limiter_cache.smooth_factor[:, time_param.nstage] = 0.0
 end
 
-function update_smoothness_factor!(bound_type::Union{PositivityAndMinEntropyBound,TVDAndMinEntropyBound}, state, solver, time_param)
+function update_smoothness_factor!(bound::Union{PositivityAndMinEntropyBound,TVDAndMinEntropyBound}, state, solver, time_param)
     # Use global minimum bound by default
     @views @. state.cache.limiter_cache.smooth_factor[:, time_param.nstage] = 1.0
 end
 
-function update_smoothness_factor!(bound_type::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, time_param)
+function update_smoothness_factor!(bound::Union{PositivityAndRelaxedMinEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDAndRelaxedCellEntropyBound,TVDAndRelaxedMinEntropyBound}, state, solver, time_param)
     (; N) = solver.param
     (; smooth_factor) = state.cache.limiter_cache
     (; smooth_indicator) = state.preallocation

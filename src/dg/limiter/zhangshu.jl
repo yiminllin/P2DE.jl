@@ -38,8 +38,8 @@ function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, solver, L, uL,
     l = 1.0
     for i = 1:Nq
         uL_i = uL[i]
-        bound = (Lrho(uL_i), Lrhoe(uL_i), Urho, Urhoe)
-        l = min(l, limiting_param(limiter(solver), bound_type(solver), solver, uL[i], P[i], bound))
+        bound_val = (Lrho(uL_i), Lrhoe(uL_i), Urho, Urhoe)
+        l = min(l, limiting_param(limiter(solver), bound(solver), solver, uL[i], P[i], bound_val))
     end
     L[k, nstage] = l
 end
@@ -49,8 +49,8 @@ function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, solver, L, uL,
 
     l = 1.0
     for i = 1:Nq
-        bound = (Lrho, Lrhoe, Urho, Urhoe)
-        l = min(l, limiting_param(limiter(solver), bound_type(solver), solver, uL[i], P[i], bound))
+        bound_val = (Lrho, Lrhoe, Urho, Urhoe)
+        l = min(l, limiting_param(limiter(solver), bound(solver), solver, uL[i], P[i], bound_val))
     end
     L[k, nstage] = l
 end

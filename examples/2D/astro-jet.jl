@@ -75,12 +75,12 @@ param = Param(N=3, K=(100, 100), xL=(-0.5, -0.5), xR=(0.5, 0.5),
     limiting_param=LimitingParameter(zeta=0.5, eta=0.1),
     postprocessing_param=PostprocessingParameter(output_interval=200),
     equation=CompressibleEulerIdealGas{Dim2}(gamma),
-    rhs=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-        high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-    approximation_basis_type=GaussCollocation(),
-    entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-    rhs_limiter_type=SubcellLimiter(bound_type=PositivityAndRelaxedMinEntropyBound(),
-        shockcapture_type=NoShockCapture()))
+    rhs=ESLimitedLowOrderPos(low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+        high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+    approximation_basis=GaussCollocation(),
+    entropyproj_limiter=NodewiseScaledExtrapolation(),
+    rhs_limiter=SubcellLimiter(bound=PositivityAndRelaxedMinEntropyBound(),
+        shockcapture=NoShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N

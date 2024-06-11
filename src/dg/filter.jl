@@ -1,9 +1,9 @@
-function compute_entropyproj_limiting_param!(approx_basis_type::LobattoCollocation, state, solver, time_param)
-    clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
+function compute_entropyproj_limiting_param!(approx_basis::LobattoCollocation, state, solver, time_param)
+    clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter, nstage)
 end
 
 # TODO: put into entropy projection to avoid an extra projection step
-function compute_entropyproj_limiting_param!(approx_basis_type::GaussCollocation, state, solver, time_param)
+function compute_entropyproj_limiting_param!(approx_basis::GaussCollocation, state, solver, time_param)
     (; K) = solver.discrete_data.sizes
     clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter(solver), state, time_param)
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
@@ -15,11 +15,11 @@ function compute_entropyproj_limiting_param!(approx_basis_type::GaussCollocation
 end
 
 # TODO: unnecessary?
-function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, time_param)
+function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter::NodewiseScaledExtrapolation, state, time_param)
     view(state.preallocation.theta_local_arr, :, :, time_param.nstage) .= 1.0
 end
 
-function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, time_param)
+function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter::NoEntropyProjectionLimiter, state, time_param)
     # Do nothing
 end
 
@@ -46,7 +46,7 @@ function calc_face_values!(equation::KPP, state, solver)
     return nothing
 end
 
-function solve_theta!(entropyproj_limiter_type::NodewiseScaledExtrapolation, equation::CompressibleIdealGas, state, k, solver, time_param, tid)
+function solve_theta!(entropyproj_limiter::NodewiseScaledExtrapolation, equation::CompressibleIdealGas, state, k, solver, time_param, tid)
     (; theta_arr, theta_local_arr) = state.preallocation
     (; Nfp) = solver.discrete_data.sizes
     (; nstage) = time_param
@@ -58,16 +58,16 @@ function solve_theta!(entropyproj_limiter_type::NodewiseScaledExtrapolation, equ
     theta_arr[k, nstage] = sum(view(theta_local_arr, :, k, nstage)) / Nfp
 end
 
-function solve_theta!(entropyproj_limiter_type::NoEntropyProjectionLimiter, equation::CompressibleIdealGas, state, k, solver, time_param, tid)
+function solve_theta!(entropyproj_limiter::NoEntropyProjectionLimiter, equation::CompressibleIdealGas, state, k, solver, time_param, tid)
     return 1.0
 end
 
 # TODO: do nothing for KPP now
-function solve_theta!(entropyproj_limiter_type, equation::KPP, state, k, solver, time_param, tid)
+function solve_theta!(entropyproj_limiter, equation::KPP, state, k, solver, time_param, tid)
     return nothing
 end
 
-function update_limited_entropyproj_vars!(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, theta_i, i, k, tid, solver)
+function update_limited_entropyproj_vars!(entropyproj_limiter::NoEntropyProjectionLimiter, state, theta_i, i, k, tid, solver)
     # Do nothing
 end
 
@@ -106,7 +106,7 @@ function update_and_check_bound_limited_entropyproj_var_on_face_node!(state, the
     end
 end
 
-function update_limited_entropyproj_vars_on_face_node!(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, theta_i, i, k, tid, solver)
+function update_limited_entropyproj_vars_on_face_node!(entropyproj_limiter::NodewiseScaledExtrapolation, state, theta_i, i, k, tid, solver)
     (; vq) = state.preallocation
     (; v_tilde_k, u_tilde_k) = state.cache.entropyproj_limiter_cache
     (; Nq) = solver.discrete_data.sizes

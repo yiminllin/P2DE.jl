@@ -6,11 +6,11 @@ struct Preallocation{Nc,DIM}
     L_L2G_arr::Array{Float64,2}
 end
 
-function initialize_transfer_operators(elem_type, param, rd_gauss, rd_LGL)
+function initialize_transfer_operators(elem, param, rd_gauss, rd_LGL)
     (; N) = param
 
-    T_g2l = vandermonde(elem_type, N, rd_LGL.rst...) / vandermonde(elem_type, N, rd_gauss.rst...)
-    T_l2g = vandermonde(elem_type, N, rd_gauss.rst...) / vandermonde(elem_type, N, rd_LGL.rst...)
+    T_g2l = vandermonde(elem, N, rd_LGL.rst...) / vandermonde(elem, N, rd_gauss.rst...)
+    T_l2g = vandermonde(elem, N, rd_gauss.rst...) / vandermonde(elem, N, rd_LGL.rst...)
     transfer_ops = TransferOperators(T_g2l, T_l2g)
 
     return transfer_ops
@@ -36,7 +36,7 @@ function transfer_indicator(prealloc, discrete_data_gauss, k)
     return ind
 end
 
-function update_indicator!(prealloc, approximation_basis_type::GaussCollocation, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
+function update_indicator!(prealloc, approximation_basis::GaussCollocation, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
     if (firststep)
         clear_transfer_cache!(prealloc)
         prealloc.LGLind .= false
@@ -44,7 +44,7 @@ function update_indicator!(prealloc, approximation_basis_type::GaussCollocation,
     # Else, do nothing
 end
 
-function update_indicator!(prealloc, approximation_basis_type::LobattoCollocation, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
+function update_indicator!(prealloc, approximation_basis::LobattoCollocation, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
     if (firststep)
         clear_transfer_cache!(prealloc)
         prealloc.LGLind .= true
@@ -52,7 +52,7 @@ function update_indicator!(prealloc, approximation_basis_type::LobattoCollocatio
     # Else, do nothing
 end
 
-function update_indicator!(prealloc, approximation_basis_type::HybridGaussLGL, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
+function update_indicator!(prealloc, approximation_basis::HybridGaussLGL, param, discrete_data_gauss, discrete_data_LGL, transfer_ops, firststep=false)
     (; LGLind, L_G2L_arr, L_L2G_arr) = prealloc
 
     K = num_elements(param)

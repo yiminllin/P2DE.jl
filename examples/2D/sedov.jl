@@ -49,11 +49,11 @@ param = Param(N=3, K=(80, 80), xL=(-1.5, -1.5), xR=(1.5, 1.5),
     limiting_param=LimitingParameter(zeta=0.1, eta=0.1),
     postprocessing_param=PostprocessingParameter(output_interval=100),
     equation=CompressibleEulerIdealGas{Dim2}(gamma),
-    rhs=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),
-        high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-    approximation_basis_type=GaussCollocation(),
-    entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-    rhs_limiter_type=ZhangShuLimiter(shockcapture_type=NoShockCapture()))
+    rhs=ESLimitedLowOrderPos(low_order_surface_flux=LaxFriedrichsOnProjectedVal(),
+        high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+    approximation_basis=GaussCollocation(),
+    entropyproj_limiter=NodewiseScaledExtrapolation(),
+    rhs_limiter=ZhangShuLimiter(shockcapture=NoShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N
