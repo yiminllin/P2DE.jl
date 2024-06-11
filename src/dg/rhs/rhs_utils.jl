@@ -104,20 +104,20 @@ end
 # TODO: hardcoded
 function graph_viscosity(dim::Dim1, i, j, k, Sxy0J_ij, state, solver)
     # TODO: better pass in lambda_arr
-    (; λarr) = low_order_cache(state)
+    (; lambdaarr) = low_order_cache(state)
     (; Uq) = state.preallocation
 
-    return SVector{1}(λarr[i, j, k] * (Uq[j, k] - Uq[i, k]))
+    return SVector{1}(lambdaarr[i, j, k] * (Uq[j, k] - Uq[i, k]))
 end
 
 function graph_viscosity(dim::Dim2, i, j, k, Sxy0J_ij, state, solver)
     # TODO: better pass in lambda_arr
-    (; λarr) = low_order_cache(state)
+    (; lambdaarr) = low_order_cache(state)
     (; Uq) = state.preallocation
 
     Nc = num_components(solver)
     Sx0J_ij, _ = Sxy0J_ij
-    visc_term = λarr[i, j, k] * (Uq[j, k] - Uq[i, k])
+    visc_term = lambdaarr[i, j, k] * (Uq[j, k] - Uq[i, k])
     # If it is the dissipation in x-direction
     # TODO: hardcoded tolerance
     if abs(Sx0J_ij) > 1e-10

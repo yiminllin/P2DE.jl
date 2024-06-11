@@ -109,14 +109,14 @@ Base.@kwdef struct CompressibleNavierStokesParam <: CompressibleParam
 end
 Base.@kwdef struct CompressibleIdealGas{DIM,PARAM<:CompressibleParam} <: CompressibleFlow{DIM}
     param::PARAM
-    γ::Float64
+    gamma::Float64
 end
 
 const CompressibleEulerIdealGas{DIM} = CompressibleIdealGas{DIM,CompressibleEulerParam}
 const CompressibleNavierStokesIdealGas{DIM} = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}
 
-CompressibleEulerIdealGas{DIM}(γ) where {DIM} = CompressibleIdealGas{DIM,CompressibleEulerParam}(γ=γ, param=CompressibleEulerParam())
-CompressibleNavierStokesIdealGas{DIM}(γ) where {DIM} = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}(γ=γ, param=CompressibleNavierStokesParam())
+CompressibleEulerIdealGas{DIM}(gamma) where {DIM} = CompressibleIdealGas{DIM,CompressibleEulerParam}(gamma=gamma, param=CompressibleEulerParam())
+CompressibleNavierStokesIdealGas{DIM}(gamma) where {DIM} = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}(gamma=gamma, param=CompressibleNavierStokesParam())
 
 struct KPP{DIM} <: EquationType{DIM} end
 
@@ -144,8 +144,8 @@ end
 
 # TODO: put parameters into limiter
 Base.@kwdef struct LimitingParameter
-    ζ::Float64           # Positiivty relaxation parameter ρ,ρe >= η min
-    η::Float64           # Bound relaxation parameter ρ,ρe ∈ [(1-ζ)min, (1+ζ)max]
+    zeta::Float64           # Positiivty relaxation parameter ρ,ρe >= eta min
+    eta::Float64           # Bound relaxation parameter ρ,ρe ∈ [(1-zeta)min, (1+zeta)max]
 end
 
 Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROPYPROJECTIONLIMITERTYPE,RHSLIMITERTYPE}

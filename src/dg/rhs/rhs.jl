@@ -126,7 +126,7 @@ function entropy_projection!(entropyproj_limiter_type::NodewiseScaledExtrapolati
             entropy_projection_volume_node!(v_tilde_k, u_tilde_k, vq_k, Uq_k, i)
         end
         for i = 1:Nfp
-            l_k_i = state.preallocation.θ_local_arr[i, k, time_param.nstage]
+            l_k_i = state.preallocation.theta_local_arr[i, k, time_param.nstage]
             entropy_projection_face_node!(v_tilde_k, u_tilde_k, vq_k, i, l_k_i, solver)
         end
     end

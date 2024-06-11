@@ -106,16 +106,16 @@ function low_order_cache(state::State)
     return low_order_cache(rhs_cache(state))
 end
 
-function get_γ(equation::CompressibleIdealGas)
-    return equation.γ
+function get_gamma(equation::CompressibleIdealGas)
+    return equation.gamma
 end
 
-function get_γ(solver::Solver)
-    return get_γ(equation(solver))
+function get_gamma(solver::Solver)
+    return get_gamma(equation(solver))
 end
 
 function to_equation_1D(equation::CompressibleIdealGas{Dim2})
-    return CompressibleEulerIdealGas{Dim1}(get_γ(equation))
+    return CompressibleEulerIdealGas{Dim1}(get_gamma(equation))
 end
 
 function dim(equation::EquationType{Dim1})

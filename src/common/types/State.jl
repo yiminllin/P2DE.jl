@@ -16,8 +16,8 @@ struct Preallocation{Nc,DIM}
     fstar_L::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Larr::Array{Float64,2}
     L_local_arr::Array{Float64,4}
-    θ_arr::Array{Float64,2}
-    θ_local_arr::Array{Float64,3}
+    theta_arr::Array{Float64,2}
+    theta_local_arr::Array{Float64,3}
     resW::Array{SVector{Nc,Float64},2}
     resZ::Array{SVector{Nc,Float64},2}
     indicator::Array{Float64,2}
@@ -30,19 +30,17 @@ struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     flux::Array{SVector{DIM,SVector{Nc,Float64}},2}
     Q0F1::Array{SVector{DIM,SVector{Nc,Float64}},2}
     wavespeed_f::Array{Float64,2}
-    alphaarr::Array{Float64,2}
     Uf::Array{SVector{Nc,Float64},2}   # TODO: Redundant with limiters cache
     uP::Array{SVector{Nc,Float64},2}
-    λarr::Array{Float64,3}
-    λBarr::Array{Float64,2}
-    αarr::Array{Float64,2}
+    lambdaarr::Array{Float64,3}
+    lambdaBarr::Array{Float64,2}
+    alpha_arr::Array{Float64,2}        # TODO: duplicate name
     dtarr::Array{Float64,1}
 end
 
 LowOrderPositivityCache{DIM,Nc}(; K=0, Np=0, Nq=0, Nh=0, Nfp=0, Nthread=1) where {DIM,Nc} =
     LowOrderPositivityCache(zeros(SVector{DIM,SVector{Nc,Float64}}, Nh, K),
         zeros(SVector{DIM,SVector{Nc,Float64}}, Nq, K),
-        zeros(Float64, Nfp, K),
         zeros(Float64, Nfp, K),
         zeros(SVector{Nc,Float64}, Nfp, K),
         zeros(SVector{Nc,Float64}, Nfp, K),

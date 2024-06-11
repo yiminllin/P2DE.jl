@@ -8,9 +8,9 @@ function apply_zhang_shu_limiter!(state, solver, time_param)
     (; K) = solver.discrete_data.sizes
     (; dt, nstage) = time_param
 
-    ζ = solver.param.limiting_param.ζ
-    Lrho(uL_i) = ζ * uL_i[1]
-    Lrhoe(uL_i) = ζ * rhoe_ufun(equation(solver), uL_i)
+    zeta = solver.param.limiting_param.zeta
+    Lrho(uL_i) = zeta * uL_i[1]
+    Lrhoe(uL_i) = zeta * rhoe_ufun(equation(solver), uL_i)
     @batch for k = 1:K
         tid = Threads.threadid()
         @views @. uL_k[:, tid] = Uq[:, k] + dt * rhsL[:, k]

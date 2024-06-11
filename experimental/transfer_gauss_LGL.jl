@@ -109,7 +109,7 @@ function average(Uk, wq)
 end
 
 function upper_bound(Uk, param)
-    (; η) = param.limiting_param
+    (; eta) = param.limiting_param
 
     Urho = -Inf
     Urhoe = -Inf
@@ -117,8 +117,8 @@ function upper_bound(Uk, param)
         Urho = max(Urho, Uk[i][1])
         Urhoe = max(Urhoe, rhoe_ufun(param.equation, Uk[i]))
     end
-    Urho = (1 + η) * Urho
-    Urhoe = (1 + η) * Urhoe
+    Urho = (1 + eta) * Urho
+    Urhoe = (1 + eta) * Urhoe
 
     return Urho, Urhoe
 end

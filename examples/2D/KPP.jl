@@ -38,11 +38,11 @@ function initial_condition(param, x, y)
     return SVector(exact_sol(param.equation, x, y, t0))
 end
 
-γ = 1.4
+gamma = 1.4
 param = Param(N=3, K=(64, 64), xL=(-2.0, -2.0), xR=(2.0, 2.0),
     global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
     timestepping_param=TimesteppingParameter(T=1.0, CFL=0.5, dt0=1e-3, t0=0.0),
-    limiting_param=LimitingParameter(ζ=0.1, η=1.0),
+    limiting_param=LimitingParameter(zeta=0.1, eta=1.0),
     postprocessing_param=PostprocessingParameter(output_interval=100),
     equation=KPP{Dim2}(),
     rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnProjectedVal(),

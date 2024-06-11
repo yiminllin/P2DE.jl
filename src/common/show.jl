@@ -1,6 +1,6 @@
 function Base.show(io::IO, ::MIME"text/plain", param::Param)
     @nospecialize param
-    println(io, "N=$(param.N),K=$(param.K),η=$(param.limiting_param.η),ζ=$(param.limiting_param.ζ)")
+    println(io, "N=$(param.N),K=$(param.K),eta=$(param.limiting_param.eta),zeta=$(param.limiting_param.zeta)")
     println(io, "basis                      type: ", param.approximation_basis_type)
     println(io, "rhs                        type: ", param.rhs_type)
     println(io, "entropy projection limiter type: ", param.entropyproj_limiter_type)

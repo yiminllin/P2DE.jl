@@ -46,30 +46,30 @@ end
 
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc, entropyproj_limiter_type::ExponentialFilter, nstage)
-    view(prealloc.θ_arr, :, nstage) .= 0.0
+    view(prealloc.theta_arr, :, nstage) .= 0.0
 end
 
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc, entropyproj_limiter_type::ZhangShuFilter, nstage)
-    view(prealloc.θ_arr, :, nstage) .= 1.0
+    view(prealloc.theta_arr, :, nstage) .= 1.0
 end
 
 function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter_type::ExponentialFilter, param, discrete_data)
-    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc, cache, θ, k, param, discrete_data)
-    prealloc.θ_arr[k, nstage] = bisection(f, -log(param.global_constants.ZEROTOL), 0.0)
+    f(theta) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc, cache, theta, k, param, discrete_data)
+    prealloc.theta_arr[k, nstage] = bisection(f, -log(param.global_constants.ZEROTOL), 0.0)
 end
 
 function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter_type::ZhangShuFilter, param, discrete_data)
-    f(θ) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc, cache, θ, k, param, discrete_data)
-    prealloc.θ_arr[k, nstage] = bisection(f, 0.0, 1.0)
+    f(theta) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc, cache, theta, k, param, discrete_data)
+    prealloc.theta_arr[k, nstage] = bisection(f, 0.0, 1.0)
 end
 
-function update_limited_entropyproj_vars_on_element!(prealloc, cache, θ, k, entropyproj_limiter_type::AdaptiveFilter, param, discrete_data)
+function update_limited_entropyproj_vars_on_element!(prealloc, cache, theta, k, entropyproj_limiter_type::AdaptiveFilter, param, discrete_data)
     (; VqVDM) = discrete_data.ops
     (; U_modal, U_k, Uq_k, vq_k, v_tilde_k, u_tilde_k) = cache
 
     U_k .= @views U_modal[:, k]
-    apply_filter!(U_k, param.entropyproj_limiter_type, param.equation, θ)
+    apply_filter!(U_k, param.entropyproj_limiter_type, param.equation, theta)
     mul!(Uq_k, VqVDM, U_k)
 
     # TODO: only project to Gauss element
@@ -92,13 +92,13 @@ function compute_modal_coefficients!(prealloc, param, discrete_data, cache)
 end
 
 function apply_entropyproj_filtering!(prealloc, param, entropyproj_limiter_type::AdaptiveFilter, discrete_data, nstage)
-    (; Uq, θ_arr, U_modal) = prealloc
+    (; Uq, theta_arr, U_modal) = prealloc
     (; VqVDM) = discrete_data.ops
 
     K = num_elements(param)
     for k = 1:K
         U_modal_k = @views U_modal[:, k]
-        apply_filter!(U_modal_k, param.entropyproj_limiter_type, param.equation, θ_arr[k, nstage])
+        apply_filter!(U_modal_k, param.entropyproj_limiter_type, param.equation, theta_arr[k, nstage])
     end
     for k = 1:K
         @views mul!(Uq[:, k], VqVDM, U_modal[:, k])      # TODO: why there is allocation when remove k = 1:K loop?
@@ -109,15 +109,15 @@ function apply_entropyproj_filtering!(prealloc, param, entropyproj_limiter_type:
     # Do nothing
 end
 
-function apply_filter!(U, entropyproj_limiter_type::ExponentialFilter, equation::EquationType{Dim1}, θ)
+function apply_filter!(U, entropyproj_limiter_type::ExponentialFilter, equation::EquationType{Dim1}, theta)
     for i = 1:size(U, 1)
-        U[i] = exp(-θ * (i - 1) * (i - 1)) * U[i]
+        U[i] = exp(-theta * (i - 1) * (i - 1)) * U[i]
     end
 end
 
-function apply_filter!(U, entropyproj_limiter_type::ZhangShuFilter, equation::EquationType{Dim1}, θ)
+function apply_filter!(U, entropyproj_limiter_type::ZhangShuFilter, equation::EquationType{Dim1}, theta)
     for i = 2:size(U, 1)
-        U[i] = θ * U[i]
+        U[i] = theta * U[i]
     end
 end
 

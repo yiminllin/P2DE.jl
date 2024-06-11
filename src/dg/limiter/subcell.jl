@@ -214,8 +214,8 @@ function subcell_bound_limiter!(dim::Dim1, equation::CompressibleIdealGas, state
     (; K, Nq) = solver.discrete_data.sizes
     (; dt, nstage) = time_param
 
-    ζ = solver.param.limiting_param.ζ
-    Lrhoe(uL_i) = ζ * rhoe_ufun(equation, uL_i)
+    zeta = solver.param.limiting_param.zeta
+    Lrhoe(uL_i) = zeta * rhoe_ufun(equation, uL_i)
     @views @. L_local_arr[:, :, :, time_param.nstage] = 1.0
     # Calculate limiting parameter
     @batch for k = 1:K
@@ -255,8 +255,8 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
     (; dt, nstage) = time_param
 
     N1Dp1 = N1D + 1
-    ζ = solver.param.limiting_param.ζ
-    Lrhoe(uL_i) = ζ * rhoe_ufun(equation, uL_i)
+    zeta = solver.param.limiting_param.zeta
+    Lrhoe(uL_i) = zeta * rhoe_ufun(equation, uL_i)
     # TODO: why these two lines result in allocations?
     # Lx_local = reshape(view(L_local_arr,:,1,:,nstage),N1Dp1,N1D,K)
     # Ly_local = reshape(view(L_local_arr,:,2,:,nstage),N1D,N1Dp1,K)
@@ -369,19 +369,19 @@ end
 
 function rho_bound(dim::Dim1, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
     (; uL_k) = state.cache.limiter_cache
-    (; ζ) = solver.param.limiting_param
-    Lrho = ζ * uL_k[i, tid][1]
+    (; zeta) = solver.param.limiting_param
+    Lrho = zeta * uL_k[i, tid][1]
     Urho = Inf
     return (Lrho, Urho)
 end
 
 function rho_bound(dim::Dim2, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound}, state, solver, i, k, tid)
     (; uL_k) = state.cache.limiter_cache
-    (; ζ) = solver.param.limiting_param
+    (; zeta) = solver.param.limiting_param
     iq, jq = i
     N1D = solver.param.N + 1
     u_L_k = reshape(view(uL_k, :, tid), N1D, N1D)
-    Lrho = ζ * u_L_k[iq, jq][1]
+    Lrho = zeta * u_L_k[iq, jq][1]
     Urho = Inf
     return (Lrho, Urho)
 end

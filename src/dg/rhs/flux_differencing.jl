@@ -313,7 +313,7 @@ function update_limited_extrapolation!(entropyproj_limiter_type::NodewiseScaledE
     (; Nfp) = solver.discrete_data.sizes
 
     for i = 1:Nfp
-        l_k_i = state.preallocation.θ_local_arr[i, k, nstage]
+        l_k_i = state.preallocation.theta_local_arr[i, k, nstage]
         @views @. Vf_new[i, :, tid] = l_k_i * Vf[i, :] + (1 - l_k_i) * Vf_low[i, :]
     end
 end
@@ -324,7 +324,7 @@ function is_Vf_limited(entropyproj_limiter_type::NoEntropyProjectionLimiter, sta
 end
 
 function is_Vf_limited(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, k, nstage)
-    return minimum(view(state.preallocation.θ_local_arr, :, k, nstage)) < 1.0
+    return minimum(view(state.preallocation.theta_local_arr, :, k, nstage)) < 1.0
 end
 
 # TODO: dispatch
