@@ -34,7 +34,7 @@ struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     uP::Array{SVector{Nc,Float64},2}
     lambdaarr::Array{Float64,3}
     lambdaBarr::Array{Float64,2}
-    alpha_arr::Array{Float64,2}        # TODO: duplicate name
+    alpha::Array{Float64,2}
     dtarr::Array{Float64,1}
 end
 

@@ -247,7 +247,7 @@ function accumulate_alpha!(surface_flux::LaxFriedrichsOnNodalVal, state, k, solv
 end
 
 function accumulate_alpha!(surface_flux::LaxFriedrichsOnProjectedVal, state, k, solver)
-    (; alpha_arr) = low_order_cache(state)
+    (; alpha) = low_order_cache(state)
     (; Uq, u_tilde) = state.preallocation
     (; fq2q) = solver.discrete_data.ops
     (; Nq, Nfp, Nh) = solver.discrete_data.sizes
@@ -256,7 +256,7 @@ function accumulate_alpha!(surface_flux::LaxFriedrichsOnProjectedVal, state, k, 
     for i = 1:Nfp
         # TODO: preallocate into Fmask, refactor
         iq = fq2q[i]
-        alpha_arr[i, k] = find_alpha(equation(solver), Uq[iq, k], utilde_f[i, k], solver)
+        alpha[i, k] = find_alpha(equation(solver), Uq[iq, k], utilde_f[i, k], solver)
     end
 end
 
@@ -285,9 +285,9 @@ function lambda_B_CFL(surface_flux::LaxFriedrichsOnNodalVal, cache, i, n_i_norm,
 end
 
 function lambda_B_CFL(surface_flux::LaxFriedrichsOnProjectedVal, cache, i, n_i_norm, k)
-    (; lambdaBarr, alpha_arr, wavespeed_f) = cache
+    (; lambdaBarr, alpha, wavespeed_f) = cache
 
-    return alpha_arr[i, k] * lambdaBarr[i, k] + 0.5 * n_i_norm * wavespeed_f[i, k]
+    return alpha[i, k] * lambdaBarr[i, k] + 0.5 * n_i_norm * wavespeed_f[i, k]
 end
 
 ###############
