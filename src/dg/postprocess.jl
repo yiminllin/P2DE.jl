@@ -112,7 +112,7 @@ function plot_rho_animation(md, param, prealloc, discrete_data, data_hist, limit
         ptR = Br - (Br - Bl) / K / 2
         hplot = (Br - Bl) / K
         for k = 1:K
-            plot_limiting_bar!(param.entropyproj_limiter_type, [ptL + (k - 1) * hplot; ptL + k * hplot], barL, normalization_factor, k)
+            plot_limiting_bar!(param.entropyproj_limiter, [ptL + (k - 1) * hplot; ptL + k * hplot], barL, normalization_factor, k)
         end
         frame(anim)
     end
@@ -120,11 +120,11 @@ function plot_rho_animation(md, param, prealloc, discrete_data, data_hist, limit
     gif(anim, output_filename, fps=Int64(floor(length(Uhist) / 2)))
 end
 
-function plot_limiting_bar!(entropyproj_limiter_type::NoEntropyProjectionLimiter, x, barL, normalization_factor, k)
+function plot_limiting_bar!(entropyproj_limiter::NoEntropyProjectionLimiter, x, barL, normalization_factor, k)
     # Do nothing
 end
 
-function plot_limiting_bar!(entropyproj_limiter_type::ScaledExtrapolation, x, barL, normalization_factor, k)
+function plot_limiting_bar!(entropyproj_limiter::ScaledExtrapolation, x, barL, normalization_factor, k)
     plot!(x, (1 - barL[k]) * ones(2), st=:bar, alpha=0.2)
 end
 
@@ -143,7 +143,7 @@ end
 
 function visualize_error_data(df)
     df[!, :num_steps] = [length(dthist) for dthist in [datahist.dthist for datahist in df[!, :data_history]]]
-    pretty_table(df[:, [:N, :K, :timestepping_param, :limiting_param, :approximation_basis_type, :rhs_type, :entropyproj_limiter_type, :rhs_limiter_type, :L1err, :L2err, :Linferr, :num_steps]])
+    pretty_table(df[:, [:N, :K, :timestepping_param, :limiting_param, :approximation_basis, :rhs, :entropyproj_limiter, :rhs_limiter, :L1err, :L2err, :Linferr, :num_steps]])
 end
 
 # TODO: hardcoded

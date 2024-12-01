@@ -27,20 +27,20 @@ struct Param
 
     equation                    # CompressibleEulerIdealGas,
                                 # CompressibleNavierStokesIdealGas
-    approximation_basis_type    # GaussCollocation,
+    approximation_basis    # GaussCollocation,
                                 # LobattoCollocation
-    rhs_type                    # LowOrderPositivity
+    rhs                    # LowOrderPositivity
                                 # EntropyStable
                                 # StandardDG
                                 # ESLimitedLowOrderPos
                                 # StdDGLimitedLowOrderPos
-    entropyproj_limiter_type    # NoEntropyProjectionLimiter
+    entropyproj_limiter    # NoEntropyProjectionLimiter
                                 # NodewiseScaledExtrapolation
-    rhs_limiter_type            # NoRHSLimiter
+    rhs_limiter            # NoRHSLimiter
                                 # SubcellLimiter
                                 # ZhangShuLimiter
 
-                                # rhs_limiter_type.bound_type
+                                # rhs_limiter.bound
                                 # PositivityBound
                                 # PositivityAndMinEntropyBound
                                 # PositivityAndRelaxedMinEntropyBound

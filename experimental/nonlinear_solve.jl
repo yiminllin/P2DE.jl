@@ -92,13 +92,13 @@ end
 
 @inline function s_modified_grad_ufun(equation::CompressibleIdealGas, U)
     rho, rhou, rhov, E = U
-    γ = get_γ(equation)
+    gamma = get_gamma(equation)
     rhoe = rhoe_ufun(equation, U)
-    rhomγ = rho^(-γ - 1)
-    g1 = -E * rhomγ + 0.5 * (1 + γ) * rhomγ / rho * (rhou^2 + rhov^2)
-    g2 = -rhou * rhomγ
-    g3 = -rhov * rhomγ
-    g4 = rho * rhomγ
+    rhomgamma = rho^(-gamma - 1)
+    g1 = -E * rhomgamma + 0.5 * (1 + gamma) * rhomgamma / rho * (rhou^2 + rhov^2)
+    g2 = -rhou * rhomgamma
+    g3 = -rhov * rhomgamma
+    g4 = rho * rhomgamma
     return SVector(g1, g2, g3, g4)
 end
 

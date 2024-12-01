@@ -68,19 +68,19 @@ function initial_condition(param, x, y)
     return primitive_to_conservative(param.equation, SVector(exact_sol(param.equation, x, y, t0)))
 end
 
-γ = 5 / 3
+gamma = 5 / 3
 param = Param(N=3, K=(100, 100), xL=(-0.5, -0.5), xR=(0.5, 0.5),
     global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
     timestepping_param=TimesteppingParameter(T=1e-3, CFL=0.5, dt0=1e-6, t0=0.0),
-    limiting_param=LimitingParameter(ζ=0.5, η=0.1),
+    limiting_param=LimitingParameter(zeta=0.5, eta=0.1),
     postprocessing_param=PostprocessingParameter(output_interval=200),
-    equation=CompressibleEulerIdealGas{Dim2}(γ),
-    rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-        high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-    approximation_basis_type=GaussCollocation(),
-    entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-    rhs_limiter_type=SubcellLimiter(bound_type=PositivityAndRelaxedMinEntropyBound(),
-        shockcapture_type=NoShockCapture()))
+    equation=CompressibleEulerIdealGas{Dim2}(gamma),
+    rhs=ESLimitedLowOrderPos(low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+        high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+    approximation_basis=GaussCollocation(),
+    entropyproj_limiter=NodewiseScaledExtrapolation(),
+    rhs_limiter=SubcellLimiter(bound=PositivityAndRelaxedMinEntropyBound(),
+        shockcapture=NoShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N

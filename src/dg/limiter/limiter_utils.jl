@@ -1,14 +1,14 @@
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
 # TODO: refactor
-function limiting_param(rhs_limiter_type::ZhangShuLimiter, bound_type, solver, UL, P, bound)
-    Lrho, Lrhoe, Urho, Urhoe = bound
+function limiting_param(rhs_limiter::ZhangShuLimiter, bound, solver, UL, P, bound_val)
+    Lrho, Lrhoe, Urho, Urhoe = bound_val
     l = min(1.0, limiting_param_bound_rho_rhoe(solver, UL, P, Lrho, Lrhoe, Urho, Urhoe))
     return l
 end
 
-function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, solver, UL, P, bound)
-    Lrho, Lrhoe, Urho, Urhoe = bound
+function limiting_param(rhs_limiter::SubcellLimiter, bound::Union{PositivityBound,PositivityAndCellEntropyBound,PositivityAndRelaxedCellEntropyBound,TVDBound,TVDAndCellEntropyBound,TVDAndRelaxedCellEntropyBound}, solver, UL, P, bound_val)
+    Lrho, Lrhoe, Urho, Urhoe = bound_val
     l = limiting_param_bound_rho_rhoe(solver, UL, P, Lrho, Lrhoe, Urho, Urhoe)
     return l
 end
@@ -16,8 +16,8 @@ end
 # Find l s.t. rho(UL + lP)  ∈ [Lrho, Urho]
 #             rhoe(UL + lP) ∈ [Lrhoe, Urhoe]
 #             phi(UL + lP)  ∈ [Lphi, inf),    phi = rhoe rho^{-\gamma}, modified specific entropy
-function limiting_param(rhs_limiter_type::SubcellLimiter, bound_type::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, solver, UL, P, bound)
-    Lrho, Lrhoe, Lphi, Urho, Urhoe = bound
+function limiting_param(rhs_limiter::SubcellLimiter, bound::Union{PositivityAndMinEntropyBound,PositivityAndRelaxedMinEntropyBound,TVDAndMinEntropyBound,TVDAndRelaxedMinEntropyBound}, solver, UL, P, bound_val)
+    Lrho, Lrhoe, Lphi, Urho, Urhoe = bound_val
     lpos = limiting_param_bound_rho_rhoe(solver, UL, P, Lrho, Lrhoe, Urho, Urhoe)
     l = limiting_param_bound_phi(solver, UL, P, Lphi, lpos)   # TODO: assume for l \in [0,lpos] gives positive quantities
     return l
@@ -57,7 +57,7 @@ function rhoe_quadratic_solve(solver, UL, P, Lrhoe)
     end
 
     # limiting internal energy (via quadratic function) lower bound
-    a, b, c = rhoe_quadratic_coefficients(dim_type(solver), UL, P, Lrhoe)
+    a, b, c = rhoe_quadratic_coefficients(dim(solver), UL, P, Lrhoe)
 
     l_eps_ij = 1.0
     if b^2 - 4 * a * c >= 0

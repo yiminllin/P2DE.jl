@@ -7,7 +7,7 @@ using StartUpDG
 using P2DE
 
 function exact_sol(eqn, x, y, t)
-    γ = get_γ(eqn)
+    gamma = get_gamma(eqn)
     B = @. tanh(15 * y + 7.5) - tanh(15 * y - 7.5)
     rho = @. 0.5 + 0.75 * B
     u = @. 0.5 * (B - 1)
@@ -40,19 +40,19 @@ function initial_condition(param, x, y)
     return primitive_to_conservative(param.equation, SVector(exact_sol(param.equation, x, y, t0)))
 end
 
-γ = 1.4
+gamma = 1.4
 param = Param(N=3, K=(80, 80), xL=(-1.0, -1.0), xR=(1.0, 1.0),
     global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
     timestepping_param=TimesteppingParameter(T=10.0, CFL=0.5, dt0=1e-3, t0=0.0),
-    limiting_param=LimitingParameter(ζ=0.1, η=1.0),
+    limiting_param=LimitingParameter(zeta=0.1, eta=1.0),
     postprocessing_param=PostprocessingParameter(output_interval=100),
-    equation=CompressibleEulerIdealGas{Dim2}(γ),
-    rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-        high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-    approximation_basis_type=GaussCollocation(),
-    entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-    rhs_limiter_type=SubcellLimiter(bound_type=PositivityBound(),
-        shockcapture_type=NoShockCapture()))
+    equation=CompressibleEulerIdealGas{Dim2}(gamma),
+    rhs=ESLimitedLowOrderPos(low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+        high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+    approximation_basis=GaussCollocation(),
+    entropyproj_limiter=NodewiseScaledExtrapolation(),
+    rhs_limiter=SubcellLimiter(bound=PositivityBound(),
+        shockcapture=NoShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N

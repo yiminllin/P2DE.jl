@@ -12,17 +12,17 @@ function rhs!(state, solver, state_param, time_param)
     return dt
 end
 
-function init_rhs!(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, solver, time_param)
+function init_rhs!(entropyproj_limiter::NoEntropyProjectionLimiter, state, solver, time_param)
     return nothing
 end
 
-function init_rhs!(entropyproj_limiter_type::ScaledExtrapolation, state, solver, time_param)
+function init_rhs!(entropyproj_limiter::ScaledExtrapolation, state, solver, time_param)
     @timeit_debug time_param.timer "compute entropy projection limiting parameters" begin
         compute_entropyproj_limiting_param!(basis(solver), state, solver, time_param)
     end
 end
 
-function rhs!(rhs_type::LowOrderPositivity, state, solver, state_param, time_param)
+function rhs!(rhs::LowOrderPositivity, state, solver, state_param, time_param)
     @timeit_debug time_param.timer "low order positivity" begin
         dt = rhs_low_graph_visc!(state, solver, state_param, time_param, true)
     end
@@ -30,7 +30,7 @@ function rhs!(rhs_type::LowOrderPositivity, state, solver, state_param, time_par
     return dt
 end
 
-function rhs!(rhs_type::FluxDiffRHS, state, solver, state_param, time_param)
+function rhs!(rhs::FluxDiffRHS, state, solver, state_param, time_param)
     @timeit_debug time_param.timer "high order ESDG" begin
         rhs_fluxdiff!(state, solver, state_param, time_param, true)
     end
@@ -38,7 +38,7 @@ function rhs!(rhs_type::FluxDiffRHS, state, solver, state_param, time_param)
     return time_param.dt
 end
 
-function rhs!(rhs_type::LimitedDG, state, solver, state_param, time_param)
+function rhs!(rhs::LimitedDG, state, solver, state_param, time_param)
     @timeit_debug time_param.timer "entropy projection" begin
         entropy_projection!(entropyproj_limiter(solver), state, solver, time_param)
     end
@@ -94,7 +94,7 @@ function entropy_projection_face_node!(v_tilde_k, u_tilde_k, vq_k, i, l_k_i, sol
 end
 
 # TODO: ugly dispatch
-function entropy_projection!(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, solver, time_param)
+function entropy_projection!(entropyproj_limiter::NoEntropyProjectionLimiter, state, solver, time_param)
     (; Uq, vq, v_tilde, u_tilde) = state.preallocation
     (; K) = solver.discrete_data.sizes
 
@@ -110,7 +110,7 @@ function entropy_projection!(entropyproj_limiter_type::NoEntropyProjectionLimite
 end
 
 # TODO: ugly dispatch
-function entropy_projection!(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, solver, time_param)
+function entropy_projection!(entropyproj_limiter::NodewiseScaledExtrapolation, state, solver, time_param)
     (; Uq, vq, v_tilde, u_tilde) = state.preallocation
     (; K, Nq, Nfp) = solver.discrete_data.sizes
 
@@ -126,7 +126,7 @@ function entropy_projection!(entropyproj_limiter_type::NodewiseScaledExtrapolati
             entropy_projection_volume_node!(v_tilde_k, u_tilde_k, vq_k, Uq_k, i)
         end
         for i = 1:Nfp
-            l_k_i = state.preallocation.θ_local_arr[i, k, time_param.nstage]
+            l_k_i = state.preallocation.theta_local[i, k, time_param.nstage]
             entropy_projection_face_node!(v_tilde_k, u_tilde_k, vq_k, i, l_k_i, solver)
         end
     end

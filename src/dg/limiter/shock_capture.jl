@@ -1,14 +1,14 @@
 ################################
 ###   Smoothness indicator   ###
 ################################
-function initialize_smoothness_indicator!(shockcapture_type::NoShockCapture, bound_type::PositivityBound, state, solver)
+function initialize_smoothness_indicator!(shockcapture::NoShockCapture, bound::PositivityBound, state, solver)
     # Do nothing
 end
 
 # Initialize smoothness indicator when using subcell limiter w/ min entropy bound
 #                              or when using modal shock capture scheme
-function initialize_smoothness_indicator!(shockcapture_type, bound_type, state, solver)
-    initialize_smoothness_indicator!(dim_type(solver), state, solver)
+function initialize_smoothness_indicator!(shockcapture, bound, state, solver)
+    initialize_smoothness_indicator!(dim(solver), state, solver)
 end
 
 function initialize_smoothness_indicator!(dim::Dim1, state, solver)

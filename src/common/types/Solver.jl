@@ -1,15 +1,15 @@
-abstract type RHSType end
-Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE} <: RHSType
-    surface_flux_type::SURFACEFLUXTYPE
+abstract type RHS end
+Base.@kwdef struct LowOrderPositivity{SURFACEFLUXTYPE} <: RHS
+    surface_flux::SURFACEFLUXTYPE
 end
-struct FluxDiffRHS{VOLUMEFLUXTYPE,SURFACEFLUXTYPE} <: RHSType
-    volume_flux_type::VOLUMEFLUXTYPE
-    surface_flux_type::SURFACEFLUXTYPE
+struct FluxDiffRHS{VOLUMEFLUXTYPE,SURFACEFLUXTYPE} <: RHS
+    volume_flux::VOLUMEFLUXTYPE
+    surface_flux::SURFACEFLUXTYPE
 end
-struct LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,HIGHVOLUMEFLUXTYPE} <: RHSType
-    low_order_surface_flux_type::LOWSURFACEFLUXTYPE
-    high_order_surface_flux_type::HIGHSURFACEFLUXTYPE
-    high_order_volume_flux_type::HIGHVOLUMEFLUXTYPE
+struct LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,HIGHVOLUMEFLUXTYPE} <: RHS
+    low_order_surface_flux::LOWSURFACEFLUXTYPE
+    high_order_surface_flux::HIGHSURFACEFLUXTYPE
+    high_order_volume_flux::HIGHVOLUMEFLUXTYPE
 end
 
 abstract type VolumeFluxType end
@@ -26,14 +26,14 @@ const StandardDG = FluxDiffRHS{CentralFlux,LaxFriedrichsOnProjectedVal}
 const ESLimitedLowOrderPos{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE} = LimitedDG{LOWSURFACEFLUXTYPE,HIGHSURFACEFLUXTYPE,ChandrashekarFlux}
 const StdDGLimitedLowOrderPos{LOWSURFACEFLUXTYPE} = LimitedDG{LOWSURFACEFLUXTYPE,LaxFriedrichsOnProjectedVal,CentralFlux}
 
-EntropyStable(; surface_flux_type=LaxFriedrichsOnProjectedVal()) =
-    FluxDiffRHS(ChandrashekarFlux(), surface_flux_type)
-ESLimitedLowOrderPos(; low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-    high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()) =
-    LimitedDG(low_order_surface_flux_type, high_order_surface_flux_type, ChandrashekarFlux())
-StdDGLimitedLowOrderPos(; low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-    high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()) =
-    LimitedDG(low_order_surface_flux_type, high_order_surface_flux_type, CentralFlux())
+EntropyStable(; surface_flux=LaxFriedrichsOnProjectedVal()) =
+    FluxDiffRHS(ChandrashekarFlux(), surface_flux)
+ESLimitedLowOrderPos(; low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+    high_order_surface_flux=LaxFriedrichsOnProjectedVal()) =
+    LimitedDG(low_order_surface_flux, high_order_surface_flux, ChandrashekarFlux())
+StdDGLimitedLowOrderPos(; low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+    high_order_surface_flux=LaxFriedrichsOnProjectedVal()) =
+    LimitedDG(low_order_surface_flux, high_order_surface_flux, CentralFlux())
 
 abstract type EntropyProjectionLimiterType end
 abstract type ScaledExtrapolation <: EntropyProjectionLimiterType end
@@ -74,17 +74,17 @@ end
 HennemannShockCapture(; a=0.5, c=1.8) = HennemannShockCapture(a, c)
 
 struct ZhangShuLimiter{SHOCKCAPTURETYPE<:ShockCaptureType} <: RHSLimiterType
-    shockcapture_type::SHOCKCAPTURETYPE
+    shockcapture::SHOCKCAPTURETYPE
 end
 
 struct SubcellLimiter{BOUNDTYPE<:LimiterBoundType,SHOCKCAPTURETYPE<:ShockCaptureType} <: RHSLimiterType
-    bound_type::BOUNDTYPE
-    shockcapture_type::SHOCKCAPTURETYPE
+    bound::BOUNDTYPE
+    shockcapture::SHOCKCAPTURETYPE
 end
 
-ZhangShuLimiter(; shockcapture_type=NoShockCapture()) = ZhangShuLimiter(shockcapture_type)
-SubcellLimiter(; bound_type=PositivityBound(),
-    shockcapture_type=NoShockCapture()) = SubcellLimiter(bound_type, shockcapture_type)
+ZhangShuLimiter(; shockcapture=NoShockCapture()) = ZhangShuLimiter(shockcapture)
+SubcellLimiter(; bound=PositivityBound(),
+    shockcapture=NoShockCapture()) = SubcellLimiter(bound, shockcapture)
 
 abstract type ApproxBasisType end
 struct GaussCollocation <: ApproxBasisType end
@@ -109,14 +109,14 @@ Base.@kwdef struct CompressibleNavierStokesParam <: CompressibleParam
 end
 Base.@kwdef struct CompressibleIdealGas{DIM,PARAM<:CompressibleParam} <: CompressibleFlow{DIM}
     param::PARAM
-    γ::Float64
+    gamma::Float64
 end
 
 const CompressibleEulerIdealGas{DIM} = CompressibleIdealGas{DIM,CompressibleEulerParam}
 const CompressibleNavierStokesIdealGas{DIM} = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}
 
-CompressibleEulerIdealGas{DIM}(γ) where {DIM} = CompressibleIdealGas{DIM,CompressibleEulerParam}(γ=γ, param=CompressibleEulerParam())
-CompressibleNavierStokesIdealGas{DIM}(γ) where {DIM} = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}(γ=γ, param=CompressibleNavierStokesParam())
+CompressibleEulerIdealGas{DIM}(gamma) where {DIM} = CompressibleIdealGas{DIM,CompressibleEulerParam}(gamma=gamma, param=CompressibleEulerParam())
+CompressibleNavierStokesIdealGas{DIM}(gamma) where {DIM} = CompressibleIdealGas{DIM,CompressibleNavierStokesParam}(gamma=gamma, param=CompressibleNavierStokesParam())
 
 struct KPP{DIM} <: EquationType{DIM} end
 
@@ -144,11 +144,11 @@ end
 
 # TODO: put parameters into limiter
 Base.@kwdef struct LimitingParameter
-    ζ::Float64           # Positiivty relaxation parameter ρ,ρe >= η min
-    η::Float64           # Bound relaxation parameter ρ,ρe ∈ [(1-ζ)min, (1+ζ)max]
+    zeta::Float64           # Positiivty relaxation parameter ρ,ρe >= eta min
+    eta::Float64           # Bound relaxation parameter ρ,ρe ∈ [(1-zeta)min, (1+zeta)max]
 end
 
-Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROPYPROJECTIONLIMITERTYPE,RHSLIMITERTYPE}
+Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHS,ENTROPYPROJECTIONLIMITERTYPE,RHSLIMITERTYPE}
     N::Int64
     K::KTYPE      # Number of elements in 1D.
     # In 2D, it is a tuple (Kx,Ky), number of elements along
@@ -163,10 +163,10 @@ Base.@kwdef struct Param{KTYPE,XL,XR,EQUATIONTYPE,APPROXBASISTYPE,RHSTYPE,ENTROP
     postprocessing_param::PostprocessingParameter
 
     equation::EQUATIONTYPE
-    approximation_basis_type::APPROXBASISTYPE
-    rhs_type::RHSTYPE
-    entropyproj_limiter_type::ENTROPYPROJECTIONLIMITERTYPE
-    rhs_limiter_type::RHSLIMITERTYPE
+    approximation_basis::APPROXBASISTYPE
+    rhs::RHS
+    entropyproj_limiter::ENTROPYPROJECTIONLIMITERTYPE
+    rhs_limiter::RHSLIMITERTYPE
 end
 
 # TODO: define iterator to loop instead of size
@@ -211,7 +211,7 @@ struct Operators{DIM}
     fq2q::Array{Int64,1}
 end
 
-struct DiscretizationData{DIM,NGEO}
+struct Discretization{DIM,NGEO}
     sizes::SizeData
     geom::GeomData{NGEO}
     ops::Operators{DIM}

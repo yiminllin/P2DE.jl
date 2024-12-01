@@ -2,13 +2,13 @@
 # In DGFilter.jl #
 ##################
 
-function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis_type::LobattoCollocation, nstage)
-    clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter_type, nstage)
+function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis::LobattoCollocation, nstage)
+    clear_entropyproj_limiting_parameter_cache!(prealloc, param.entropyproj_limiter, nstage)
 end
 
 # TODO: put into entropy projection to avoid an extra projection step
-function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis_type::GaussCollocation, nstage)
-    (; θ_local_arr) = prealloc
+function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, cache, bcdata, approx_basis::GaussCollocation, nstage)
+    (; theta_local) = prealloc
     (; equation) = param
     (; mapP) = bcdata
     (; POSTOL) = param.global_constants
@@ -18,15 +18,15 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     # TODO: possible redundant calculation, only used for calculation of bounds on the fly
     calc_face_values_ES!(prealloc, cache, param, equation, discrete_data, bcdata)
 
-    θ_local_arr_stage = view(θ_local_arr, :, :, nstage)
+    theta_local_stage = view(theta_local, :, :, nstage)
     Nfp = discrete_data.sizes.Nfp
     # # Symmetrize limiting factor first
     # @batch for k = 1:K
     #     for i = 1:Nfp
     #         idxP = mapP[i,k]
-    #         θ_i = min(θ_local_arr_stage[i,k],θ_local_arr_stage[idxP])
-    #         θ_local_arr_stage[i,k] = θ_i
-    #         θ_local_arr_stage[idxP] = θ_i
+    #         theta_i = min(theta_local_stage[i,k],theta_local_stage[idxP])
+    #         theta_local_stage[i,k] = theta_i
+    #         theta_local_stage[idxP] = theta_i
     #     end
     # end
 
@@ -35,26 +35,26 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     @batch for k = 1:K
         tmpx = 0.0
         for i = 1:Nfp
-            θpos_i = θ_local_arr_stage[i, k]
+            thetapos_i = theta_local_stage[i, k]
             iP = mod1(mapP[i, k], Nfp)
             kP = div(mapP[i, k] - 1, Nfp) + 1
-            θPpos_i = θ_local_arr_stage[iP, kP]
-            # if θpos_i < 1.0
-            #     @show i,k,θpos_i,θPpos_i,calculate_dvBdfx_i_k(i,k,θpos_i,θPpos_i,prealloc,param,discrete_data)
+            thetaPpos_i = theta_local_stage[iP, kP]
+            # if thetapos_i < 1.0
+            #     @show i,k,thetapos_i,thetaPpos_i,calculate_dvBdfx_i_k(i,k,thetapos_i,thetaPpos_i,prealloc,param,discrete_data)
             # end
 
             # if k == 45 || k == 44 || k == 46
             if i <= 2 * N1D
-                dvBdfx = calculate_dvBdfx_i_k(i, k, θpos_i, θPpos_i, prealloc, param, discrete_data)
+                dvBdfx = calculate_dvBdfx_i_k(i, k, thetapos_i, thetaPpos_i, prealloc, param, discrete_data)
                 tmpx += dvBdfx
                 # @show k,dvBdfx
             end
             # end
 
-            # a = collect(0.0:0.001:θpos_i)
-            # b = collect(0.0:0.001:θPpos_i)
+            # a = collect(0.0:0.001:thetapos_i)
+            # b = collect(0.0:0.001:thetaPpos_i)
             # if i == 4 && k == 45
-            #     @show θpos_i,θPpos_i
+            #     @show thetapos_i,thetaPpos_i
             #     for m = 1:length(a)
             #         for n = 1:length(b)
             #             theta = a[m]
@@ -66,16 +66,16 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
             # end
 
             # if i <= 2*N1D
-            #     fx(θ_i) = (calculate_dvBdfx_i_k(i,k,θ_i,prealloc,param,discrete_data) >= 0.0)
-            #     θ = bisection(fx,0.0,θpos_i)
-            #     if (θpos_i < 1.0 && θ < θpos_i)
-            #         @show i,k,θ,θpos_i
+            #     fx(theta_i) = (calculate_dvBdfx_i_k(i,k,theta_i,prealloc,param,discrete_data) >= 0.0)
+            #     theta = bisection(fx,0.0,thetapos_i)
+            #     if (thetapos_i < 1.0 && theta < thetapos_i)
+            #         @show i,k,theta,thetapos_i
             #     end
-            #     θ_local_arr_stage[i,k]   = θ
+            #     theta_local_stage[i,k]   = theta
             # else
-            #     fy(θ_i) = (calculate_dvBdfy_i_k(i,k,θ_i,prealloc,param,discrete_data) >= 0.0)
-            #     θ = bisection(fy,0.0,θpos_i)
-            #     θ_local_arr_stage[i,k]   = θ
+            #     fy(theta_i) = (calculate_dvBdfy_i_k(i,k,theta_i,prealloc,param,discrete_data) >= 0.0)
+            #     theta = bisection(fy,0.0,thetapos_i)
+            #     theta_local_stage[i,k]   = theta
             # end
         end
         if tmpx < -1e-8
@@ -104,9 +104,9 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     # @batch for k = 1:K
     #     for i = 1:Nfp
     #         idxP = mapP[i,k]
-    #         θ_i = min(θ_local_arr_stage[i,k],θ_local_arr_stage[idxP])
-    #         θ_local_arr_stage[i,k] = θ_i
-    #         θ_local_arr_stage[idxP] = θ_i
+    #         theta_i = min(theta_local_stage[i,k],theta_local_stage[idxP])
+    #         theta_local_stage[i,k] = theta_i
+    #         theta_local_stage[idxP] = theta_i
     #     end
     # end
 
@@ -120,8 +120,8 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     #     for i = 1:Nfp
     #         iP = mod1(mapP[i,k],Nfp)
     #         kP = div(mapP[i,k]-1,Nfp)+1
-    #         θpos_i = θ_local_arr_stage[i,k] 
-    #         G_i_k  = calculate_G_i_k(cache,prealloc,i,k,θpos_i,param,discrete_data,nstage)
+    #         thetapos_i = theta_local_stage[i,k] 
+    #         G_i_k  = calculate_G_i_k(cache,prealloc,i,k,thetapos_i,param,discrete_data,nstage)
     #         Garr[i]  = G_i_k
     #         # TODO: hardcoded, skip one direction since G_k will be 0.0 in a direction
     #         if i <= 2*N1D
@@ -157,26 +157,26 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     #     # for i = 1:Nfp
     #     #     iP = mod1(mapP[i,k],Nfp)
     #     #     kP = div(mapP[i,k]-1,Nfp)+1
-    #     #     θpos_i = θ_local_arr_stage[i,k] 
+    #     #     thetapos_i = theta_local_stage[i,k] 
     #     #     if i <= 2*N1D
     #     #         if Pidx[i] == 1.0
     #     #             # negative x direction
-    #     #             fx(θ_i) = (calculate_Gx_i_k(cache,prealloc,i,k,θ_i,param,discrete_data,nstage) >= Lbound_x-1e-8 && calculate_Gx_i_k(cache,prealloc,iP,kP,θ_i,param,discrete_data,nstage) >= LboundP_x-1e-8)
-    #     #             θ = bisection(fx,0.0,θpos_i)
-    #     #             # if (θ < θpos_i)
-    #     #             #     @show i,k,θ,θpos_i,num_negative_x,sum_pos_x,sum(Garr[1:2*N1D]),sum(GParr[1:2*N1D])
+    #     #             fx(theta_i) = (calculate_Gx_i_k(cache,prealloc,i,k,theta_i,param,discrete_data,nstage) >= Lbound_x-1e-8 && calculate_Gx_i_k(cache,prealloc,iP,kP,theta_i,param,discrete_data,nstage) >= LboundP_x-1e-8)
+    #     #             theta = bisection(fx,0.0,thetapos_i)
+    #     #             # if (theta < thetapos_i)
+    #     #             #     @show i,k,theta,thetapos_i,num_negative_x,sum_pos_x,sum(Garr[1:2*N1D]),sum(GParr[1:2*N1D])
     #     #             #     display(Garr[1:2*N1D])
     #     #             # end
-    #     #             θ_local_arr_stage[i,k]   = θ
-    #     #             θ_local_arr_stage[iP,kP] = θ
+    #     #             theta_local_stage[i,k]   = theta
+    #     #             theta_local_stage[iP,kP] = theta
     #     #         end
     #     #     else
     #     #         if Pidx[i] == 1.0
     #     #             # negative y direction
-    #     #             fy(θ_i) = (calculate_Gy_i_k(cache,prealloc,i,k,θ_i,param,discrete_data,nstage) >= Lbound_y-1e-8 && calculate_Gy_i_k(cache,prealloc,iP,kP,θ_i,param,discrete_data,nstage) >= LboundP_y-1e-8)
-    #     #             θ = bisection(fy,0.0,θpos_i)
-    #     #             θ_local_arr_stage[i,k]   = θ
-    #     #             θ_local_arr_stage[iP,kP] = θ
+    #     #             fy(theta_i) = (calculate_Gy_i_k(cache,prealloc,i,k,theta_i,param,discrete_data,nstage) >= Lbound_y-1e-8 && calculate_Gy_i_k(cache,prealloc,iP,kP,theta_i,param,discrete_data,nstage) >= LboundP_y-1e-8)
+    #     #             theta = bisection(fy,0.0,thetapos_i)
+    #     #             theta_local_stage[i,k]   = theta
+    #     #             theta_local_stage[iP,kP] = theta
     #     #         end
     #     #     end
     #     # end
@@ -195,9 +195,9 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     #     for i = 1:Nfp
     #         iP = mod1(mapP[i,k],Nfp)
     #         kP = div(mapP[i,k]-1,Nfp)+1
-    #         θpos_i = θ_local_arr_stage[i,k] 
-    #         G_i_k  = calculate_G_i_k(cache,prealloc,i,k,θpos_i,param,discrete_data,nstage)
-    #         GP_i_k = calculate_G_i_k(cache,prealloc,iP,kP,θpos_i,param,discrete_data,nstage)
+    #         thetapos_i = theta_local_stage[i,k] 
+    #         G_i_k  = calculate_G_i_k(cache,prealloc,i,k,thetapos_i,param,discrete_data,nstage)
+    #         GP_i_k = calculate_G_i_k(cache,prealloc,iP,kP,thetapos_i,param,discrete_data,nstage)
     #         Garr[i]  = G_i_k
     #         GParr[i] = GP_i_k
     #         # TODO: hardcoded, skip one direction since G_k will be 0.0 in a direction
@@ -236,86 +236,86 @@ function compute_entropyproj_limiting_param_ES!(param, discrete_data, prealloc, 
     #     for i = 1:Nfp
     #         iP = mod1(mapP[i,k],Nfp)
     #         kP = div(mapP[i,k]-1,Nfp)+1
-    #         θpos_i = θ_local_arr_stage[i,k] 
+    #         thetapos_i = theta_local_stage[i,k] 
     #         if i <= 2*N1D
     #             if Pidx[i] == 1.0
     #                 # negative x direction
-    #                 fx(θ_i) = (calculate_Gx_i_k(cache,prealloc,i,k,θ_i,param,discrete_data,nstage) >= Lbound_x-1e-8 && calculate_Gx_i_k(cache,prealloc,iP,kP,θ_i,param,discrete_data,nstage) >= LboundP_x-1e-8)
-    #                 θ = bisection(fx,0.0,θpos_i)
-    #                 # if (θ < θpos_i)
-    #                 #     @show i,k,θ,θpos_i,num_negative_x,sum_pos_x,sum(Garr[1:2*N1D]),sum(GParr[1:2*N1D])
+    #                 fx(theta_i) = (calculate_Gx_i_k(cache,prealloc,i,k,theta_i,param,discrete_data,nstage) >= Lbound_x-1e-8 && calculate_Gx_i_k(cache,prealloc,iP,kP,theta_i,param,discrete_data,nstage) >= LboundP_x-1e-8)
+    #                 theta = bisection(fx,0.0,thetapos_i)
+    #                 # if (theta < thetapos_i)
+    #                 #     @show i,k,theta,thetapos_i,num_negative_x,sum_pos_x,sum(Garr[1:2*N1D]),sum(GParr[1:2*N1D])
     #                 #     display(Garr[1:2*N1D])
     #                 # end
-    #                 θ_local_arr_stage[i,k]   = θ
-    #                 θ_local_arr_stage[iP,kP] = θ
+    #                 theta_local_stage[i,k]   = theta
+    #                 theta_local_stage[iP,kP] = theta
     #             end
     #         else
     #             if Pidx[i] == 1.0
     #                 # negative y direction
-    #                 fy(θ_i) = (calculate_Gy_i_k(cache,prealloc,i,k,θ_i,param,discrete_data,nstage) >= Lbound_y-1e-8 && calculate_Gy_i_k(cache,prealloc,iP,kP,θ_i,param,discrete_data,nstage) >= LboundP_y-1e-8)
-    #                 θ = bisection(fy,0.0,θpos_i)
-    #                 θ_local_arr_stage[i,k]   = θ
-    #                 θ_local_arr_stage[iP,kP] = θ
+    #                 fy(theta_i) = (calculate_Gy_i_k(cache,prealloc,i,k,theta_i,param,discrete_data,nstage) >= Lbound_y-1e-8 && calculate_Gy_i_k(cache,prealloc,iP,kP,theta_i,param,discrete_data,nstage) >= LboundP_y-1e-8)
+    #                 theta = bisection(fy,0.0,thetapos_i)
+    #                 theta_local_stage[i,k]   = theta
+    #                 theta_local_stage[iP,kP] = theta
     #             end
     #         end
     #     end
     # end
 end
 
-function calculate_dvB_i_k(i, k, θ_i, prealloc, param, discrete_data)
+function calculate_dvB_i_k(i, k, theta_i, prealloc, param, discrete_data)
     (; VUfH, VUfL) = prealloc
     (; equation) = param
-    dim = dim_type(equation)
+    dim = dim(equation)
     Bxy_i, n_i_norm = Bx_with_n(i, k, discrete_data, dim)
-    vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
+    vf_tilde_i_k = theta_i * VUfH[i, k] + (1.0 - theta_i) * VUfL[i, k]
     vf_i_k = VUfL[i, k]
     dv = vf_tilde_i_k - vf_i_k
     return SVector(Bxy_i[1] * dv, Bxy_i[2] * dv)
 end
 
-function calculate_dvBdfx_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)
-    return calculate_dvBdf_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)[1]
+function calculate_dvBdfx_i_k(i, k, theta_i, thetaP_i, prealloc, param, discrete_data)
+    return calculate_dvBdf_i_k(i, k, theta_i, thetaP_i, prealloc, param, discrete_data)[1]
 end
 
-function calculate_dvBdfy_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)
-    return calculate_dvBdf_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)[2]
+function calculate_dvBdfy_i_k(i, k, theta_i, thetaP_i, prealloc, param, discrete_data)
+    return calculate_dvBdf_i_k(i, k, theta_i, thetaP_i, prealloc, param, discrete_data)[2]
 end
 
-function calculate_dvBdf_i_k(i, k, θ_i, θP_i, prealloc, param, discrete_data)
+function calculate_dvBdf_i_k(i, k, theta_i, thetaP_i, prealloc, param, discrete_data)
     (; VUfH, VUfL, VUPH, VUPL, fstar_L) = prealloc
     (; equation) = param
-    dim = dim_type(equation)
-    vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
-    vP_tilde_i_k = θP_i * VUPH[i, k] + (1.0 - θP_i) * VUPL[i, k]
+    dim = dim(equation)
+    vf_tilde_i_k = theta_i * VUfH[i, k] + (1.0 - theta_i) * VUfL[i, k]
+    vP_tilde_i_k = thetaP_i * VUPH[i, k] + (1.0 - thetaP_i) * VUPL[i, k]
     uf_tilde_i_k = u_vfun(equation, vf_tilde_i_k)
     uP_tilde_i_k = u_vfun(equation, vP_tilde_i_k)
     flux_f = fstar_L[i, k]
     flux_tilde_f = calculate_numerical_flux(uf_tilde_i_k, uP_tilde_i_k, i, k, prealloc, param, discrete_data, dim)
     df = flux_tilde_f - flux_f
-    dvB = calculate_dvB_i_k(i, k, θ_i, prealloc, param, discrete_data)
+    dvB = calculate_dvB_i_k(i, k, theta_i, prealloc, param, discrete_data)
     return SVector(sum(dvB[1] .* df[1]), sum(dvB[2] .* df[2]))
 end
 
-function calculate_Gx_i_k(i, k, θ_i, prealloc, param, discrete_data)
-    return calculate_G_i_k(i, k, θ_i, prealloc, param, discrete_data)[1]
+function calculate_Gx_i_k(i, k, theta_i, prealloc, param, discrete_data)
+    return calculate_G_i_k(i, k, theta_i, prealloc, param, discrete_data)[1]
 end
 
-function calculate_Gy_i_k(i, k, θ_i, prealloc, param, discrete_data)
-    return calculate_G_i_k(i, k, θ_i, prealloc, param, discrete_data)[2]
+function calculate_Gy_i_k(i, k, theta_i, prealloc, param, discrete_data)
+    return calculate_G_i_k(i, k, theta_i, prealloc, param, discrete_data)[2]
 end
 
-function calculate_G_i_k(i, k, θ_i, prealloc, param, discrete_data)
+function calculate_G_i_k(i, k, theta_i, prealloc, param, discrete_data)
     (; VUfH, VUfL, psif, fstar_L) = prealloc
     (; equation) = param
-    dim = dim_type(equation)
+    dim = dim(equation)
     Bxy_i = Bx(i, k, discrete_data, dim)
 
-    vf_tilde_i_k = θ_i * VUfH[i, k] + (1.0 - θ_i) * VUfL[i, k]
+    vf_tilde_i_k = theta_i * VUfH[i, k] + (1.0 - theta_i) * VUfL[i, k]
     uf_tilde_i_k = u_vfun(equation, vf_tilde_i_k)
     psif_tilde_i_k = psi_ufun(uf_tilde_i_k)
     flux_f = fstar_L[i, k]
     dpsi = psif[i, k] - psif_tilde_i_k
-    dvB = calculate_dvB_i_k(i, k, θ_i, prealloc, param, discrete_data)
+    dvB = calculate_dvB_i_k(i, k, theta_i, prealloc, param, discrete_data)
 
     return SVector(Bxy_i[1] * dpsi[1] - sum(dvB[1] .* flux_f[1]), Bxy_i[2] * dpsi[2] - sum(dvB[2] .* flux_f[2]))
 end
@@ -331,7 +331,7 @@ function calc_face_values_ES!(prealloc, cache, param, equation, discrete_data, b
 
     K = num_elements(param)
     Nfp = discrete_data.sizes.Nfp
-    dim = dim_type(equation)
+    dim = dim(equation)
     # Initialize entropy variable and entropy potential
     @batch for k = 1:K
         mul!(view(UfL, :, k), Vf_low, view(Uq, :, k))
@@ -383,24 +383,24 @@ end
 ###################
 # In DGLimiter.jl #
 ###################
-function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, dt, nstage, rhs_limiter_type::SubcellLimiter, timer)
+function apply_rhs_limiter!(prealloc, param, discrete_data, bcdata, caches, t, dt, nstage, rhs_limiter::SubcellLimiter, timer)
     (; limiter_cache, shockcapture_cache) = caches
-    dim = dim_type(param.equation)
-    bound_type = bound_type(param)
+    dim = dim(param.equation)
+    bound = bound(param)
     @timeit_debug timer "Initialize smoothness indicator" begin
-        initialize_smoothness_indicator!(shockcapture_type(param), bound_type, prealloc, param, discrete_data, nstage)
+        initialize_smoothness_indicator!(shockcapture(param), bound, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "calculate blending factor" begin
-        update_blending_factor!(shockcapture_type(param), shockcapture_cache, prealloc, param, discrete_data, nstage)
+        update_blending_factor!(shockcapture(param), shockcapture_cache, prealloc, param, discrete_data, nstage)
     end
     @timeit_debug timer "calculate smoothness factor" begin
-        update_smoothness_factor!(bound_type, limiter_cache, prealloc, param, nstage)
+        update_smoothness_factor!(bound, limiter_cache, prealloc, param, nstage)
     end
     @timeit_debug timer "Precompute bounds" begin
-        initialize_bounds!(limiter_cache, prealloc, bound_type, param, discrete_data, bcdata, t, nstage, dim)
+        initialize_bounds!(limiter_cache, prealloc, bound, param, discrete_data, bcdata, t, nstage, dim)
     end
     @timeit_debug timer "Precompute entropy variables" begin
-        initialize_entropy_vars!(limiter_cache, prealloc, bound_type, param, discrete_data, bcdata, t, nstage, dim)
+        initialize_entropy_vars!(limiter_cache, prealloc, bound, param, discrete_data, bcdata, t, nstage, dim)
     end
     @timeit_debug timer "Accumulate low and high order subcell fluxes" begin
         accumulate_f_bar!(limiter_cache, prealloc, param, discrete_data, dim)
@@ -463,7 +463,7 @@ end
 # In SubcellLimiter.jl #
 ########################
 
-function initialize_entropy_vars!(cache, prealloc, bound_type, param, discrete_data, bcdata, t, nstage, dim)
+function initialize_entropy_vars!(cache, prealloc, bound, param, discrete_data, bcdata, t, nstage, dim)
     (; equation) = param
     (; t0) = param.timestepping_param
     (; Uq, vq, psiq) = prealloc
@@ -589,7 +589,7 @@ function enforce_ES_subcell_flux!(cache, prealloc, param, discrete_data, bcdata,
     (; equation) = param
     (; Uq, vq, psiq) = prealloc
     (; UfL, VUfL, VUPL, psif, psiP) = prealloc
-    (; L_local_arr, fstar_L, fstar_H) = prealloc
+    (; L_local, fstar_L, fstar_H) = prealloc
     (; f_bar_H, f_bar_L) = cache
     (; sum_Bpsi, sum_dvfbarL, sum_dvfbarH, dvdf) = cache
     (; Vf_low) = discrete_data.ops
@@ -603,8 +603,8 @@ function enforce_ES_subcell_flux!(cache, prealloc, param, discrete_data, bcdata,
     N1D = param.N + 1
     N1Dp1 = N1D + 1
     N1Dm1 = N1D - 1
-    Lx_local = view(L_local_arr, :, 1, :, nstage)
-    Ly_local = view(L_local_arr, :, 2, :, nstage)
+    Lx_local = view(L_local, :, 1, :, nstage)
+    Ly_local = view(L_local, :, 2, :, nstage)
 
     total_x = zeros(Threads.nthreads())
     total_y = zeros(Threads.nthreads())
@@ -622,8 +622,8 @@ function enforce_ES_subcell_flux!(cache, prealloc, param, discrete_data, bcdata,
         dvdfx_k = reshape(view(dvdf[1], :, k), N1Dm1, N1D)
         dvdfy_k = reshape(view(dvdf[2], :, k), N1D, N1Dm1)
 
-        Lx_local_k = reshape(view(L_local_arr, :, 1, k, nstage), N1Dp1, N1D)
-        Ly_local_k = reshape(view(L_local_arr, :, 2, k, nstage), N1D, N1Dp1)
+        Lx_local_k = reshape(view(L_local, :, 1, k, nstage), N1Dp1, N1D)
+        Ly_local_k = reshape(view(L_local, :, 2, k, nstage), N1D, N1Dp1)
 
         vq_k = reshape(view(vq, :, k), N1D, N1D)
         psiq_k = reshape(view(psiq, :, k), N1D, N1D)
@@ -922,7 +922,7 @@ function check_subcell_entropy_stability(cache, prealloc, param, discrete_data, 
             iq = fq2q[i]
             uf = Uq[iq, k]
             vf = v_ufun(equation, uf)
-            Bxy_i = Bx(i, k, discrete_data, dim_type(equation))
+            Bxy_i = Bx(i, k, discrete_data, dim(equation))
             sum_Bpsi += Bxy_i .* psi_ufun(equation, uf)
             sum_Bpsitilde += Bxy_i .* psi_ufun(equation, u_tilde[Nq+i, k])
             vftildeBfH += Bxy_i .* SVector(sum(v_tilde[Nq+i, k] .* fstar_H[i, k][1]), sum(v_tilde[Nq+i, k] .* fstar_H[i, k][2]))
@@ -985,10 +985,10 @@ function initialize_preallocations(param, md, sizes)
     BF_L = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
     fstar_H = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
     fstar_L = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
-    Larr = zeros(Float64, K, Ns)
-    L_local_arr = zeros(Float64, Nq + N1D, Nd, K, Ns)
-    θ_arr = zeros(Float64, K, Ns)                # TODO: rename F, eta to theta
-    θ_local_arr = zeros(Float64, Nfp, K, Ns)
+    L = zeros(Float64, K, Ns)
+    L_local = zeros(Float64, Nq + N1D, Nd, K, Ns)
+    theta = zeros(Float64, K, Ns)                # TODO: rename F, eta to theta
+    theta_local = zeros(Float64, Nfp, K, Ns)
     resW = zeros(SVector{Nc,Float64}, Nq, K)
     resZ = zeros(SVector{Nc,Float64}, Nq, K)
     indicator = zeros(Float64, Nq, K)
@@ -998,7 +998,7 @@ function initialize_preallocations(param, md, sizes)
 
     prealloc = Preallocation{Nc,Nd}(Uq, vq, psiq, u_tilde, v_tilde, UfL, UPL, VUfL, VUfH, VUPL, VUPH, psif, psiP,
         rhsH, rhsL, rhsU, rhsxyH, rhsxyL, rhsxyU, BF_H, BF_L, fstar_H, fstar_L,
-        Larr, L_local_arr, θ_arr, θ_local_arr,
+        L, L_local, theta, theta_local,
         resW, resZ,
         indicator, indicator_modal, smooth_indicator)
     return prealloc
@@ -1111,10 +1111,10 @@ struct Preallocation{Nc,DIM}
     BF_L::Array{SVector{DIM,SVector{Nc,Float64}},2}
     fstar_H::Array{SVector{DIM,SVector{Nc,Float64}},2}
     fstar_L::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    Larr::Array{Float64,2}
-    L_local_arr::Array{Float64,4}
-    θ_arr::Array{Float64,2}
-    θ_local_arr::Array{Float64,3}
+    L::Array{Float64,2}
+    L_local::Array{Float64,4}
+    theta::Array{Float64,2}
+    theta_local::Array{Float64,3}
     resW::Array{SVector{Nc,Float64},2}
     resZ::Array{SVector{Nc,Float64},2}
     indicator::Array{Float64,2}

@@ -99,7 +99,7 @@ function calculate_interface_dissipation_coeff!(state, solver, state_param)
     # Lax Friedrichs dissipation
     @batch for k = 1:K
         for i = 1:Nfp
-            Bxy_i, n_i_norm = Bx_with_n(dim_type(solver), i, k, solver)
+            Bxy_i, n_i_norm = Bx_with_n(dim(solver), i, k, solver)
             n_i = @. Bxy_i / n_i_norm
             lam[i, k] = wavespeed_estimate(equation(solver), uf[i, k], n_i)
             LFc[i, k] = 0.5 * n_i_norm
@@ -168,33 +168,33 @@ function flux_differencing_volume!(state, solver)
 
     @batch for k = 1:K
         for (i, j) in Srsh_nnz
-            Ui = U(dim_type(solver), equation(solver), high_order_volume_flux_type(solver), i, k, state)
-            Uj = U(dim_type(solver), equation(solver), high_order_volume_flux_type(solver), j, k, state)
+            Ui = U(dim(solver), equation(solver), high_order_volume_flux(solver), i, k, state)
+            Uj = U(dim(solver), equation(solver), high_order_volume_flux(solver), j, k, state)
             accumulate_QF1!(QF1, i, Ui, j, Uj, k, solver)
         end
     end
 end
 
 # Get (utilde, beta, log(rho), log(beta)) at index i,element k
-function U(dim::Dim1, equation::CompressibleIdealGas, vol_flux_type::ChandrashekarFlux, idx, k, state)
+function U(dim::Dim1, equation::CompressibleIdealGas, vol_flux::ChandrashekarFlux, idx, k, state)
     (; u_tilde) = state.preallocation
     (; beta, rholog, betalog) = high_order_cache(state)
 
     return SVector(u_tilde[idx, k][1], u_tilde[idx, k][2] / u_tilde[idx, k][1], beta[idx, k], rholog[idx, k], betalog[idx, k])
 end
 
-function U(dim::Dim2, equation::CompressibleIdealGas, vol_flux_type::ChandrashekarFlux, idx, k, state)
+function U(dim::Dim2, equation::CompressibleIdealGas, vol_flux::ChandrashekarFlux, idx, k, state)
     (; u_tilde) = state.preallocation
     (; beta, rholog, betalog) = high_order_cache(state)
 
     return SVector(u_tilde[idx, k][1], u_tilde[idx, k][2] / u_tilde[idx, k][1], u_tilde[idx, k][3] / u_tilde[idx, k][1], beta[idx, k], rholog[idx, k], betalog[idx, k])
 end
 
-function U(dim, equation::CompressibleIdealGas, vol_flux_type::CentralFlux, idx, k, state)
+function U(dim, equation::CompressibleIdealGas, vol_flux::CentralFlux, idx, k, state)
     return state.preallocation.u_tilde[idx, k]
 end
 
-function U(dim, equation::KPP, vol_flux_type, idx, k, state)
+function U(dim, equation::KPP, vol_flux, idx, k, state)
     return state.preallocation.u_tilde[idx, k]
 end
 
@@ -202,19 +202,19 @@ function accumulate_QF1!(QF1, i, Ui, j, Uj, k, solver)
     ϵ = solver.param.global_constants.ZEROTOL
     # TODO: assume Sxyh_db_ij = -Sxyh_db_ji
     #              Sxyh_db_ji = Sx(j,i,k,discrete_data,dim)
-    Sxyh_db_ij = Sx(dim_type(solver), i, j, k, solver)
-    fxy = eval_high_order_volume_flux(high_order_volume_flux_type(solver), equation(solver), Ui, Uj)
+    Sxyh_db_ij = Sx(dim(solver), i, j, k, solver)
+    fxy = eval_high_order_volume_flux(high_order_volume_flux(solver), equation(solver), Ui, Uj)
     Sfxy_ij = @. Sxyh_db_ij * fxy
     Sfxy_ji = -Sfxy_ij
     QF1[i, k] += Sfxy_ij
     QF1[j, k] += Sfxy_ji
 end
 
-function eval_high_order_volume_flux(vol_flux_type::ChandrashekarFlux, equation, Ui, Uj)
+function eval_high_order_volume_flux(vol_flux::ChandrashekarFlux, equation, Ui, Uj)
     return fS(equation, Ui, Uj)
 end
 
-function eval_high_order_volume_flux(vol_flux_type::CentralFlux, equation, Ui, Uj)
+function eval_high_order_volume_flux(vol_flux::CentralFlux, equation, Ui, Uj)
     fi = fluxes(equation, Ui)
     fj = fluxes(equation, Uj)
     return @. 0.5 * (fi + fj)
@@ -236,17 +236,17 @@ function accumulate_numerical_flux!(state, k, solver)
     # Boundary contributions (B F)1
     uf = @view u_tilde[Nq+1:Nh, :]
     for i = 1:Nfp
-        fstar_H[i, k] = eval_high_order_surface_flux(high_order_surface_flux_type(solver), i, k, state, solver)
-        Bxy_i = Bx(dim_type(solver), i, k, solver)
+        fstar_H[i, k] = eval_high_order_surface_flux(high_order_surface_flux(solver), i, k, state, solver)
+        Bxy_i = Bx(dim(solver), i, k, solver)
         BF_H[i, k] = @. Bxy_i * fstar_H[i, k]
         # Apply LF dissipation
         lf = LFc[i, k] * (uP[i, k] - uf[i, k])
-        apply_LF_dissipation_to_BF(dim_type(solver), BF_H, i, k, lf, solver)
-        apply_LF_dissipation_to_fstar(dim_type(solver), fstar_H, i, k, Bxy_i, lf, solver)
+        apply_LF_dissipation_to_BF(dim(solver), BF_H, i, k, lf, solver)
+        apply_LF_dissipation_to_fstar(dim(solver), fstar_H, i, k, Bxy_i, lf, solver)
     end
 end
 
-function eval_high_order_surface_flux(surface_flux_type::ChandrashekarOnProjectedVal, i, k, state, solver)
+function eval_high_order_surface_flux(surface_flux::ChandrashekarOnProjectedVal, i, k, state, solver)
     (; u_tilde) = state.preallocation
     (; beta, rholog, betalog, uP, betaP, rhologP, betalogP) = high_order_cache(state)
     (; Nq, Nh, Nd) = solver.discrete_data.sizes
@@ -259,7 +259,7 @@ function eval_high_order_surface_flux(surface_flux_type::ChandrashekarOnProjecte
         (uP[i, k][1], (uP[i, k][c] / uP[i, k][1] for c in 2:2+Nd-1)..., betaP[i, k], rhologP[i, k], betalogP[i, k]))
 end
 
-function eval_high_order_surface_flux(surface_flux_type::LaxFriedrichsOnProjectedVal, i, k, state, solver)
+function eval_high_order_surface_flux(surface_flux::LaxFriedrichsOnProjectedVal, i, k, state, solver)
     (; u_tilde) = state.preallocation
     (; uP) = high_order_cache(state)
     (; Nq, Nh) = solver.discrete_data.sizes
@@ -280,12 +280,12 @@ function project_flux_difference_to_quad_unlimited!(state, k, solver)
     @views mul!(MinvVfTBF1[:, k], MinvVfT, BF_H[:, k])
 end
 
-function project_flux_difference_to_quad!(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, k, nstage, tid, solver)
+function project_flux_difference_to_quad!(entropyproj_limiter::NoEntropyProjectionLimiter, state, k, nstage, tid, solver)
     project_flux_difference_to_quad_unlimited!(state, k, solver)
 end
 
 # TODO: hardcoded, only for gauss
-function project_flux_difference_to_quad!(entropyproj_limiter_type::ScaledExtrapolation, state, k, nstage, tid, solver)
+function project_flux_difference_to_quad!(entropyproj_limiter::ScaledExtrapolation, state, k, nstage, tid, solver)
     (; BF_H) = state.preallocation
     (; MinvVhTQF1, MinvVfTBF1, QF1, VhT_new, MinvVhT_new, Vf_new) = high_order_cache(state)
     (; Nq, Nh) = solver.discrete_data.sizes
@@ -307,24 +307,24 @@ function project_flux_difference_to_quad!(entropyproj_limiter_type::ScaledExtrap
     @views mul!(MinvVfTBF1[:, k], MinvVfT_new, BF_H[:, k])
 end
 
-function update_limited_extrapolation!(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, k, nstage, tid, solver)
+function update_limited_extrapolation!(entropyproj_limiter::NodewiseScaledExtrapolation, state, k, nstage, tid, solver)
     (; Vf_new) = high_order_cache(state)
     (; Vf, Vf_low) = solver.discrete_data.ops
     (; Nfp) = solver.discrete_data.sizes
 
     for i = 1:Nfp
-        l_k_i = state.preallocation.θ_local_arr[i, k, nstage]
+        l_k_i = state.preallocation.theta_local[i, k, nstage]
         @views @. Vf_new[i, :, tid] = l_k_i * Vf[i, :] + (1 - l_k_i) * Vf_low[i, :]
     end
 end
 
 # Return whether on element k, the extrapolation is limited
-function is_Vf_limited(entropyproj_limiter_type::NoEntropyProjectionLimiter, state, k, nstage)
+function is_Vf_limited(entropyproj_limiter::NoEntropyProjectionLimiter, state, k, nstage)
     return false
 end
 
-function is_Vf_limited(entropyproj_limiter_type::NodewiseScaledExtrapolation, state, k, nstage)
-    return minimum(view(state.preallocation.θ_local_arr, :, k, nstage)) < 1.0
+function is_Vf_limited(entropyproj_limiter::NodewiseScaledExtrapolation, state, k, nstage)
+    return minimum(view(state.preallocation.theta_local, :, k, nstage)) < 1.0
 end
 
 # TODO: dispatch

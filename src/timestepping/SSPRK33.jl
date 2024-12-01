@@ -1,7 +1,7 @@
 function SSP33!(state, solver, state_param)
     (; CFL, dt0, t0, T) = solver.param.timestepping_param
     (; output_interval) = solver.param.postprocessing_param
-    (; θ_arr, Larr, rhsU, resW, resZ, Uq) = state.preallocation
+    (; theta, L, rhsU, resW, resZ, Uq) = state.preallocation
 
     # TODO: very ugly hack... seems like I need to warm up the threads to avoid allocations?
     timer_dummy = TimerOutput()
@@ -14,7 +14,7 @@ function SSP33!(state, solver, state_param)
     Nc = num_components(solver)
     Uhist = []
     Lhist = []
-    θhist = []
+    thetahist = []
     thist = []
     dthist = []
 
@@ -46,8 +46,8 @@ function SSP33!(state, solver, state_param)
         if (mod(i, output_interval) == 0 || abs(t - T) < 1e-10)
             push!(thist, t)
             push!(Uhist, copy(Uq))
-            push!(Lhist, copy(Larr))
-            push!(θhist, copy(θ_arr))
+            push!(Lhist, copy(L))
+            push!(thetahist, copy(theta))
             println("Current time $t with time step size $dt, and final time $T, step $i")
             flush(stdout)
             total_conservation = check_conservation(state, solver)
@@ -57,6 +57,6 @@ function SSP33!(state, solver, state_param)
 
     println(timer)
 
-    data_hist = DataHistory{Nc}(Uhist, Lhist, θhist, thist, dthist)
+    data_hist = DataHistory{Nc}(Uhist, Lhist, thetahist, thist, dthist)
     return data_hist
 end

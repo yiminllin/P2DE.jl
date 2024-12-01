@@ -3,79 +3,79 @@ function equation(solver::Solver)
 end
 
 function limiter(solver::Solver)
-    return solver.param.rhs_limiter_type
+    return solver.param.rhs_limiter
 end
 
 function rhs(solver::Solver)
-    return solver.param.rhs_type
+    return solver.param.rhs
 end
 
 function basis(solver::Solver)
-    return solver.param.approximation_basis_type
+    return solver.param.approximation_basis
 end
 
-function shockcapture_type(solver::Solver)
-    return shockcapture_type(limiter(solver))
+function shockcapture(solver::Solver)
+    return shockcapture(limiter(solver))
 end
 
 function entropyproj_limiter(solver::Solver)
-    return solver.param.entropyproj_limiter_type
+    return solver.param.entropyproj_limiter
 end
 
-function low_order_surface_flux_type(rhs_type::LowOrderPositivity)
-    return rhs_type.surface_flux_type
+function low_order_surface_flux(rhs::LowOrderPositivity)
+    return rhs.surface_flux
 end
 
-function low_order_surface_flux_type(rhs_type::LimitedDG)
-    return rhs_type.low_order_surface_flux_type
+function low_order_surface_flux(rhs::LimitedDG)
+    return rhs.low_order_surface_flux
 end
 
-function low_order_surface_flux_type(solver::Solver)
-    return low_order_surface_flux_type(rhs(solver))
+function low_order_surface_flux(solver::Solver)
+    return low_order_surface_flux(rhs(solver))
 end
 
-function high_order_surface_flux_type(rhs_type::FluxDiffRHS)
-    return rhs_type.surface_flux_type
+function high_order_surface_flux(rhs::FluxDiffRHS)
+    return rhs.surface_flux
 end
 
-function high_order_surface_flux_type(rhs_type::LimitedDG)
-    return rhs_type.high_order_surface_flux_type
+function high_order_surface_flux(rhs::LimitedDG)
+    return rhs.high_order_surface_flux
 end
 
-function high_order_surface_flux_type(solver::Solver)
-    return high_order_surface_flux_type(rhs(solver))
+function high_order_surface_flux(solver::Solver)
+    return high_order_surface_flux(rhs(solver))
 end
 
-function high_order_volume_flux_type(rhs_type::FluxDiffRHS)
-    return rhs_type.volume_flux_type
+function high_order_volume_flux(rhs::FluxDiffRHS)
+    return rhs.volume_flux
 end
 
-function high_order_volume_flux_type(rhs_type::LimitedDG)
-    return rhs_type.high_order_volume_flux_type
+function high_order_volume_flux(rhs::LimitedDG)
+    return rhs.high_order_volume_flux
 end
 
-function high_order_volume_flux_type(solver::Solver)
-    return high_order_volume_flux_type(rhs(solver))
+function high_order_volume_flux(solver::Solver)
+    return high_order_volume_flux(rhs(solver))
 end
 
-function bound_type(limiter::ZhangShuLimiter)
+function bound(limiter::ZhangShuLimiter)
     return PositivityBound()
 end
 
-function bound_type(limiter::SubcellLimiter)
-    return limiter.bound_type
+function bound(limiter::SubcellLimiter)
+    return limiter.bound
 end
 
-function bound_type(solver::Solver)
-    return bound_type(limiter(solver))
+function bound(solver::Solver)
+    return bound(limiter(solver))
 end
 
-function shockcapture_type(limiter::NoRHSLimiter)
+function shockcapture(limiter::NoRHSLimiter)
     return NoShockCapture()
 end
 
-function shockcapture_type(limiter::Union{ZhangShuLimiter,SubcellLimiter})
-    return limiter.shockcapture_type
+function shockcapture(limiter::Union{ZhangShuLimiter,SubcellLimiter})
+    return limiter.shockcapture
 end
 
 function low_order_cache(rhs_cache::LowOrderPositivityCache)
@@ -106,40 +106,40 @@ function low_order_cache(state::State)
     return low_order_cache(rhs_cache(state))
 end
 
-function get_γ(equation::CompressibleIdealGas)
-    return equation.γ
+function get_gamma(equation::CompressibleIdealGas)
+    return equation.gamma
 end
 
-function get_γ(solver::Solver)
-    return get_γ(equation(solver))
+function get_gamma(solver::Solver)
+    return get_gamma(equation(solver))
 end
 
 function to_equation_1D(equation::CompressibleIdealGas{Dim2})
-    return CompressibleEulerIdealGas{Dim1}(get_γ(equation))
+    return CompressibleEulerIdealGas{Dim1}(get_gamma(equation))
 end
 
-function dim(equation::EquationType{Dim1})
+function Ndim(equation::EquationType{Dim1})
     return 1
 end
 
-function dim(equation::EquationType{Dim2})
+function Ndim(equation::EquationType{Dim2})
     return 2
+end
+
+function Ndim(solver::Solver)
+    return dim(equation(solver))
+end
+
+function dim(equation::EquationType{Dim1})
+    return Dim1()
+end
+
+function dim(equation::EquationType{Dim2})
+    return Dim2()
 end
 
 function dim(solver::Solver)
     return dim(equation(solver))
-end
-
-function dim_type(equation::EquationType{Dim1})
-    return Dim1()
-end
-
-function dim_type(equation::EquationType{Dim2})
-    return Dim2()
-end
-
-function dim_type(solver::Solver)
-    return dim_type(equation(solver))
 end
 
 function num_components(equation::CompressibleFlow{Dim1})

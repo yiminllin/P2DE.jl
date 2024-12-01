@@ -9,8 +9,8 @@ using JLD2
 function exact_sol(eqn, x, t)
     rhoL = 1.0
     rhoR = 1e-3
-    pL = (eqn.γ - 1) * 1e-1
-    pR = (eqn.γ - 1) * 1e-10
+    pL = (eqn.gamma - 1) * 1e-1
+    pR = (eqn.gamma - 1) * 1e-10
     if (t == 0)
         if x < 0.33
             return rhoL, 0.0, pL
@@ -47,7 +47,7 @@ function initial_boundary_conditions(param, md)
 
     rho = 1.0
     u = 0.0
-    p = (get_γ(equation) - 1) * 1e-1
+    p = (get_gamma(equation) - 1) * 1e-1
     inflowarr = [primitive_to_conservative(equation, (rho, u, p))]
 
     bcdata = BCData(mapP, mapI, mapO, inflowarr)
@@ -64,29 +64,29 @@ end
 # TODO: refactor convergence
 jld_path = "/data/yl184/outputs/jld2/leblanc.jld2"
 
-for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), LobattoCollocation());
-    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), LobattoCollocation());
-    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityBound()), GaussCollocation());
-    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound_type=PositivityAndMinEntropyBound()), GaussCollocation());
+for limiter in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), ZhangShuLimiter(), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityBound()), LobattoCollocation());
+    (NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndMinEntropyBound()), LobattoCollocation());
+    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityBound()), GaussCollocation());
+    (NodewiseScaledExtrapolation(), LaxFriedrichsOnNodalVal(), SubcellLimiter(bound=PositivityAndMinEntropyBound()), GaussCollocation());
     (NodewiseScaledExtrapolation(), LaxFriedrichsOnProjectedVal(), ZhangShuLimiter(), GaussCollocation())]
     for N in [2; 5]
         for K in [50; 100; 200; 400]
 
-            entropyproj_type, low_order_flux_type, rhs_lim_type, discretization_type = limiter_type
-            γ = 5 / 3
+            entropyproj, low_order_flux, rhs_lim, discretization = limiter
+            gamma = 5 / 3
             CFL = 0.5
             param = Param(N=N, K=K, xL=0.0, xR=1.0,
                 global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
                 timestepping_param=TimesteppingParameter(T=2 / 3, CFL=CFL, dt0=1e-3, t0=0.01),
-                limiting_param=LimitingParameter(ζ=0.1, η=0.1),
+                limiting_param=LimitingParameter(zeta=0.1, eta=0.1),
                 postprocessing_param=PostprocessingParameter(output_interval=1000),
-                equation=CompressibleEulerIdealGas{Dim1}(γ),
-                rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=low_order_flux_type,
-                    high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-                approximation_basis_type=discretization_type,
-                entropyproj_limiter_type=entropyproj_type,
-                rhs_limiter_type=rhs_lim_type)
+                equation=CompressibleEulerIdealGas{Dim1}(gamma),
+                rhs=ESLimitedLowOrderPos(low_order_surface_flux=low_order_flux,
+                    high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+                approximation_basis=discretization,
+                entropyproj_limiter=entropyproj,
+                rhs_limiter=rhs_lim)
 
             T = param.timestepping_param.T
             N = param.N
@@ -99,9 +99,9 @@ for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), Z
 
             err_data = calculate_error(prealloc.Uq, param, discrete_data, md, prealloc, exact_sol)
 
-            plot_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
-            plotzoom_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
-            gif_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),pos=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.gif"
+            plot_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs),vproj=$(param.entropyproj_limiter),pos=$(param.rhs_limiter),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta).png"
+            plotzoom_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs),vproj=$(param.entropyproj_limiter),pos=$(param.rhs_limiter),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta),zoom.png"
+            gif_path = "/data/yl184/outputs/figures/leblanc/N=$N,K=$K,CFL=$CFL,rhs=$(param.rhs),vproj=$(param.entropyproj_limiter),pos=$(param.rhs_limiter),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta),zoom.gif"
 
             plot_component(param, discrete_data, md, prealloc,
                 [u[1] for u in prealloc.Uq], 1, K, 0, 1.2,
@@ -112,7 +112,7 @@ for limiter_type in [(NoEntropyProjectionLimiter(), LaxFriedrichsOnNodalVal(), Z
                 plotzoom_path,
                 true, md.xq, [exact_sol(equation, xi, T)[1] for xi in md.xq], Int64(round(0.7 * K)), Int64(round(0.9 * K)))
 
-            plot_rho_animation(md, param, prealloc, discrete_data, data_hist, data_hist.θhist, 0, 1.2,
+            plot_rho_animation(md, param, prealloc, discrete_data, data_hist, data_hist.thetahist, 0, 1.2,
                 gif_path)
 
             df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)..., :data_history)])

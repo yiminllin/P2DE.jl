@@ -17,10 +17,10 @@ function initialize_preallocations(param, md, sizes)
     BF_L = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
     fstar_H = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
     fstar_L = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
-    Larr = zeros(Float64, K, Ns)
-    L_local_arr = zeros(Float64, Nq + N1D, Nd, K, Ns)
-    θ_arr = zeros(Float64, K, Ns)                # TODO: rename F, eta to theta
-    θ_local_arr = zeros(Float64, Nfp, K, Ns)
+    L = zeros(Float64, K, Ns)
+    L_local = zeros(Float64, Nq + N1D, Nd, K, Ns)
+    theta = zeros(Float64, K, Ns)                # TODO: rename F, eta to theta
+    theta_local = zeros(Float64, Nfp, K, Ns)
     resW = zeros(SVector{Nc,Float64}, Nq, K)
     resZ = zeros(SVector{Nc,Float64}, Nq, K)
     indicator = zeros(Float64, Nq, K)
@@ -29,17 +29,16 @@ function initialize_preallocations(param, md, sizes)
 
     prealloc = Preallocation{Nc,Nd}(Uq, vq, u_tilde, v_tilde, psi_tilde,
         rhsH, rhsL, rhsU, rhsxyH, rhsxyL, rhsxyU, BF_H, BF_L, fstar_H, fstar_L,
-        Larr, L_local_arr, θ_arr, θ_local_arr,
+        L, L_local, theta, theta_local,
         resW, resZ,
         indicator, indicator_modal, smooth_indicator)
     return prealloc
 end
 
 function initialize_cache(param, md, sizes)
-    (; rhs_type, rhs_limiter_type, entropyproj_limiter_type) = param
-    dim = dim_type(param.equation)
+    (; rhs, rhs_limiter, entropyproj_limiter) = param
 
-    return Caches(rhs_cache(rhs_type, param, sizes), limiter_cache(rhs_limiter_type, param, sizes), shockcapture_cache(shockcapture_type(rhs_limiter_type), param, sizes), entropyproj_limiter_cache(entropyproj_limiter_type, param, sizes), postprocessing_cache(param, md, sizes, dim))
+    return Caches(rhs_cache(rhs, param, sizes), limiter_cache(rhs_limiter, param, sizes), shockcapture_cache(shockcapture(rhs_limiter), param, sizes), entropyproj_limiter_cache(entropyproj_limiter, param, sizes), postprocessing_cache(param, md, sizes, dim(param.equation)))
 end
 
 function initialize_DG(param, initial_condition, initial_boundary_conditions)
@@ -61,30 +60,27 @@ function initialize_DG(param, initial_condition, initial_boundary_conditions)
 end
 
 function initialize_data(param)
-    return initialize_reference_data(param, param.equation, param.approximation_basis_type)
+    return initialize_reference_data(param, param.equation, param.approximation_basis)
 end
 
-function initialize_reference_data(param, equation::EquationType{Dim1}, approx_basis_type::GaussCollocation)
+function initialize_reference_data(param, equation::EquationType{Dim1}, approx_basis::GaussCollocation)
     (; N) = param
-    element_type = Line()
-    rd_gauss = construct_gauss_reference_data(RefElemData(element_type, N, quad_rule_vol=gauss_quad(0, 0, N)))
+    rd_gauss = construct_gauss_reference_data(RefElemData(Line(), N, quad_rule_vol=gauss_quad(0, 0, N)))
     md_gauss, discrete_data_gauss = initialize_operators(param, rd_gauss, GaussQuadrature())
 
     return rd_gauss, md_gauss, discrete_data_gauss
 end
 
-function initialize_reference_data(param, equation::EquationType{Dim1}, approx_basis_type::LobattoCollocation)
+function initialize_reference_data(param, equation::EquationType{Dim1}, approx_basis::LobattoCollocation)
     (; N) = param
-    element_type = Line()
-    rd_LGL = RefElemData(element_type, N, quad_rule_vol=gauss_lobatto_quad(0, 0, N))
+    rd_LGL = RefElemData(Line(), N, quad_rule_vol=gauss_lobatto_quad(0, 0, N))
     md_LGL, discrete_data_LGL = initialize_operators(param, rd_LGL, LobattoQuadrature())
 
     return rd_LGL, md_LGL, discrete_data_LGL
 end
 
-function initialize_reference_data(param, equation::EquationType{Dim2}, approx_basis_type::GaussCollocation)
+function initialize_reference_data(param, equation::EquationType{Dim2}, approx_basis::GaussCollocation)
     (; N) = param
-    element_type = Quad()
 
     # create degree N tensor product Gauss quadrature rule
     r1D, w1D = gauss_quad(0, 0, N)
@@ -92,16 +88,15 @@ function initialize_reference_data(param, equation::EquationType{Dim2}, approx_b
     ws, wr = vec.(StartUpDG.meshgrid(w1D))
     wq = @. wr * ws
 
-    rd_gauss = construct_gauss_reference_data(RefElemData(element_type, N, quad_rule_vol=(rq, sq, wq), quad_rule_face=(r1D, w1D)))
+    rd_gauss = construct_gauss_reference_data(RefElemData(Quad(), N, quad_rule_vol=(rq, sq, wq), quad_rule_face=(r1D, w1D)))
     md_gauss, discrete_data_gauss = initialize_operators(param, rd_gauss, GaussQuadrature())
 
     return rd_gauss, md_gauss, discrete_data_gauss
 end
 
-function initialize_reference_data(param, equation::EquationType{Dim2}, approx_basis_type::LobattoCollocation)
+function initialize_reference_data(param, equation::EquationType{Dim2}, approx_basis::LobattoCollocation)
     (; N) = param
-    element_type = Quad()
-    rd_LGL = RefElemData(element_type, SBP(), N)
+    rd_LGL = RefElemData(Quad(), SBP(), N)
     md_LGL, discrete_data_LGL = initialize_operators(param, rd_LGL, LobattoQuadrature())
 
     return rd_LGL, md_LGL, discrete_data_LGL
@@ -135,7 +130,7 @@ function construct_gauss_reference_data(rd)
         M, Pq, Drst, LIFT)
 end
 
-function initialize_operators(param, rd, quad_type)
+function initialize_operators(param, rd, quad)
     (; N) = param
     ZEROTOL = param.global_constants.ZEROTOL
 
@@ -162,7 +157,7 @@ function initialize_operators(param, rd, quad_type)
     # Define sizes
     K = num_elements(param)
     N1D = N + 1
-    Nd = dim(param.equation)
+    Nd = Ndim(param.equation)
     Ns = 3   # TODO: define num_stage() for RK time stepper
     Nc = num_components(param.equation)
     Np = size(VDM, 2)
@@ -180,7 +175,7 @@ function initialize_operators(param, rd, quad_type)
     VhPq = Vh * Pq
 
     # Low order operators
-    Srs0, Vf_low = low_order_operators(param, rd, rd.element_type, quad_type)
+    Srs0, Vf_low = low_order_operators(param, rd, rd.element_type, quad)
     Vf_low = Matrix(Vf_low)  # TODO: for type stability...
     # TODO: for LGL, there is value close to 1.0 but not exactly 1.0, hardcode for now...
     for i = 1:Nfp
@@ -227,12 +222,12 @@ function initialize_operators(param, rd, quad_type)
     sizes = SizeData(K, N1D, Nd, Nc, Np, Nq, Nfp, Nh, Ns)
     geom = GeomData(J, Jq, GJh)
     ops = Operators(Srsh_db, Srs0, Srsh_nnz, Srs0_nnz, Brs, Vh, MinvVhT, inv(VDM), VDMinvPq, VqVDM, VhPq, Vq, Vf, Vf_low, Pq, MinvVfT, wq, q2fq, fq2q)
-    discrete_data = DiscretizationData(sizes, geom, ops)
+    discrete_data = Discretization(sizes, geom, ops)
 
     return md, discrete_data
 end
 
-function initialize_uniform_mesh_data(param, rd, element_type::Line)
+function initialize_uniform_mesh_data(param, rd, element::Line)
     (; xL, xR, K) = param
 
     VXYZ, EToV = uniform_mesh(rd.element_type, K)
@@ -243,7 +238,7 @@ function initialize_uniform_mesh_data(param, rd, element_type::Line)
     return md
 end
 
-function initialize_uniform_mesh_data(param, rd, element_type::Quad)
+function initialize_uniform_mesh_data(param, rd, element::Quad)
     (; xL, xR, K) = param
 
     VXYZ, EToV = uniform_mesh(rd.element_type, K[1], K[2])
@@ -256,7 +251,7 @@ function initialize_uniform_mesh_data(param, rd, element_type::Quad)
     return md
 end
 
-function geometric_factors(param, rd, md, element_type::Line)
+function geometric_factors(param, rd, md, element::Line)
     (; Vq, Vf) = rd
     (; J, rxJ) = md
 
@@ -267,7 +262,7 @@ function geometric_factors(param, rd, md, element_type::Line)
     return Jq, (rxJh,)
 end
 
-function geometric_factors(param, rd, md, element_type::Quad)
+function geometric_factors(param, rd, md, element::Quad)
     (; Vq, Vf) = rd
     (; J, rxJ, sxJ, ryJ, syJ) = md
 
@@ -299,22 +294,22 @@ function construct_low_order_operators_1D(param)
     return Qr0, Sr0, Vf_low
 end
 
-function low_order_operators(param, rd, element_type::Line, quad_type)
+function low_order_operators(param, rd, element::Line, quad)
     _, Sr0, Vf_low = construct_low_order_operators_1D(param)
     return (Sr0,), Vf_low
 end
 
-function low_order_operators(param, rd, element_type::Quad, quad_type::GaussQuadrature)
+function low_order_operators(param, rd, element::Quad, quad::GaussQuadrature)
     _, w1D = gauss_quad(0, 0, param.N)
-    return low_order_operators(param, rd, element_type, quad_type, w1D)
+    return low_order_operators(param, rd, element, quad, w1D)
 end
 
-function low_order_operators(param, rd, element_type::Quad, quad_type::LobattoQuadrature)
+function low_order_operators(param, rd, element::Quad, quad::LobattoQuadrature)
     _, w1D = gauss_lobatto_quad(0, 0, param.N)
-    return low_order_operators(param, rd, element_type, quad_type, w1D)
+    return low_order_operators(param, rd, element, quad, w1D)
 end
 
-function low_order_operators(param, rd, element_type::Quad, quad_type, w1D)
+function low_order_operators(param, rd, element::Quad, quad, w1D)
     ZEROTOL = param.global_constants.ZEROTOL
     M1D = diagm(w1D)
     Q01D, _, _ = construct_low_order_operators_1D(param)
@@ -322,11 +317,11 @@ function low_order_operators(param, rd, element_type::Quad, quad_type, w1D)
     Qs0 = droptol!(sparse(kron(Q01D, M1D)), ZEROTOL)
     Sr0 = droptol!(sparse(0.5 * (Qr0 - Qr0')), ZEROTOL)
     Ss0 = droptol!(sparse(0.5 * (Qs0 - Qs0')), ZEROTOL)
-    Vf_low = low_order_extrapolation(param, rd, element_type, quad_type)
+    Vf_low = low_order_extrapolation(param, rd, element, quad)
     return (Sr0, Ss0), Vf_low
 end
 
-function low_order_extrapolation(param, rd, element_type::Quad, quad_type::GaussQuadrature)
+function low_order_extrapolation(param, rd, element::Quad, quad::GaussQuadrature)
     N = param.N
     Nq1D = N + 1
     Nq = (N + 1) * (N + 1)
@@ -340,7 +335,7 @@ function low_order_extrapolation(param, rd, element_type::Quad, quad_type::Gauss
     return sparse(Is, Js, Vs, Nfp, Nq)
 end
 
-function low_order_extrapolation(param, rd, element_type::Quad, quad_type::LobattoQuadrature)
+function low_order_extrapolation(param, rd, element::Quad, quad::LobattoQuadrature)
     return droptol!(sparse(rd.Vf), param.global_constants.ZEROTOL)
 end
 

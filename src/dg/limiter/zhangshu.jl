@@ -2,23 +2,23 @@
 ### Zhang-Shu limiter methods ###
 #################################
 function apply_zhang_shu_limiter!(state, solver, time_param)
-    (; Uq, rhsL, rhsH, rhsU, Larr) = state.preallocation
+    (; Uq, rhsL, rhsH, rhsU, L) = state.preallocation
     (; uL_k, P_k) = state.cache.limiter_cache
     (; blending_factor) = state.cache.shockcapture_cache
     (; K) = solver.discrete_data.sizes
     (; dt, nstage) = time_param
 
-    ζ = solver.param.limiting_param.ζ
-    Lrho(uL_i) = ζ * uL_i[1]
-    Lrhoe(uL_i) = ζ * rhoe_ufun(equation(solver), uL_i)
+    zeta = solver.param.limiting_param.zeta
+    Lrho(uL_i) = zeta * uL_i[1]
+    Lrhoe(uL_i) = zeta * rhoe_ufun(equation(solver), uL_i)
     @batch for k = 1:K
         tid = Threads.threadid()
         @views @. uL_k[:, tid] = Uq[:, k] + dt * rhsL[:, k]
         @views @. P_k[:, tid] = dt * (rhsH[:, k] - rhsL[:, k])
         Urho = Inf
         Urhoe = Inf
-        zhang_shu_bound_limiter!(equation(solver), solver, Larr, view(uL_k, :, tid), view(P_k, :, tid), k, Lrho, Lrhoe, Urho, Urhoe, nstage)
-        l = min(Larr[k, nstage], blending_factor[k, nstage])
+        zhang_shu_bound_limiter!(equation(solver), solver, L, view(uL_k, :, tid), view(P_k, :, tid), k, Lrho, Lrhoe, Urho, Urhoe, nstage)
+        l = min(L[k, nstage], blending_factor[k, nstage])
         @views @. rhsU[:, k] = (1 - l) * rhsL[:, k] + l * (rhsH[:, k])
     end
 end
@@ -38,8 +38,8 @@ function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, solver, L, uL,
     l = 1.0
     for i = 1:Nq
         uL_i = uL[i]
-        bound = (Lrho(uL_i), Lrhoe(uL_i), Urho, Urhoe)
-        l = min(l, limiting_param(limiter(solver), bound_type(solver), solver, uL[i], P[i], bound))
+        bound_val = (Lrho(uL_i), Lrhoe(uL_i), Urho, Urhoe)
+        l = min(l, limiting_param(limiter(solver), bound(solver), solver, uL[i], P[i], bound_val))
     end
     L[k, nstage] = l
 end
@@ -49,8 +49,8 @@ function zhang_shu_bound_limiter!(equation::CompressibleIdealGas, solver, L, uL,
 
     l = 1.0
     for i = 1:Nq
-        bound = (Lrho, Lrhoe, Urho, Urhoe)
-        l = min(l, limiting_param(limiter(solver), bound_type(solver), solver, uL[i], P[i], bound))
+        bound_val = (Lrho, Lrhoe, Urho, Urhoe)
+        l = min(l, limiting_param(limiter(solver), bound(solver), solver, uL[i], P[i], bound_val))
     end
     L[k, nstage] = l
 end

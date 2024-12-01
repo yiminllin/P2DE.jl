@@ -39,19 +39,19 @@ end
 
 jld_path = "/data/yl184/outputs/jld2/shu-soher.jld2"
 
-γ = 1.4
+gamma = 1.4
 param = Param(N=3, K=64, xL=-5.0, xR=5.0,
     global_constants=GlobalConstant(POSTOL=1e-14, ZEROTOL=5e-16),
     timestepping_param=TimesteppingParameter(T=1.8, CFL=0.5, dt0=1e-4, t0=0.0),
-    limiting_param=LimitingParameter(ζ=0.1, η=1.0),
+    limiting_param=LimitingParameter(zeta=0.1, eta=1.0),
     postprocessing_param=PostprocessingParameter(output_interval=1000),
-    equation=CompressibleEulerIdealGas{Dim1}(γ),
-    rhs_type=ESLimitedLowOrderPos(low_order_surface_flux_type=LaxFriedrichsOnNodalVal(),
-        high_order_surface_flux_type=LaxFriedrichsOnProjectedVal()),
-    approximation_basis_type=GaussCollocation(),
-    entropyproj_limiter_type=NodewiseScaledExtrapolation(),
-    rhs_limiter_type=SubcellLimiter(bound_type=PositivityBound(),
-        shockcapture_type=NoShockCapture()))
+    equation=CompressibleEulerIdealGas{Dim1}(gamma),
+    rhs=ESLimitedLowOrderPos(low_order_surface_flux=LaxFriedrichsOnNodalVal(),
+        high_order_surface_flux=LaxFriedrichsOnProjectedVal()),
+    approximation_basis=GaussCollocation(),
+    entropyproj_limiter=NodewiseScaledExtrapolation(),
+    rhs_limiter=SubcellLimiter(bound=PositivityBound(),
+        shockcapture=NoShockCapture()))
 
 T = param.timestepping_param.T
 N = param.N
@@ -64,8 +64,8 @@ data_hist = SSP33!(param, discrete_data, bcdata, prealloc, caches)
 
 err_data = calculate_error(prealloc.Uq, param, discrete_data, md, prealloc, exact_sol)
 
-plot_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),lim=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η).png"
-gif_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs_type),vproj=$(param.entropyproj_limiter_type),lim=$(param.rhs_limiter_type),ZETA=$(param.limiting_param.ζ),ETA=$(param.limiting_param.η),zoom.png"
+plot_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs),vproj=$(param.entropyproj_limiter),lim=$(param.rhs_limiter),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta).png"
+gif_path = "/data/yl184/outputs/figures/shu-osher/N=$N,K=$K,rhs=$(param.rhs),vproj=$(param.entropyproj_limiter),lim=$(param.rhs_limiter),ZETA=$(param.limiting_param.zeta),ETA=$(param.limiting_param.eta),zoom.png"
 
 weno_sol = matread("data/weno5_shuosher.mat")
 plot_component(param, discrete_data, md, prealloc,
@@ -73,7 +73,7 @@ plot_component(param, discrete_data, md, prealloc,
     plot_path,
     true, weno_sol["x"], weno_sol["rho"], 1, size(weno_sol["x"], 2))
 
-plot_rho_animation(md, param, prealloc, discrete_data, data_hist, data_hist.θhist, 0, 6,
+plot_rho_animation(md, param, prealloc, discrete_data, data_hist, data_hist.thetahist, 0, 6,
     gif_path)
 
 df = DataFrame([name => [] for name in (fieldnames(Param)..., fieldnames(ErrorData)..., :data_history)])
