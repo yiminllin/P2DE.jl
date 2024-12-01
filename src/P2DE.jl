@@ -88,9 +88,4 @@ export construct_vtk_file!
 export check_positivity, check_conservation
 export num_elements, num_components
 
-#####################
-# TODO: for testing #
-#####################
-export rhs!, rhs_pos_Gauss!, rhs_fluxdiff!, compute_entropyproj_limiting_param!
-
 end
