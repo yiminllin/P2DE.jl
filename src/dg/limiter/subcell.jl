@@ -206,7 +206,7 @@ function accumulate_f_bar!(dim::Dim2, state, solver)
 end
 
 function subcell_bound_limiter!(dim::Dim1, equation::CompressibleIdealGas, state, solver, state_param, time_param)
-    (; Uq, L_local_arr, rhsL) = state.preallocation
+    (; Uq, L_local, rhsL) = state.preallocation
     (; uL_k, f_bar_H, f_bar_L, lbound_s_modified) = state.cache.limiter_cache
     (; blending_factor) = state.cache.shockcapture_cache
     (; wq) = solver.discrete_data.ops
@@ -216,7 +216,7 @@ function subcell_bound_limiter!(dim::Dim1, equation::CompressibleIdealGas, state
 
     zeta = solver.param.limiting_param.zeta
     Lrhoe(uL_i) = zeta * rhoe_ufun(equation, uL_i)
-    @views @. L_local_arr[:, :, :, time_param.nstage] = 1.0
+    @views @. L_local[:, :, :, time_param.nstage] = 1.0
     # Calculate limiting parameter
     @batch for k = 1:K
         tid = Threads.threadid()
@@ -229,25 +229,25 @@ function subcell_bound_limiter!(dim::Dim1, equation::CompressibleIdealGas, state
             Lphi_i = lbound_s_modified[i, k]
             Lrho_i, Urho_i = rho_bound(dim(solver), bound(solver), state, solver, i, k, tid)
             bound = (Lrho_i, Lrhoe(uL_k[i, tid]), Lphi_i, Urho_i, Urhoe)
-            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(limiter(solver), bound(solver), solver, uL_k[i, tid], -2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_i, bound))
+            L_local[i, 1, k, nstage] = min(L_local[i, 1, k, nstage], limiting_param(limiter(solver), bound(solver), solver, uL_k[i, tid], -2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_i, bound))
         end
         for i = 2:Nq+1
             wJq_im1 = (wq[i-1] * Jq[i-1, k])
             Lphi_i = lbound_s_modified[i-1, k]
             Lrho_i, Urho_i = rho_bound(dim(solver), bound(solver), state, solver, i - 1, k, tid)
             bound = (Lrho_i, Lrhoe(uL_k[i-1, tid]), Lphi_i, Urho_i, Urhoe)
-            L_local_arr[i, 1, k, nstage] = min(L_local_arr[i, 1, k, nstage], limiting_param(limiter(solver), bound(solver), solver, uL_k[i-1, tid], 2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_im1, bound))
+            L_local[i, 1, k, nstage] = min(L_local[i, 1, k, nstage], limiting_param(limiter(solver), bound(solver), solver, uL_k[i-1, tid], 2 * dt * (f_bar_H[1][i, k] - f_bar_L[1][i, k]) / wJq_im1, bound))
         end
 
         # Apply shock capturing
         l_shock = blending_factor[k, nstage]
-        @. L_local_arr[:, 1, k, nstage] = min(L_local_arr[:, 1, k, nstage], l_shock)
+        @. L_local[:, 1, k, nstage] = min(L_local[:, 1, k, nstage], l_shock)
     end
 end
 
 function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state, solver, state_param, time_param)
     (; uL_k, f_bar_H, f_bar_L, lbound_s_modified) = state.cache.limiter_cache
-    (; Uq, rhsL, L_local_arr) = state.preallocation
+    (; Uq, rhsL, L_local) = state.preallocation
     (; blending_factor) = state.cache.shockcapture_cache
     (; wq) = solver.discrete_data.ops
     (; Jq) = solver.discrete_data.geom
@@ -258,10 +258,10 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
     zeta = solver.param.limiting_param.zeta
     Lrhoe(uL_i) = zeta * rhoe_ufun(equation, uL_i)
     # TODO: why these two lines result in allocations?
-    # Lx_local = reshape(view(L_local_arr,:,1,:,nstage),N1Dp1,N1D,K)
-    # Ly_local = reshape(view(L_local_arr,:,2,:,nstage),N1D,N1Dp1,K)
+    # Lx_local = reshape(view(L_local,:,1,:,nstage),N1Dp1,N1D,K)
+    # Ly_local = reshape(view(L_local,:,2,:,nstage),N1D,N1Dp1,K)
 
-    @views @. L_local_arr[:, :, :, nstage] = 1.0
+    @views @. L_local[:, :, :, nstage] = 1.0
 
     @batch for k = 1:K
         tid = Threads.threadid()
@@ -275,8 +275,8 @@ function subcell_bound_limiter!(dim::Dim2, equation::CompressibleIdealGas, state
         fy_bar_H_k = reshape(view(f_bar_H[2], :, k), N1D, N1Dp1)
         fy_bar_L_k = reshape(view(f_bar_L[2], :, k), N1D, N1Dp1)
 
-        Lx_local_k = reshape(view(L_local_arr, :, 1, k, nstage), N1Dp1, N1D)
-        Ly_local_k = reshape(view(L_local_arr, :, 2, k, nstage), N1D, N1Dp1)
+        Lx_local_k = reshape(view(L_local, :, 1, k, nstage), N1Dp1, N1D)
+        Ly_local_k = reshape(view(L_local, :, 2, k, nstage), N1D, N1Dp1)
 
         lbound_s_modified_k = reshape(view(lbound_s_modified, :, k), N1D, N1D)
 
@@ -387,14 +387,14 @@ function rho_bound(dim::Dim2, bound::Union{PositivityBound,PositivityAndCellEntr
 end
 
 function subcell_bound_limiter!(dim, equation::KPP, state, solver, state_param, time_param)
-    (; L_local_arr) = state.preallocation
+    (; L_local) = state.preallocation
     (; blending_factor) = state.cache.shockcapture_cache
     (; K) = solver.discrete_data.sizes
     (; nstage) = time_param
 
-    @views @. L_local_arr[:, :, :, nstage] = 1.0
+    @views @. L_local[:, :, :, nstage] = 1.0
     @batch for k = 1:K
-        L_local_k = view(L_local_arr, :, :, k, nstage)
+        L_local_k = view(L_local, :, :, k, nstage)
 
         # Apply shock capturing
         l_shock = blending_factor[k, nstage]
@@ -403,27 +403,27 @@ function subcell_bound_limiter!(dim, equation::KPP, state, solver, state_param, 
 end
 
 function symmetrize_limiting_parameters!(dim::Dim1, state, solver, state_param, time_param)
-    (; L_local_arr) = state.preallocation
+    (; L_local) = state.preallocation
     (; K) = solver.discrete_data.sizes
     (; nstage) = time_param
 
     # Symmetrize limiting parameter TODO: hardcoded, should use mapP
     @batch for k = 1:K
-        l = min(L_local_arr[1, 1, k, nstage], L_local_arr[end, 1, mod1(k - 1, K), nstage])
-        L_local_arr[1, 1, k, nstage] = l
-        L_local_arr[end, 1, mod1(k - 1, K), nstage] = l
+        l = min(L_local[1, 1, k, nstage], L_local[end, 1, mod1(k - 1, K), nstage])
+        L_local[1, 1, k, nstage] = l
+        L_local[end, 1, mod1(k - 1, K), nstage] = l
     end
 end
 
 function symmetrize_limiting_parameters!(dim::Dim2, state, solver, state_param, time_param)
-    (; L_local_arr) = state.preallocation
+    (; L_local) = state.preallocation
     (; K, N1D) = solver.discrete_data.sizes
     (; nstage) = time_param
 
     # TODO: refactor
     N1Dp1 = N1D + 1
-    Lx_local = view(L_local_arr, :, 1, :, nstage)
-    Ly_local = view(L_local_arr, :, 2, :, nstage)
+    Lx_local = view(L_local, :, 1, :, nstage)
+    Ly_local = view(L_local, :, 2, :, nstage)
 
     @batch for k = 1:K
         # Symmetrize limiting parameters
@@ -565,7 +565,7 @@ end
 
 
 function enforce_ES_subcell_volume!(dim::Dim1, state, solver, time_param)
-    (; L_local_arr) = state.preallocation
+    (; L_local) = state.preallocation
     (; dvdf, sum_Bpsi, sum_dvfbarL, dvdf_order, smooth_factor) = state.cache.limiter_cache
     (; K, Nq) = solver.discrete_data.sizes
     (; nstage) = time_param
@@ -574,7 +574,7 @@ function enforce_ES_subcell_volume!(dim::Dim1, state, solver, time_param)
         tid = Threads.threadid()
 
         # TODO: hardcoding views
-        L_local_k = view(L_local_arr, :, 1, k, nstage)
+        L_local_k = view(L_local, :, 1, k, nstage)
         dvdf_k = view(dvdf[1], :, k)
         dvdf_order_k = view(dvdf_order, :, tid)
 
@@ -628,7 +628,7 @@ function enforce_ES_subcell_volume!(dim::Dim1, state, solver, time_param)
 end
 
 function enforce_ES_subcell_volume!(dim::Dim2, state, solver, time_param)
-    (; L_local_arr) = state.preallocation
+    (; L_local) = state.preallocation
     (; dvdf, sum_Bpsi, sum_dvfbarL, dvdf_order, smooth_factor) = state.cache.limiter_cache
     (; K, N1D, Nq) = solver.discrete_data.sizes
     (; nstage) = time_param
@@ -639,8 +639,8 @@ function enforce_ES_subcell_volume!(dim::Dim2, state, solver, time_param)
         tid = Threads.threadid()
 
         # TODO: hardcoding views
-        Lx_local_k = reshape(view(L_local_arr, :, 1, k, nstage), N1Dp1, N1D)
-        Ly_local_k = reshape(view(L_local_arr, :, 2, k, nstage), N1D, N1Dp1)
+        Lx_local_k = reshape(view(L_local, :, 1, k, nstage), N1Dp1, N1D)
+        Ly_local_k = reshape(view(L_local, :, 2, k, nstage), N1D, N1Dp1)
         dvdfx_k = reshape(view(dvdf[1], :, k), N1Dm1, N1D)
         dvdfy_k = reshape(view(dvdf[2], :, k), N1D, N1Dm1)
         dvdfx_k_vec = view(dvdf[1], :, k)
@@ -757,14 +757,14 @@ function enforce_ES_subcell_interface!(dim, basis::LobattoCollocation, state, so
 end
 
 function enforce_ES_subcell_interface!(dim::Dim2, basis::GaussCollocation, state, solver, state_param, time_param)
-    (; fstar_H, fstar_L, L_local_arr) = state.preallocation
+    (; fstar_H, fstar_L, L_local) = state.preallocation
     (; vf, psif) = state.cache.limiter_cache
     (; mapP) = state_param.bcdata
     (; K, N1D) = solver.discrete_data.sizes
     (; nstage) = time_param
 
-    Lx_local = view(L_local_arr, :, 1, :, nstage)
-    Ly_local = view(L_local_arr, :, 2, :, nstage)
+    Lx_local = view(L_local, :, 1, :, nstage)
+    Ly_local = view(L_local, :, 2, :, nstage)
 
     N1Dp1 = N1D + 1
     @batch for k = 1:K
@@ -825,14 +825,14 @@ end
 # TODO: not necessary
 function accumulate_f_bar_limited!(dim::Dim1, state, solver, time_param)
     (; f_bar_H, f_bar_L, f_bar_lim) = state.cache.limiter_cache
-    (; L_local_arr) = state.preallocation
+    (; L_local) = state.preallocation
     (; K, Nq) = solver.discrete_data.sizes
     (; nstage) = time_param
 
     # TODO: f_bar_H, f_bar_L could be combine into a single cache? df_bar?
     @batch for k = 1:K
         for i = 1:Nq+1
-            f_bar_lim[1][i, k] = L_local_arr[i, 1, k, nstage] * f_bar_H[1][i, k] + (1 - L_local_arr[i, 1, k, nstage]) * f_bar_L[1][i, k]
+            f_bar_lim[1][i, k] = L_local[i, 1, k, nstage] * f_bar_H[1][i, k] + (1 - L_local[i, 1, k, nstage]) * f_bar_L[1][i, k]
         end
     end
 end
@@ -840,7 +840,7 @@ end
 # TODO: not necessary
 function accumulate_f_bar_limited!(dim::Dim2, state, solver, time_param)
     (; f_bar_H, f_bar_L, f_bar_lim) = state.cache.limiter_cache
-    (; L_local_arr) = state.preallocation
+    (; L_local) = state.preallocation
     (; K, N1D) = solver.discrete_data.sizes
     (; nstage) = time_param
 
@@ -854,8 +854,8 @@ function accumulate_f_bar_limited!(dim::Dim2, state, solver, time_param)
         fx_bar_lim_k = reshape(view(f_bar_lim[1], :, k), N1Dp1, N1D)
         fy_bar_lim_k = reshape(view(f_bar_lim[2], :, k), N1D, N1Dp1)
 
-        Lx_local_k = reshape(view(L_local_arr, :, 1, k, nstage), N1Dp1, N1D)
-        Ly_local_k = reshape(view(L_local_arr, :, 2, k, nstage), N1D, N1Dp1)
+        Lx_local_k = reshape(view(L_local, :, 1, k, nstage), N1Dp1, N1D)
+        Ly_local_k = reshape(view(L_local, :, 2, k, nstage), N1D, N1Dp1)
 
         # For each stride along x direction
         for j = 1:N1D

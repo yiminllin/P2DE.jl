@@ -2,7 +2,7 @@
 ### Zhang-Shu limiter methods ###
 #################################
 function apply_zhang_shu_limiter!(state, solver, time_param)
-    (; Uq, rhsL, rhsH, rhsU, Larr) = state.preallocation
+    (; Uq, rhsL, rhsH, rhsU, L) = state.preallocation
     (; uL_k, P_k) = state.cache.limiter_cache
     (; blending_factor) = state.cache.shockcapture_cache
     (; K) = solver.discrete_data.sizes
@@ -17,8 +17,8 @@ function apply_zhang_shu_limiter!(state, solver, time_param)
         @views @. P_k[:, tid] = dt * (rhsH[:, k] - rhsL[:, k])
         Urho = Inf
         Urhoe = Inf
-        zhang_shu_bound_limiter!(equation(solver), solver, Larr, view(uL_k, :, tid), view(P_k, :, tid), k, Lrho, Lrhoe, Urho, Urhoe, nstage)
-        l = min(Larr[k, nstage], blending_factor[k, nstage])
+        zhang_shu_bound_limiter!(equation(solver), solver, L, view(uL_k, :, tid), view(P_k, :, tid), k, Lrho, Lrhoe, Urho, Urhoe, nstage)
+        l = min(L[k, nstage], blending_factor[k, nstage])
         @views @. rhsU[:, k] = (1 - l) * rhsL[:, k] + l * (rhsH[:, k])
     end
 end

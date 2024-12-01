@@ -138,7 +138,7 @@ end
 
 function accumulate_low_order_rhs_volume!(state, solver)
     (; rhsxyL, Uq) = state.preallocation
-    (; flux, lambdaarr, Q0F1) = low_order_cache(state)
+    (; flux, lambda, Q0F1) = low_order_cache(state)
     (; Srs0_nnz) = solver.discrete_data.ops
     (; K, Nq) = solver.discrete_data.sizes
 
@@ -155,8 +155,8 @@ function accumulate_low_order_rhs_volume!(state, solver)
             n_ij = @. Sxy0J_ij / n_ij_norm
             n_ji = -n_ij
             wavespeed_ij = max(wavespeed_estimate(equation(solver), u_i, n_ij), wavespeed_estimate(equation(solver), u_j, n_ji))
-            lambdaarr[i, j, k] = n_ij_norm * wavespeed_ij
-            lambdaarr[j, i, k] = lambdaarr[i, j, k]
+            lambda[i, j, k] = n_ij_norm * wavespeed_ij
+            lambda[j, i, k] = lambda[i, j, k]
             lambdaD_ij = graph_viscosity(dim(solver), i, j, k, Sxy0J_ij, state, solver)
             SFxy_lambdaD_ij = @. 2.0 * Sxy0J_ij * Fxyij - lambdaD_ij
             SFxy_lambdaD_ji = -SFxy_lambdaD_ij
@@ -174,7 +174,7 @@ end
 
 function accumulate_low_order_rhs_surface!(state, solver, state_param)
     (; rhsxyL, BF_L, fstar_L) = state.preallocation
-    (; Uf, uP, flux, wavespeed_f, lambdaBarr) = low_order_cache(state)
+    (; Uf, uP, flux, wavespeed_f, lambdaB) = low_order_cache(state)
     (; mapP) = state_param.bcdata
     (; fq2q) = solver.discrete_data.ops
     (; K, Nq, Nfp) = solver.discrete_data.sizes
@@ -187,13 +187,13 @@ function accumulate_low_order_rhs_surface!(state, solver, state_param)
             kP = div(mapP[i, k] - 1, Nfp) + 1
 
             Bxy_i, n_i_norm = Bx_with_n(dim(solver), i, k, solver)
-            lambdaBarr[i, k] = 0.5 * n_i_norm * max(wavespeed_f[i, k], wavespeed_f[iP, kP])
+            lambdaB[i, k] = 0.5 * n_i_norm * max(wavespeed_f[i, k], wavespeed_f[iP, kP])
 
             flux_xy_P = fluxes(equation(solver), uP[i, k])
             fstar_L[i, k] = @. 0.5 * (flux[i+Nq, k] + flux_xy_P)
             BF_L[i, k] = @. Bxy_i * fstar_L[i, k]
 
-            lf = lambdaBarr[i, k] * (uP[i, k] - Uf[i, k])
+            lf = lambdaB[i, k] * (uP[i, k] - Uf[i, k])
             apply_LF_dissipation_to_BF(dim(solver), BF_L, i, k, lf, solver)
             apply_LF_dissipation_to_fstar(dim(solver), fstar_L, i, k, Bxy_i, lf, solver)
 
@@ -262,14 +262,14 @@ end
 
 function lambda_i(i, k, state, solver)
     cache = low_order_cache(state)
-    (; lambdaarr) = cache
+    (; lambda) = cache
     (; q2fq) = solver.discrete_data.ops
     (; Nq) = solver.discrete_data.sizes
 
     lambda_i = 0.0
     # TODO: can only consider upper diagonal
     for j = 1:Nq
-        lambda_i += lambdaarr[i, j, k]
+        lambda_i += lambda[i, j, k]
     end
 
     for j in q2fq[i]
@@ -281,13 +281,13 @@ function lambda_i(i, k, state, solver)
 end
 
 function lambda_B_CFL(surface_flux::LaxFriedrichsOnNodalVal, cache, i, n_i_norm, k)
-    return cache.lambdaBarr[i, k]
+    return cache.lambdaB[i, k]
 end
 
 function lambda_B_CFL(surface_flux::LaxFriedrichsOnProjectedVal, cache, i, n_i_norm, k)
-    (; lambdaBarr, alpha, wavespeed_f) = cache
+    (; lambdaB, alpha, wavespeed_f) = cache
 
-    return alpha[i, k] * lambdaBarr[i, k] + 0.5 * n_i_norm * wavespeed_f[i, k]
+    return alpha[i, k] * lambdaB[i, k] + 0.5 * n_i_norm * wavespeed_f[i, k]
 end
 
 ###############

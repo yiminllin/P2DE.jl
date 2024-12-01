@@ -16,7 +16,7 @@ end
 
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter::NodewiseScaledExtrapolation, state, time_param)
-    view(state.preallocation.theta_local_arr, :, :, time_param.nstage) .= 1.0
+    view(state.preallocation.theta_local, :, :, time_param.nstage) .= 1.0
 end
 
 function clear_entropyproj_limiting_parameter_cache!(entropyproj_limiter::NoEntropyProjectionLimiter, state, time_param)
@@ -47,15 +47,15 @@ function calc_face_values!(equation::KPP, state, solver)
 end
 
 function solve_theta!(entropyproj_limiter::NodewiseScaledExtrapolation, equation::CompressibleIdealGas, state, k, solver, time_param, tid)
-    (; theta_arr, theta_local_arr) = state.preallocation
+    (; theta, theta_local) = state.preallocation
     (; Nfp) = solver.discrete_data.sizes
     (; nstage) = time_param
     for i = 1:Nfp
         f(theta_i) = update_and_check_bound_limited_entropyproj_var_on_face_node!(state, theta_i, i, k, tid, solver)
-        theta_local_arr[i, k, nstage] = bisection(f, 0.0, 1.0)
+        theta_local[i, k, nstage] = bisection(f, 0.0, 1.0)
     end
     # TODO: hardcode for post postprocessing
-    theta_arr[k, nstage] = sum(view(theta_local_arr, :, k, nstage)) / Nfp
+    theta[k, nstage] = sum(view(theta_local, :, k, nstage)) / Nfp
 end
 
 function solve_theta!(entropyproj_limiter::NoEntropyProjectionLimiter, equation::CompressibleIdealGas, state, k, solver, time_param, tid)

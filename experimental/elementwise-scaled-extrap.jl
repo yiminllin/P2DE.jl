@@ -15,7 +15,7 @@ function entropy_projection!(prealloc, param, entropyproj_limiter::ElementwiseSc
         v_tilde_k = view(v_tilde, :, k)
         u_tilde_k = view(u_tilde, :, k)
         Uq_k = view(Uq, :, k)
-        l_k = prealloc.theta_arr[k, nstage]
+        l_k = prealloc.theta[k, nstage]
         # TODO: we can skip LGL instead of applying identity
         entropy_projection_element!(vq_k, v_tilde_k, u_tilde_k, Uq_k, l_k, param, discrete_data, prealloc)
     end
@@ -23,24 +23,24 @@ end
 
 # TODO: unnecessary?
 function clear_entropyproj_limiting_parameter_cache!(prealloc, entropyproj_limiter::ElementwiseScaledExtrapolation, nstage)
-    view(prealloc.theta_arr, :, nstage) .= 1.0
+    view(prealloc.theta, :, nstage) .= 1.0
 end
 
 function solve_theta!(prealloc, cache, k, nstage, entropyproj_limiter::ElementwiseScaledExtrapolation, equation::CompressibleIdealGas, param, discrete_data, tid)
     f(theta) = update_and_check_bound_limited_entropyproj_var_on_element!(prealloc, cache, theta, k, param, discrete_data, tid)
-    prealloc.theta_arr[k, nstage] = bisection(f, 0.0, 1.0)
+    prealloc.theta[k, nstage] = bisection(f, 0.0, 1.0)
 end
 
 function update_limited_extrapolation!(cache, prealloc, param, entropyproj_limiter::ElementwiseScaledExtrapolation, discrete_data, k, nstage, tid)
     (; Vf_new) = cache
     (; Vf, Vf_low) = discrete_data.ops
 
-    l_k = prealloc.theta_arr[k, nstage]
+    l_k = prealloc.theta[k, nstage]
     @. @views Vf_new[:, :, tid] = l_k * Vf + (1.0 - l_k) * Vf_low
 end
 
 function is_Vf_limited(prealloc, k, nstage, entropyproj_limiter::ElementwiseScaledExtrapolation)
-    return prealloc.theta_arr[k, nstage] < 1.0
+    return prealloc.theta[k, nstage] < 1.0
 end
 
 function update_and_check_bound_limited_entropyproj_var_on_element!(prealloc, cache, theta, k, param, discrete_data, tid)

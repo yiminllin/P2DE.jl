@@ -14,10 +14,10 @@ struct Preallocation{Nc,DIM}
     BF_L::Array{SVector{DIM,SVector{Nc,Float64}},2}
     fstar_H::Array{SVector{DIM,SVector{Nc,Float64}},2}
     fstar_L::Array{SVector{DIM,SVector{Nc,Float64}},2}
-    Larr::Array{Float64,2}
-    L_local_arr::Array{Float64,4}
-    theta_arr::Array{Float64,2}
-    theta_local_arr::Array{Float64,3}
+    L::Array{Float64,2}
+    L_local::Array{Float64,4}
+    theta::Array{Float64,2}
+    theta_local::Array{Float64,3}
     resW::Array{SVector{Nc,Float64},2}
     resZ::Array{SVector{Nc,Float64},2}
     indicator::Array{Float64,2}
@@ -32,8 +32,8 @@ struct LowOrderPositivityCache{DIM,Nc} <: Cache{DIM,Nc}
     wavespeed_f::Array{Float64,2}
     Uf::Array{SVector{Nc,Float64},2}   # TODO: Redundant with limiters cache
     uP::Array{SVector{Nc,Float64},2}
-    lambdaarr::Array{Float64,3}
-    lambdaBarr::Array{Float64,2}
+    lambda::Array{Float64,3}
+    lambdaB::Array{Float64,2}
     alpha::Array{Float64,2}
     dtarr::Array{Float64,1}
 end

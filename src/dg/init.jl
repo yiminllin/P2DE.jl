@@ -17,10 +17,10 @@ function initialize_preallocations(param, md, sizes)
     BF_L = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
     fstar_H = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
     fstar_L = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
-    Larr = zeros(Float64, K, Ns)
-    L_local_arr = zeros(Float64, Nq + N1D, Nd, K, Ns)
-    theta_arr = zeros(Float64, K, Ns)                # TODO: rename F, eta to theta
-    theta_local_arr = zeros(Float64, Nfp, K, Ns)
+    L = zeros(Float64, K, Ns)
+    L_local = zeros(Float64, Nq + N1D, Nd, K, Ns)
+    theta = zeros(Float64, K, Ns)                # TODO: rename F, eta to theta
+    theta_local = zeros(Float64, Nfp, K, Ns)
     resW = zeros(SVector{Nc,Float64}, Nq, K)
     resZ = zeros(SVector{Nc,Float64}, Nq, K)
     indicator = zeros(Float64, Nq, K)
@@ -29,7 +29,7 @@ function initialize_preallocations(param, md, sizes)
 
     prealloc = Preallocation{Nc,Nd}(Uq, vq, u_tilde, v_tilde, psi_tilde,
         rhsH, rhsL, rhsU, rhsxyH, rhsxyL, rhsxyU, BF_H, BF_L, fstar_H, fstar_L,
-        Larr, L_local_arr, theta_arr, theta_local_arr,
+        L, L_local, theta, theta_local,
         resW, resZ,
         indicator, indicator_modal, smooth_indicator)
     return prealloc
