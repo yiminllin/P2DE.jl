@@ -135,9 +135,7 @@ function subcell_index_P_x(si, sj, k, solver, state_param)
         iface = sj + N1D
     end
 
-    ifaceP = mapP[iface, k]
-    iP = mod1(ifaceP, Nfp)
-    kP = div(ifaceP - 1, Nfp) + 1
+    iP, kP = neighbor_index(iface, k, Nfp, mapP)
 
     # map face quad index to subcell index
     sjP = mod1(iP, N1D)
@@ -165,9 +163,7 @@ function subcell_index_P_y(si, sj, k, solver, state_param)
         iface = si + 3 * N1D
     end
 
-    ifaceP = mapP[iface, k]
-    iP = mod1(ifaceP, Nfp)
-    kP = div(ifaceP - 1, Nfp) + 1
+    iP, kP = neighbor_index(iface, k, Nfp, mapP)
 
     # map face quad index to subcell index
     siP = mod1(iP, N1D)

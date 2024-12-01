@@ -101,8 +101,7 @@ function get_uP_and_enforce_BC!(state, solver, state_param)
     # Initialize uP
     @batch for k = 1:K
         for i = 1:Nfp
-            iP = mod1(mapP[i, k], Nfp)
-            kP = div(mapP[i, k] - 1, Nfp) + 1
+            iP, kP = neighbor_index(i, k, Nfp, mapP)
             uP[i, k] = Uf[iP, kP]
         end
     end
@@ -116,8 +115,7 @@ function get_uP_and_enforce_BC!(state, solver, state_param)
 
     @batch for i = 1:size(mapO, 1)
         io = mapO[i]
-        iP = mod1(io, Nfp)
-        kP = div(io - 1, Nfp) + 1
+        iP, kP = neighbor_index(io, Nfp)
         iq = fq2q[iP]
         uP[io] = Uq[iq, kP]
     end
@@ -182,9 +180,7 @@ function accumulate_low_order_rhs_surface!(state, solver, state_param)
     @batch for k = 1:K
         # Surface contributions
         for i = 1:Nfp
-            # TODO: refactor
-            iP = mod1(mapP[i, k], Nfp)
-            kP = div(mapP[i, k] - 1, Nfp) + 1
+            iP, kP = neighbor_index(i, k, Nfp, mapP)
 
             Bxy_i, n_i_norm = Bx_with_n(dim(solver), i, k, solver)
             lambdaB[i, k] = 0.5 * n_i_norm * max(wavespeed_f[i, k], wavespeed_f[iP, kP])
