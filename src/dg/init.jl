@@ -222,7 +222,7 @@ function initialize_operators(param, rd, quad)
     sizes = SizeData(K, N1D, Nd, Nc, Np, Nq, Nfp, Nh, Ns)
     geom = GeomData(J, Jq, GJh)
     ops = Operators(Srsh_db, Srs0, Srsh_nnz, Srs0_nnz, Brs, Vh, MinvVhT, inv(VDM), VDMinvPq, VqVDM, VhPq, Vq, Vf, Vf_low, Pq, MinvVfT, wq, q2fq, fq2q)
-    discrete_data = DiscretizationData(sizes, geom, ops)
+    discrete_data = Discretization(sizes, geom, ops)
 
     return md, discrete_data
 end

@@ -211,7 +211,7 @@ struct Operators{DIM}
     fq2q::Array{Int64,1}
 end
 
-struct DiscretizationData{DIM,NGEO}
+struct Discretization{DIM,NGEO}
     sizes::SizeData
     geom::GeomData{NGEO}
     ops::Operators{DIM}
