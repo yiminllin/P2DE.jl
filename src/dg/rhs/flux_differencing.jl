@@ -52,15 +52,13 @@ function calculate_primitive_variables!(equation::CompressibleIdealGas, state, s
     end
 
     # Boundary contributions
-    # TODO: refactor
     uf = @view u_tilde[Nq+1:Nh, :]
     betaf = @view beta[Nq+1:Nh, :]
     rhologf = @view rholog[Nq+1:Nh, :]
     betalogf = @view betalog[Nq+1:Nh, :]
     @batch for k = 1:K
         for i = 1:Nfp
-            iP = mod1(mapP[i, k], Nfp)
-            kP = div(mapP[i, k] - 1, Nfp) + 1
+            iP, kP = neighbor_index(i, k, Nfp, mapP)
             uP[i, k] = uf[iP, kP]
             betaP[i, k] = betaf[iP, kP]
             rhologP[i, k] = rhologf[iP, kP]
@@ -76,12 +74,10 @@ function calculate_primitive_variables!(equation::KPP{Dim2}, state, solver, stat
     (; K, Nfp, Nq, Nh) = solver.discrete_data.sizes
 
     # Boundary contributions
-    # TODO: refactor
     uf = @view u_tilde[Nq+1:Nh, :]
     @batch for k = 1:K
         for i = 1:Nfp
-            iP = mod1(mapP[i, k], Nfp)
-            kP = div(mapP[i, k] - 1, Nfp) + 1
+            iP, kP = neighbor_index(i, k, Nfp, mapP)
             uP[i, k] = uf[iP, kP]
         end
     end
@@ -140,8 +136,7 @@ function enforce_BC!(state, solver, state_param)
     # Enforce outflow BC
     @batch for i = 1:size(mapO, 1)
         io = mapO[i]
-        iP = mod1(io, Nfp)
-        kP = div(io - 1, Nfp) + 1
+        iP, kP = neighbor_index(io, Nfp)
         iq = fq2q[iP]
         uP[io] = Uq[iq, kP]
         betaP[io] = betafun(equation(solver), uP[io])
