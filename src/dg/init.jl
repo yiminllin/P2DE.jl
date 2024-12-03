@@ -1,4 +1,3 @@
-# TODO: change file names
 function initialize_preallocations(param, md, sizes)
     (; K, Nd, N1D, Np, Nh, Nq, Nfp, Nc, Ns) = sizes
 
@@ -19,7 +18,7 @@ function initialize_preallocations(param, md, sizes)
     fstar_L = zeros(SVector{Nd,SVector{Nc,Float64}}, Nfp, K)
     L = zeros(Float64, K, Ns)
     L_local = zeros(Float64, Nq + N1D, Nd, K, Ns)
-    theta = zeros(Float64, K, Ns)                # TODO: rename F, eta to theta
+    theta = zeros(Float64, K, Ns)
     theta_local = zeros(Float64, Nfp, K, Ns)
     resW = zeros(SVector{Nc,Float64}, Nq, K)
     resZ = zeros(SVector{Nc,Float64}, Nq, K)
@@ -42,7 +41,6 @@ function initialize_cache(param, md, sizes)
 end
 
 function initialize_DG(param, initial_condition, initial_boundary_conditions)
-    # TODO: refactor
     # To run plot on server
     # https://stackoverflow.com/questions/64371677/plot-window-showing-up-when-run-from-terminal-in-plots-jl/64374367#64374367
     ENV["GKSwstype"] = "nul"
@@ -109,8 +107,6 @@ function construct_gauss_reference_data(rd)
     lobatto_to_gauss = inv(gauss_to_lobatto)
     # Set Gauss RefElemData to be defined on Lagrangian basis on Gauss nodes
     # instead of LGL nodes
-    # TODO: fv, Fmask, should not be used
-    # TODO: sparsify
     rst = rd.rstq
     V1 = lobatto_to_gauss * rd.V1
     VDM = lobatto_to_gauss * rd.VDM
