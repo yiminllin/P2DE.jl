@@ -5,3 +5,4 @@ docs/Manifest.toml
 *.jld2
 *.out
 docs/build/
+experimental/
