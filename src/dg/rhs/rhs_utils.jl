@@ -103,7 +103,6 @@ end
 
 # TODO: hardcoded
 function graph_viscosity(dim::Dim1, i, j, k, Sxy0J_ij, state, solver)
-    # TODO: better pass in lambda_arr
     (; lambda) = low_order_cache(state)
     (; Uq) = state.preallocation
 
@@ -111,7 +110,6 @@ function graph_viscosity(dim::Dim1, i, j, k, Sxy0J_ij, state, solver)
 end
 
 function graph_viscosity(dim::Dim2, i, j, k, Sxy0J_ij, state, solver)
-    # TODO: better pass in lambda_arr
     (; lambda) = low_order_cache(state)
     (; Uq) = state.preallocation
 
